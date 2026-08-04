@@ -1,0 +1,306 @@
+'use client';
+
+import * as THREE from 'three';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { RoundedBox } from '@react-three/drei';
+import {
+  BASE_BLOCK,
+  BASE_SLOTS,
+  FIELD_COLORS,
+  HOME_MOUTH,
+  HOME_ROW,
+  LOOP,
+  START_INDEX,
+} from '@/engine/board';
+import { BOARD, cellToWorld } from '@/engine/layout';
+import { COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL } from '@/config/theme';
+import { PLAYER_COLORS } from '@/config/gameConfig';
+import type { PlayerColorId } from '@/engine/types';
+import { useGameStore } from '@/store/gameStore';
+import type { QualityLevel } from '@/store/settingsStore';
+import { BASE_PANEL_TOP, FIELD_TOP, SURFACE_TOP } from './geometry';
+
+/**
+ * The classic 11×11 cross board: walnut foundation, cream playing surface,
+ * 40 colored track fields, home rows with mouths, 4 corner bases and the
+ * golden medallion. Fully static (memoized) except the active-base glow.
+ */
+
+const FOUNDATION_H = 0.44; // top at 0.44 (valid RoundedBox radius 0.2 < 0.22)
+const FOUNDATION_TOP = FOUNDATION_H;
+const SURFACE_H = 0.16; // center 0.52, top at 0.60 (valid radius 0.07 < 0.08)
+const FIELD_Y = SURFACE_TOP + BOARD.tileHeight / 2; // 0.6375
+const HOME_Y = FIELD_Y;
+const MOUTH_Y = SURFACE_TOP + 0.016;
+const GOLD_FRAME_Y = FOUNDATION_TOP + 0.015;
+
+const isStartField = (i: number): boolean =>
+  (Object.values(START_INDEX) as number[]).includes(i);
+
+// ---------------------------------------------------------------------------
+// Lights & table
+// ---------------------------------------------------------------------------
+
+function Lights({ quality }: { quality: QualityLevel }) {
+  const shadowSize: [number, number] = quality === 'high' ? [2048, 2048] : [1024, 1024];
+  return (
+    <>
+      <ambientLight intensity={0.52} color="#FFF2DC" />
+      <hemisphereLight args={['#FFEFD2', '#3A2B1E', 0.4]} />
+      <directionalLight
+        position={[7, 14, 5]}
+        intensity={1.3}
+        color="#FFF6E6"
+        castShadow
+        shadow-mapSize={shadowSize}
+        shadow-camera-left={-9.5}
+        shadow-camera-right={9.5}
+        shadow-camera-top={9.5}
+        shadow-camera-bottom={-9.5}
+        shadow-camera-near={2}
+        shadow-camera-far={32}
+        shadow-bias={-0.0004}
+      />
+      <directionalLight position={[-8, 9, -6]} intensity={0.34} color="#F2E9DC" />
+    </>
+  );
+}
+
+function Table() {
+  return (
+    <RoundedBox
+      args={[46, 1.2, 46]}
+      radius={0.55}
+      smoothness={3}
+      position={[0, -0.6, 0]}
+      receiveShadow
+    >
+      <meshStandardMaterial color={MATERIAL.table} roughness={0.85} metalness={0.02} />
+    </RoundedBox>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Track / home / base geometry
+// ---------------------------------------------------------------------------
+
+function TrackField({ color, isStart }: { color: string; isStart: boolean }) {
+  return (
+    <group>
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, 32]} />
+        <meshStandardMaterial color={color} roughness={0.52} metalness={0.04} />
+      </mesh>
+      {isStart && (
+        <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.47, 0.05, 10, 40]} />
+          <meshStandardMaterial color={MATERIAL.gold} metalness={0.7} roughness={0.28} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function HomeSlots({ color }: { color: PlayerColorId }) {
+  return (
+    <group>
+      {HOME_ROW[color].map((cell, i) => {
+        const { x, z } = cellToWorld(cell.col, cell.row);
+        return (
+          <group key={i} position={[x, HOME_Y, z]}>
+            <mesh castShadow receiveShadow>
+              <cylinderGeometry args={[0.44, 0.44, BOARD.tileHeight, 28]} />
+              <meshStandardMaterial color={COLORS_SOFT[color]} roughness={0.5} />
+            </mesh>
+            <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.41, 0.05, 10, 40]} />
+              <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.42} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function HomeMouth({ color }: { color: PlayerColorId }) {
+  const cell = HOME_MOUTH[color];
+  const { x, z } = cellToWorld(cell.col, cell.row);
+  return (
+    <group position={[x, MOUTH_Y, z]}>
+      <mesh receiveShadow>
+        <cylinderGeometry args={[0.42, 0.42, 0.032, 28]} />
+        <meshStandardMaterial color={COLORS[color]} roughness={0.55} transparent opacity={0.35} />
+      </mesh>
+      <mesh position={[0, 0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.42, 0.035, 8, 36]} />
+        <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function BaseCorner({ color }: { color: PlayerColorId }) {
+  const block = BASE_BLOCK[color];
+  const { x, z } = cellToWorld(block.col + 1.5, block.row + 1.5);
+  return (
+    <group position={[x, 0, z]}>
+      {/* painted panel */}
+      <RoundedBox
+        args={[4.3, 0.14, 4.3]}
+        radius={0.06}
+        smoothness={3}
+        position={[0, BASE_PANEL_TOP - 0.07, 0]}
+        castShadow
+        receiveShadow
+      >
+        <meshStandardMaterial color={COLORS_SOFT[color]} roughness={0.62} />
+      </RoundedBox>
+      {/* pawn slots */}
+      {BASE_SLOTS[color].map((cell, i) => {
+        const p = cellToWorld(cell.col, cell.row);
+        return (
+          <group key={i} position={[p.x - x, BASE_PANEL_TOP + 0.0375, p.z - z]}>
+            <mesh receiveShadow>
+              <cylinderGeometry args={[0.44, 0.44, 0.075, 28]} />
+              <meshStandardMaterial color={MATERIAL.cream} roughness={0.48} />
+            </mesh>
+            <mesh position={[0, 0.042, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.42, 0.045, 8, 36]} />
+              <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.4} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function Medallion() {
+  return (
+    <group>
+      <mesh castShadow receiveShadow position={[0, SURFACE_TOP + 0.045, 0]}>
+        <cylinderGeometry args={[1.55, 1.62, 0.09, 48]} />
+        <meshStandardMaterial color={MATERIAL.medallion} roughness={0.6} metalness={0.08} />
+      </mesh>
+      <mesh position={[0, SURFACE_TOP + 0.092, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[1.55, 0.055, 12, 64]} />
+        <meshStandardMaterial color={MATERIAL.gold} metalness={0.72} roughness={0.25} />
+      </mesh>
+      <mesh position={[0, SURFACE_TOP + 0.096, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.85, 0.03, 8, 48]} />
+        <meshStandardMaterial color={MATERIAL.goldDeep} metalness={0.6} roughness={0.35} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Active player base glow (the only dynamic board element)
+// ---------------------------------------------------------------------------
+
+function ActiveBaseGlow() {
+  const activeColor = useGameStore((s) => {
+    if (s.screen !== 'game' || !s.game) return null;
+    if (s.game.phase === 'game-over') return s.winner;
+    return s.game.players[s.game.activeIndex]?.color ?? null;
+  });
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
+  const mesh = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (!mat.current || !mesh.current) return;
+    const pulse = 0.62 + 0.38 * Math.sin(Date.now() * 0.0042);
+    mat.current.emissiveIntensity = pulse;
+    mesh.current.scale.setScalar(1 + 0.02 * Math.sin(Date.now() * 0.0042));
+  });
+
+  if (!activeColor) return null;
+  const block = BASE_BLOCK[activeColor];
+  const { x, z } = cellToWorld(block.col + 1.5, block.row + 1.5);
+  return (
+    <mesh ref={mesh} position={[x, BASE_PANEL_TOP + 0.06, z]} rotation={[Math.PI / 2, 0, 0]}>
+      <torusGeometry args={[2.58, 0.075, 10, 72]} />
+      <meshStandardMaterial
+        ref={mat}
+        color={COLORS[activeColor]}
+        emissive={COLORS[activeColor]}
+        emissiveIntensity={0.8}
+        transparent
+        opacity={0.9}
+      />
+    </mesh>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Assembled board
+// ---------------------------------------------------------------------------
+
+export function BoardModel({ quality }: { quality: QualityLevel }) {
+  const trackFields = useMemo(
+    () =>
+      LOOP.map((cell, i) => {
+        const { x, z } = cellToWorld(cell.col, cell.row);
+        return { x, z, color: FIELD_COLORS[i] as string, isStart: isStartField(i) };
+      }),
+    [],
+  );
+
+  return (
+    <group>
+      <Lights quality={quality} />
+      <Table />
+
+      {/* walnut foundation + gold frame + cream surface (radii must stay
+          below half of the smallest box dimension — see geometry note) */}
+      <RoundedBox
+        args={[BOARD.size, FOUNDATION_H, BOARD.size]}
+        radius={0.2}
+        smoothness={4}
+        position={[0, FOUNDATION_H / 2, 0]}
+        castShadow
+        receiveShadow
+      >
+        <meshStandardMaterial color={MATERIAL.walnut} roughness={0.72} metalness={0.04} />
+      </RoundedBox>
+      <mesh position={[0, GOLD_FRAME_Y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[6.92, 0.075, 10, 96]} />
+        <meshStandardMaterial color={MATERIAL.gold} metalness={0.68} roughness={0.3} />
+      </mesh>
+      <RoundedBox
+        args={[BOARD.size - BOARD.frame * 2, SURFACE_H, BOARD.size - BOARD.frame * 2]}
+        radius={0.07}
+        smoothness={3}
+        position={[0, FOUNDATION_TOP + SURFACE_H / 2, 0]}
+        receiveShadow
+      >
+        <meshStandardMaterial color={MATERIAL.cream} roughness={0.78} />
+      </RoundedBox>
+
+      {/* 40 loop fields */}
+      {trackFields.map((f, i) => (
+        <group key={i} position={[f.x, FIELD_Y, f.z]}>
+          <TrackField color={f.color} isStart={f.isStart} />
+        </group>
+      ))}
+
+      {/* home rows + mouths */}
+      {PLAYER_COLORS.map((color) => (
+        <group key={color}>
+          <HomeSlots color={color} />
+          <HomeMouth color={color} />
+        </group>
+      ))}
+
+      {/* corner bases */}
+      {PLAYER_COLORS.map((color) => (
+        <BaseCorner key={color} color={color} />
+      ))}
+
+      <Medallion />
+      <ActiveBaseGlow />
+    </group>
+  );
+}
