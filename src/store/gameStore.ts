@@ -469,11 +469,52 @@ export const useGameStore = create<GameStore>()((set, get) => {
       });
     },
 
+    // ---------------------------------------------------------------------
+    // Rules configuration actions
+    // ---------------------------------------------------------------------
+    selectRulesPreset: (preset) => {
+      playSfx('uiClick');
+      set({ rulesConfig: presetConfig(preset) });
+    },
+
+    customizeFromPreset: () => {
+      const cfg = get().rulesConfig;
+      if (cfg.preset === 'custom') return;
+      playSfx('uiClick');
+      set({ rulesConfig: normalizeRulesConfig({ ...cfg, preset: 'custom' }) });
+    },
+
+    updateRulesOption: (key, value) => {
+      const cfg = get().rulesConfig;
+      // Presets are locked — edits only apply in custom mode (the UI offers a
+      // "customize" step that copies the preset first).
+      if (cfg.preset !== 'custom') return;
+      const next: RulesConfig = { ...cfg, [key]: value } as RulesConfig;
+      set({ rulesConfig: normalizeRulesConfig(next) });
+    },
+
+    resetRulesToClassic: () => {
+      playSfx('uiClick');
+      set({ rulesConfig: CLASSIC_CONFIG });
+    },
+
+    // ---------------------------------------------------------------------
     startGame: () => {
       clearTimers();
       initAudio();
       const setups = seatsToSetups(get().seats.slice(0, get().playerCount));
-      const game = createGame(setups);
+      const rulesConfig = normalizeRulesConfig(get().rulesConfig);
+      const game = createGame(setups, rulesConfig);
+      saveLastSetup({
+        playerCount: get().playerCount,
+        seats: get().seats.map((s) => ({
+          color: s.color,
+          kind: s.kind,
+          aiLevel: s.aiLevel,
+          name: s.name,
+        })),
+      });
+      saveAutosave(game, 0);
       set({
         game,
         screen: 'game',
@@ -486,10 +527,52 @@ export const useGameStore = create<GameStore>()((set, get) => {
         winner: null,
         totalMoves: 0,
         matchSaved: false,
+        notice: null,
+        rulesConfig,
       });
       startMusic();
+      const preset = rulesConfig.preset;
+      const diffs = diffFromClassic(rulesConfig).length;
+      notify(
+        preset === 'classic'
+          ? 'Classic Kids rules — good luck!'
+          : `${preset === 'custom' ? 'Custom' : preset === 'quick' ? 'Quick game' : 'Family mode'} rules active (${diffs} change${diffs === 1 ? '' : 's'} from Classic).`,
+        'info',
+      );
       // Failsafe: if the 3D intro never reports, unlock the game anyway.
       later(TIMING.introDuration + 2600, () => get().finishIntro());
+    },
+
+    continueGame: () => {
+      const a = loadAutosave();
+      if (!a) {
+        notify('No saved game found — start a new one!', 'alert');
+        return;
+      }
+      clearTimers();
+      initAudio();
+      set({
+        game: a.game,
+        screen: 'game',
+        paused: false,
+        introPlaying: false,
+        legalMoves: [],
+        selectedPawnId: null,
+        diceRolling: false,
+        moveAnim: null,
+        winner: null,
+        totalMoves: a.totalMoves,
+        matchSaved: false,
+        notice: null,
+        rulesConfig: a.game.rulesConfig,
+      });
+      startMusic();
+      notify('Welcome back — the match continues!', 'success');
+      tick();
+    },
+
+    refreshAutosave: () => {
+      set({ autosave: loadAutosave() });
     },
 
     finishIntro: () => {
@@ -505,10 +588,6 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // (noteReroll keeps the phase until a usable face appears).
       if (!s.game || (s.game.phase !== 'await-roll' && s.game.phase !== 'no-moves')) return;
       if (s.introPlaying || s.paused) return;
-      const player = s.game.players[s.game.activeIndex]!;
-      if (player.kind === 'human') {
-        // Humans roll by clicking; AI rolls arrive here too via tick().
-      }
 
       const { state } = rollForTurn(s.game);
       const token = animTokenCounter++;
@@ -552,40 +631,74 @@ export const useGameStore = create<GameStore>()((set, get) => {
       tick();
     },
 
+    // ---------------------------------------------------------------------
+    // Tap routing: movable pawns move, illegal taps get child-friendly feedback.
+    // ---------------------------------------------------------------------
+    tapPawn: (pawnId) => {
+      const s = get();
+      if (!s.game || s.screen !== 'game' || s.paused) return;
+      const g = s.game;
+      const player = g.players[g.activeIndex]!;
+
+      // Wrong turn or wrong owner → gentle reminder.
+      const pawn = pawnById(g, pawnId);
+      if (!pawn) return;
+      if (g.phase !== 'choose-pawn' || player.kind !== 'human') {
+        if (pawn.color !== player.color && g.phase !== 'game-over') {
+          notify(`Not yet — it's ${player.name}'s turn!`, 'info');
+        }
+        return;
+      }
+      if (pawn.color !== player.color) {
+        notify(`That's not your pawn — you play the ${player.color} one!`, 'info');
+        return;
+      }
+
+      const move = s.legalMoves.find((m) => m.pawnId === pawnId);
+      if (move) {
+        playSfx('pawnSelect');
+        get().choosePawn(pawnId);
+        return;
+      }
+
+      // Illegal for a reason → explain it like a friendly grown-up.
+      const validation = validateMove(g, pawnId);
+      const text = validation.reason
+        ? rejectionText(validation.reason, g.rulesConfig)
+        : 'That pawn cannot use this roll.';
+      playSfx('noMoves');
+      set({ shakePawnId: pawnId, shakeToken: get().shakeToken + 1 });
+      notify(text, 'alert');
+    },
+
     choosePawn: (pawnId) => {
       const s = get();
       if (!s.game || s.game.phase !== 'choose-pawn') return;
       const move = s.legalMoves.find((m) => m.pawnId === pawnId);
-      if (!move) {
-        sfx('noMoves');
-        return;
-      }
+      if (!move) return;
 
-      // Snapshot the victim's pre-move position for the return animation.
-      const captureInfo: MoveAnim['capture'] =
-        move.capturedPawnId
-          ? (() => {
-              const victim = pawnById(s.game, move.capturedPawnId);
-              if (!victim) return undefined;
-              const to: Position = { area: 'base', index: 0 };
-              return {
-                pawnId: victim.id,
-                color: victim.color,
-                from: { ...victim.pos },
-                to,
-              };
-            })()
-          : undefined;
+      // Snapshot the victims' pre-move positions for the return animation.
+      const victims = move.capturedPawnIds.flatMap((victimId) => {
+        const victim = pawnById(s.game!, victimId);
+        if (!victim) return [];
+        return [
+          {
+            pawnId: victim.id,
+            color: victim.color,
+            from: { ...victim.pos },
+            to: { area: 'base' as const, index: 0 },
+          },
+        ];
+      });
 
       const { state } = applyMove(s.game, move);
       const animToken = animTokenCounter++;
 
-      // Resolve the victim's actual destination from post-move state.
-      let captureResolved = captureInfo;
-      if (captureResolved) {
-        const victimAfter = pawnById(state, captureResolved.pawnId);
-        if (victimAfter) captureResolved = { ...captureResolved, to: { ...victimAfter.pos } };
-      }
+      // Resolve each victim's actual destination from post-move state.
+      const victimsResolved = victims.map((v) => {
+        const victimAfter = pawnById(state, v.pawnId);
+        return victimAfter ? { ...v, to: { ...victimAfter.pos } } : v;
+      });
 
       const anim: MoveAnim = {
         token: animToken,
@@ -596,11 +709,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
           ? { ...(pawnById(state, move.pawnId)?.pos ?? move.to) }
           : { ...move.to },
         kind: move.isEntry ? 'entry' : move.isFinish ? 'finish' : 'move',
-        capture: captureResolved,
+        victims: victimsResolved,
         startedAt: Date.now(),
       };
 
-      playSfx(move.isFinish ? 'finish' : move.capturedPawnId ? 'capture' : 'pawnHop');
+      playSfx(move.isFinish ? 'finish' : move.capturedPawnIds.length > 0 ? 'capture' : 'pawnHop');
 
       set({
         game: state,
@@ -611,7 +724,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       });
 
       later(260, () => {
-        if (captureResolved) playSfx('pawnReturn');
+        if (victimsResolved.length > 0) playSfx('pawnReturn');
       });
 
       // Failsafe for the 3D move animation.
@@ -631,10 +744,43 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (game.phase === 'game-over') {
         set({ winner: game.winner });
         playSfx('victory');
+        clearAutosave();
+        set({ autosave: null });
         persistMatch(game);
         return;
       }
+
+      if (game.phase === 'await-roll' && game.extraRoll) {
+        notify(
+          game.extraRoll === 'capture'
+            ? 'Bumped someone — roll again!'
+            : 'Your own color — roll again!',
+          'success',
+        );
+        playSfx('star');
+        saveAutosave(game, get().totalMoves);
+      }
+
       tick();
+    },
+
+    skipTurn: () => {
+      const s = get();
+      if (!s.game || s.game.phase !== 'choose-pawn') return;
+      if (!s.game.rulesConfig.maySkipMove) return;
+      const player = s.game.players[s.game.activeIndex]!;
+      if (player.kind !== 'human') return;
+      const next = passTurn(s.game, 'skipped the move voluntarily');
+      set({ game: next, legalMoves: [], selectedPawnId: null });
+      saveAutosave(next, get().totalMoves);
+      playSfx('noMoves');
+      notify(`${player.name} skips this move.`, 'info');
+      tick();
+    },
+
+    resetCamera: () => {
+      set({ cameraResetToken: get().cameraResetToken + 1 });
+      playSfx('uiClick');
     },
 
     // ---------------------------------------------------------------------
@@ -653,7 +799,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
       clearTimers();
       const s = get();
       const setups = seatsToSetups(s.seats.slice(0, s.playerCount));
-      const game = createGame(setups);
+      const rulesConfig = normalizeRulesConfig(s.game?.rulesConfig ?? s.rulesConfig);
+      const game = createGame(setups, rulesConfig);
+      saveAutosave(game, 0);
       set({
         game,
         paused: false,
@@ -664,12 +812,22 @@ export const useGameStore = create<GameStore>()((set, get) => {
         winner: null,
         totalMoves: 0,
         matchSaved: false,
+        notice: null,
+        rulesConfig,
       });
       later(200, () => tick());
     },
 
     quitToMenu: () => {
       clearTimers();
+      // An abandoned match keeps its autosave so it can be continued later.
+      if (get().game && get().game.phase !== 'game-over') {
+        saveAutosave(get().game!, get().totalMoves);
+        set({ autosave: loadAutosave() });
+      } else {
+        clearAutosave();
+        set({ autosave: null });
+      }
       set({
         screen: 'menu',
         game: null,
@@ -680,6 +838,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         moveAnim: null,
         winner: null,
         introPlaying: false,
+        notice: null,
       });
     },
   };
