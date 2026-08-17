@@ -281,19 +281,23 @@ export function applyMove(input: GameState, move: LegalMove): ApplyResult {
 
   events.push({
     seq: seq++,
-    turn,
+    turn: state.turn,
     kind: 'move',
     player: color,
     pawnId: pawn.id,
     from: move.from,
     to: pawn.pos,
-    detail: move.isEntry ? 'entered the board' : move.isFinish ? 'went home' : 'moved',
+    detail: move.isEntry
+      ? `entered the board (${cfg.entryRule === 'any-color' ? 'any color' : 'own color'})`
+      : move.isFinish
+        ? 'went home'
+        : 'moved',
   });
 
   if (move.isFinish) {
     events.push({
       seq: seq++,
-      turn,
+      turn: state.turn,
       kind: 'finish',
       player: color,
       pawnId: pawn.id,
@@ -307,18 +311,37 @@ export function applyMove(input: GameState, move: LegalMove): ApplyResult {
     state.phase = 'game-over';
     events.push({
       seq: seq++,
-      turn,
+      turn: state.turn,
       kind: 'game-over',
       player: color,
       detail: `${player.name} wins`,
     });
     state.events.push(...events);
-    return { state, events };
+    return { state, events, extraTurn: null };
   }
 
-  state.phase = 'turn-end';
+  // Extra rolls (capped by the hard per-turn roll limit).
+  let extraTurn: 'capture' | 'own-color' | null = null;
+  if (cfg.extraTurnOnCapture && move.capturedPawnIds.length > 0) extraTurn = 'capture';
+  else if (cfg.extraTurnOnOwnColor && state.diceFace === color) extraTurn = 'own-color';
+
+  if (extraTurn && state.rollsThisTurn < RULES.maxRollsPerTurn) {
+    state.phase = 'await-roll';
+    state.extraRoll = extraTurn;
+    events.push({
+      seq: seq++,
+      turn: state.turn,
+      kind: 'turn',
+      player: color,
+      detail: `extra roll after ${extraTurn === 'capture' ? 'a capture' : 'rolling the own color'}`,
+    });
+  } else {
+    extraTurn = null;
+    state.phase = 'turn-end';
+  }
+
   state.events.push(...events);
-  return { state, events };
+  return { state, events, extraTurn };
 }
 
 export function cloneState(state: GameState): GameState {
@@ -357,6 +380,15 @@ export function pawnProgress(color: PlayerColorId, pos: Position): number {
 /** How close a pawn is to finishing — used by the AI. */
 export function pawnPathIndex(color: PlayerColorId, pos: Position): number {
   return pathIndex(color, pos);
+}
+
+/** Slot index of a pawn among the pawns sharing its field (for stack offsets). */
+export function stackIndex(state: GameState, pawn: PawnState): number {
+  if (pawn.pos.area !== 'track') return 0;
+  const sharing = pawnsOnTrack(state, pawn.pos.index)
+    .filter((p) => p.color === pawn.color)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return Math.max(0, sharing.findIndex((p) => p.id === pawn.id));
 }
 
 export { LOOP, START_INDEX };
