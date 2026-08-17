@@ -4,12 +4,10 @@ import { create } from 'zustand';
 import {
   RULES,
   TIMING,
-  type DiceFaceId,
   type PlayerColorId,
 } from '@/config/gameConfig';
 import {
   advanceTurn,
-  CHARACTERS,
   createGame,
   defaultName,
   noteReroll,
@@ -17,12 +15,31 @@ import {
   rollForTurn,
   suggestedColors,
 } from '@/engine/game';
-import { applyMove, getLegalMoves, pawnById } from '@/engine/rules';
+import { applyMove, getLegalMoves, pawnById, validateMove } from '@/engine/rules';
 import { chooseAiMove } from '@/engine/ai';
+import {
+  CLASSIC_CONFIG,
+  FAMILY_CONFIG,
+  QUICK_CONFIG,
+  diffFromClassic,
+  normalizeRulesConfig,
+  type DiffKey,
+  type RulesConfig,
+  type RulesPresetId,
+} from '@/engine/rulesConfig';
+import {
+  clearAutosave,
+  loadAutosave,
+  loadLastSetup,
+  saveAutosave,
+  saveLastSetup,
+  type AutosavePayload,
+} from '@/engine/persistence';
 import type {
   AiLevel,
   GameState,
   LegalMove,
+  MoveRejectionReason,
   PlayerKind,
   PlayerSetup,
   Position,
@@ -32,12 +49,11 @@ import {
   playSfx,
   setAudioSettings,
   startMusic,
-  type SfxName,
 } from '@/services/audio';
 import { saveMatch } from '@/services/matchesApi';
 import { useSettingsStore } from './settingsStore';
 
-export type Screen = 'menu' | 'setup' | 'game';
+export type Screen = 'menu' | 'setup' | 'rules' | 'game';
 
 export interface SeatDraft {
   color: PlayerColorId;
@@ -54,18 +70,20 @@ export interface MoveAnim {
   from: Position;
   to: Position;
   kind: 'entry' | 'move' | 'finish';
-  capture?: {
+  /** Every captured pawn flying home (multi-victim stacks included). */
+  victims: Array<{
     pawnId: string;
     color: PlayerColorId;
     from: Position;
     to: Position;
-  };
+  }>;
   startedAt: number;
 }
 
-interface StatusInfo {
+export interface Notice {
+  token: number;
   text: string;
-  tone: 'info' | 'action' | 'wait' | 'success' | 'alert';
+  tone: 'info' | 'action' | 'alert' | 'success';
 }
 
 interface GameStore {
@@ -74,10 +92,16 @@ interface GameStore {
   paused: boolean;
   introPlaying: boolean;
   matchSaved: boolean;
+  /** Autosaved match available for "Continue game" (menu). */
+  autosave: AutosavePayload | null;
 
   // ---- setup ---------------------------------------------------------------
   playerCount: number;
   seats: SeatDraft[];
+
+  // ---- rules configuration -------------------------------------------------
+  rulesConfig: RulesConfig;
+  rulesReturnTo: 'setup' | 'menu';
 
   // ---- engine state --------------------------------------------------------
   game: GameState | null;
@@ -89,27 +113,69 @@ interface GameStore {
   winner: PlayerColorId | null;
   totalMoves: number;
 
+  // ---- feedback ------------------------------------------------------------
+  notice: Notice | null;
+  shakePawnId: string | null;
+  shakeToken: number;
+  cameraResetToken: number;
+
   // ---- derived helpers -----------------------------------------------------
   activeColor(): PlayerColorId | null;
   activeIsAi(): boolean;
-  statusLine(): StatusInfo;
   moveForPawn(pawnId: string): LegalMove | undefined;
 
   // ---- actions -------------------------------------------------------------
   goScreen(screen: Screen): void;
+  goRules(returnTo: 'setup' | 'menu'): void;
   setPlayerCount(count: number): void;
   updateSeat(index: number, patch: Partial<SeatDraft>): void;
   swapSeatColor(index: number, color: PlayerColorId): void;
+  selectRulesPreset(preset: RulesPresetId): void;
+  customizeFromPreset(): void;
+  updateRulesOption(key: DiffKey, value: boolean | string): void;
+  resetRulesToClassic(): void;
   startGame(): void;
+  continueGame(): void;
+  refreshAutosave(): void;
   finishIntro(): void;
   rollDice(): void;
   confirmDiceAnimation(token: number): void;
+  tapPawn(pawnId: string): void;
   choosePawn(pawnId: string): void;
   confirmMoveAnimation(token: number): void;
+  skipTurn(): void;
+  resetCamera(): void;
   togglePause(): void;
   setPaused(v: boolean): void;
   restart(): void;
   quitToMenu(): void;
+}
+
+// ---------------------------------------------------------------------------
+// Child-friendly rejection messages (reflect the ACTIVE rules configuration)
+// ---------------------------------------------------------------------------
+
+function rejectionText(reason: MoveRejectionReason, cfg: RulesConfig): string {
+  switch (reason) {
+    case 'pawn-finished':
+      return 'This pawn is already home!';
+    case 'entry-color':
+      return cfg.entryAssist
+        ? 'While all your pawns wait in the base, any color works — now you need your OWN color!'
+        : 'You need your OWN color to leave the base!';
+    case 'own-pawn-blocks':
+      return cfg.friendlyStacking
+        ? 'Your pawns cannot stand there.'
+        : 'Your own pawn is standing there!';
+    case 'blocked-path':
+      return 'Another pawn is blocking the way!';
+    case 'no-capture-allowed':
+      return 'Bumping is switched off — you cannot land on another pawn!';
+    case 'protected-field':
+      return 'That pawn is safe on its start field!';
+    default:
+      return 'That pawn cannot move right now.';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +184,7 @@ interface GameStore {
 
 let timers: ReturnType<typeof setTimeout>[] = [];
 let animTokenCounter = 1;
+let noticeTokenCounter = 1;
 
 function clearTimers() {
   for (const t of timers) clearTimeout(t);
@@ -152,9 +219,17 @@ function seatsToSetups(seats: SeatDraft[]): PlayerSetup[] {
   }));
 }
 
-function colorLabel(face: DiceFaceId | null): string {
-  if (!face) return '';
-  return face.charAt(0).toUpperCase() + face.slice(1);
+function presetConfig(preset: RulesPresetId): RulesConfig {
+  switch (preset) {
+    case 'classic':
+      return CLASSIC_CONFIG;
+    case 'quick':
+      return QUICK_CONFIG;
+    case 'family':
+      return FAMILY_CONFIG;
+    default:
+      return { ...CLASSIC_CONFIG, preset: 'custom' };
+  }
 }
 
 export const useGameStore = create<GameStore>()((set, get) => {
@@ -201,7 +276,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     }
 
     if (s.game.phase === 'no-moves') {
-      const canReroll = s.game.rollsThisTurn < RULES.maxRollsPerTurn;
+      const canReroll = s.game.rollsThisTurn < RULES.stuckRollsPerTurn;
       later(TIMING.noMovesMs, () => {
         const cur = get();
         if (!cur.game || cur.game.phase !== 'no-moves') return;
@@ -211,7 +286,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
           playSfx('reroll');
           get().rollDice();
         } else {
-          set({ game: passTurn(cur.game), legalMoves: [], selectedPawnId: null });
+          const next = passTurn(cur.game);
+          set({ game: next, legalMoves: [], selectedPawnId: null });
+          saveAutosave(next, get().totalMoves);
           playSfx('noMoves');
           tick();
         }
@@ -223,19 +300,18 @@ export const useGameStore = create<GameStore>()((set, get) => {
       later(TIMING.turnEndMs, () => {
         const cur = get();
         if (!cur.game || cur.game.phase !== 'turn-end') return;
-        set({
-          game: advanceTurn(cur.game),
-          legalMoves: [],
-          selectedPawnId: null,
-        });
+        const next = advanceTurn(cur.game);
+        set({ game: next, legalMoves: [], selectedPawnId: null });
+        saveAutosave(next, get().totalMoves);
         playSfx('turnChange');
         tick();
       });
     }
   };
 
-  const sfx = (name: SfxName) => playSfx(name);
-  void sfx;
+  const notify = (text: string, tone: Notice['tone'] = 'alert') => {
+    set({ notice: { token: noticeTokenCounter++, text, tone } });
+  };
 
   const persistMatch = (state: GameState) => {
     if (get().matchSaved) return;
@@ -252,17 +328,57 @@ export const useGameStore = create<GameStore>()((set, get) => {
       captures: state.captures,
       durationSec,
       players: state.players.map((p) => ({ name: p.name, color: p.color, kind: p.kind })),
+      preset: state.rulesConfig.preset,
+      rulesConfig: state.rulesConfig,
+      eventLog: state.events.slice(-2000),
     }).catch(() => undefined);
   };
+
+  // Restore the last player setup on first mount (client only).
+  const hydrateLastSetup = () => {
+    const last = loadLastSetup();
+    if (!last || last.seats.length !== 4) return;
+    const seats: SeatDraft[] = defaultSeats();
+    let valid = true;
+    for (let i = 0; i < 4; i++) {
+      const raw = last.seats[i]!;
+      const color = (['red', 'blue', 'green', 'yellow'] as const).includes(
+        raw.color as PlayerColorId,
+      )
+        ? (raw.color as PlayerColorId)
+        : null;
+      if (!color) {
+        valid = false;
+        break;
+      }
+      seats[i] = {
+        color,
+        kind: raw.kind === 'human' ? 'human' : 'ai',
+        aiLevel: (['easy', 'medium', 'hard'] as const).includes(raw.aiLevel as AiLevel)
+          ? (raw.aiLevel as AiLevel)
+          : 'medium',
+        name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.slice(0, 24) : defaultName(color),
+      };
+    }
+    if (!valid) return;
+    const count = Math.min(4, Math.max(2, last.playerCount));
+    const used = seats.slice(0, count).map((s) => s.color);
+    if (new Set(used).size === count) set({ playerCount: count, seats });
+  };
+  if (typeof window !== 'undefined') hydrateLastSetup();
 
   return {
     screen: 'menu',
     paused: false,
     introPlaying: false,
     matchSaved: false,
+    autosave: null,
 
     playerCount: 2,
     seats: defaultSeats(),
+
+    rulesConfig: CLASSIC_CONFIG,
+    rulesReturnTo: 'setup',
 
     game: null,
     legalMoves: [],
@@ -272,6 +388,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
     moveAnim: null,
     winner: null,
     totalMoves: 0,
+
+    notice: null,
+    shakePawnId: null,
+    shakeToken: 0,
+    cameraResetToken: 0,
 
     // ---------------------------------------------------------------------
     activeColor: () => {
@@ -284,50 +405,19 @@ export const useGameStore = create<GameStore>()((set, get) => {
       return g ? g.players[g.activeIndex]!.kind === 'ai' : false;
     },
 
-    statusLine: (): StatusInfo => {
-      const s = get();
-      const g = s.game;
-      if (!g) return { text: '', tone: 'info' };
-      const player = g.players[g.activeIndex]!;
-      const who = player.name;
-      const face = colorLabel(g.diceFace);
-
-      if (s.winner) {
-        const w = g.players.find((p) => p.color === s.winner);
-        return { text: `${w?.name ?? 'Player'} wins the game!`, tone: 'success' };
-      }
-      switch (g.phase) {
-        case 'await-roll':
-          return player.kind === 'ai'
-            ? { text: `${who} is about to roll…`, tone: 'wait' }
-            : { text: `${who} — tap the die to roll!`, tone: 'action' };
-        case 'rolling':
-          return { text: 'Rolling the die…', tone: 'wait' };
-        case 'no-moves':
-          return {
-            text: `${who} rolled ${face} — no pawn can use it.`,
-            tone: 'alert',
-          };
-        case 'choose-pawn':
-          return player.kind === 'ai'
-            ? { text: `${who} rolled ${face} and is thinking…`, tone: 'wait' }
-            : { text: `Rolled ${face} — tap a glowing pawn!`, tone: 'action' };
-        case 'animating':
-          return { text: 'Hop hop hop…', tone: 'wait' };
-        case 'turn-end':
-          return { text: `Next player's turn…`, tone: 'info' };
-        default:
-          return { text: '', tone: 'info' };
-      }
-    },
-
     moveForPawn: (pawnId) => get().legalMoves.find((m) => m.pawnId === pawnId),
 
     // ---------------------------------------------------------------------
     goScreen: (screen) => {
       clearTimers();
       initAudio();
-      set({ screen, paused: false, moveAnim: null, diceRolling: false });
+      set({ screen, paused: false, moveAnim: null, diceRolling: false, notice: null });
+    },
+
+    goRules: (returnTo) => {
+      clearTimers();
+      initAudio();
+      set({ screen: 'rules', rulesReturnTo: returnTo, notice: null });
     },
 
     setPlayerCount: (count) => {
