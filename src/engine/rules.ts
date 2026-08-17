@@ -10,28 +10,37 @@ import type {
   GameEvent,
   GameState,
   LegalMove,
+  MoveRejectionReason,
+  MoveValidation,
   PawnState,
   PlayerRuntime,
   Position,
 } from './types';
 
+/**
+ * ============================================================================
+ * LEGAL MOVES & MOVE RESOLUTION — the single authoritative validation system.
+ * ============================================================================
+ * Every option is read from `state.rulesConfig` (see rulesConfig.ts):
+ *   entryRule / entryAssist · passingRule · captureEnabled · protectedStarts
+ *   friendlyStacking · extraTurnOnCapture / extraTurnOnOwnColor · pawnsPerPlayer
+ * Humans, the AI and the animations all consume this module — nothing else
+ * ever decides whether a move is legal.
+ */
+
 // ---------------------------------------------------------------------------
 // Occupancy
 // ---------------------------------------------------------------------------
 
-/** Finds the pawn occupying a track field (any color) or null. */
-export function pawnOnTrack(state: GameState, loopIdx: number): PawnState | null {
+/** ALL pawns occupying a track field (any color — stacks included). */
+export function pawnsOnTrack(state: GameState, loopIdx: number): PawnState[] {
+  const found: PawnState[] = [];
   for (const p of state.players) {
     for (const pawn of p.pawns) {
-      if (pawn.pos.area === 'track' && pawn.pos.index === loopIdx) return pawn;
+      if (pawn.pos.area === 'track' && pawn.pos.index === loopIdx) found.push(pawn);
     }
   }
-  return null;
-}
-
-function pawnAt(state: GameState, color: PlayerColorId, pos: Position): PawnState | null {
-  const player = state.players.find((p) => p.color === color)!;
-  return player.pawns.find((pawn) => pawn.pos.area === pos.area && pawn.pos.index === pos.index) ?? null;
+  return found;
 }
 
 function firstFreeSlot(pawns: PawnState[], area: 'base' | 'home'): number | null {
@@ -54,89 +63,176 @@ export function playerOf(state: GameState, color: PlayerColorId): PlayerRuntime 
 }
 
 // ---------------------------------------------------------------------------
-// Legal move computation
+// Single-pawn evaluation (shared by getLegalMoves and validateMove)
 // ---------------------------------------------------------------------------
+
+/** True when ANY pawn stands on one of the pawn's own path fields [from..to]. */
+function pathRangeOccupied(
+  state: GameState,
+  color: PlayerColorId,
+  pathFrom: number,
+  pathTo: number,
+): boolean {
+  for (let p = pathFrom; p <= pathTo; p++) {
+    if (pawnsOnTrack(state, loopIndexFromPath(color, p)).length > 0) return true;
+  }
+  return false;
+}
+
+interface PawnEvaluation {
+  move?: LegalMove;
+  reason?: MoveRejectionReason;
+}
+
+/**
+ * Resolves what the given pawn may do with `face` under the active rules.
+ * Pure; never mutates state.
+ */
+function evaluatePawn(state: GameState, face: DiceFaceId, pawn: PawnState): PawnEvaluation {
+  const cfg = state.rulesConfig;
+  const player = state.players[state.activeIndex]!;
+  const color = player.color;
+
+  if (pawn.color !== color) return { reason: 'pawn-finished' }; // not offered by the UI anyway
+  if (pawn.pos.area === 'home') return { reason: 'pawn-finished' };
+
+  // --- Leaving the base ----------------------------------------------------
+  if (pawn.pos.area === 'base') {
+    const allInBase = player.pawns.every((p) => p.pos.area === 'base');
+    const canEnter =
+      cfg.entryRule === 'any-color' ||
+      face === color ||
+      (cfg.entryAssist && allInBase);
+    if (!canEnter) return { reason: 'entry-color' };
+
+    const targetLoop = START_INDEX[color];
+    const occupants = pawnsOnTrack(state, targetLoop);
+    const own = occupants.filter((o) => o.color === color);
+    const enemies = occupants.filter((o) => o.color !== color);
+    if (own.length > 0 && !cfg.friendlyStacking) return { reason: 'own-pawn-blocks' };
+    if (enemies.length > 0 && !cfg.captureEnabled) return { reason: 'no-capture-allowed' };
+    // Enemies on MY start field are not protected: protection belongs to a
+    // pawn standing on ITS OWN start field.
+    return {
+      move: {
+        pawnId: pawn.id,
+        from: { ...pawn.pos },
+        to: { area: 'track', index: targetLoop },
+        isEntry: true,
+        isFinish: false,
+        capturedPawnIds: enemies.map((e) => e.id),
+        distance: 1,
+      },
+    };
+  }
+
+  // --- Moving on the track -------------------------------------------------
+  const fromIdx = pathIndex(color, pawn.pos);
+
+  // First matching field ahead (only that one counts).
+  let matched = -1;
+  for (let ahead = 1; fromIdx + ahead < RULES.trackFields; ahead++) {
+    if (FIELD_COLORS[loopIndexFromPath(color, fromIdx + ahead)] === face) {
+      matched = ahead;
+      break;
+    }
+  }
+
+  // --- Going home (assumption A8: home matches every color) ----------------
+  if (matched === -1) {
+    if (RULES.homeMatchesAnyColor) {
+      // The pawn passes over its remaining track fields on the way in.
+      if (
+        cfg.passingRule === 'strict-blocking' &&
+        pathRangeOccupied(state, color, fromIdx + 1, RULES.trackFields - 1)
+      ) {
+        return { reason: 'blocked-path' };
+      }
+      return {
+        move: {
+          pawnId: pawn.id,
+          from: { ...pawn.pos },
+          to: { area: 'home', index: 0 }, // slot resolved on apply
+          isEntry: false,
+          isFinish: true,
+          capturedPawnIds: [],
+          distance: RULES.trackFields - fromIdx,
+        },
+      };
+    }
+    return { reason: 'blocked-path' };
+  }
+
+  const destLoop = loopIndexFromPath(color, fromIdx + matched);
+
+  // --- Strict blocking: intermediates must be empty ------------------------
+  if (
+    cfg.passingRule === 'strict-blocking' &&
+    matched > 1 &&
+    pathRangeOccupied(state, color, fromIdx + 1, fromIdx + matched - 1)
+  ) {
+    return { reason: 'blocked-path' };
+  }
+
+  // --- Destination occupancy -----------------------------------------------
+  const occupants = pawnsOnTrack(state, destLoop);
+  const own = occupants.filter((o) => o.color === color);
+  const enemies = occupants.filter((o) => o.color !== color);
+
+  if (own.length > 0 && !cfg.friendlyStacking) return { reason: 'own-pawn-blocks' };
+  if (enemies.length > 0) {
+    if (!cfg.captureEnabled) return { reason: 'no-capture-allowed' };
+    if (
+      cfg.protectedStarts &&
+      enemies.some((e) => START_INDEX[e.color] === destLoop)
+    ) {
+      return { reason: 'protected-field' };
+    }
+  }
+
+  return {
+    move: {
+      pawnId: pawn.id,
+      from: { ...pawn.pos },
+      to: { area: 'track', index: destLoop },
+      isEntry: false,
+      isFinish: false,
+      capturedPawnIds: enemies.map((e) => e.id),
+      distance: matched,
+    },
+  };
+}
 
 /**
  * All legal moves for the active player after rolling `face`.
  * Pure function — never mutates state.
  */
 export function getLegalMoves(state: GameState, face: DiceFaceId): LegalMove[] {
-  const player = state.players[state.activeIndex];
-  const color = player.color;
+  const player = state.players[state.activeIndex]!;
   const moves: LegalMove[] = [];
-
-  const allInBase = player.pawns.every((pawn) => pawn.pos.area === 'base');
-  const canEnterWithAny = RULES.fastStart && allInBase;
-
   for (const pawn of player.pawns) {
-    if (pawn.pos.area === 'home') continue; // finished pawns never move
-
-    if (pawn.pos.area === 'base') {
-      // --- Entering the board -------------------------------------------
-      if (face !== color && !canEnterWithAny) continue;
-      const targetLoop = START_INDEX[color];
-      const occupant = pawnOnTrack(state, targetLoop);
-      if (occupant) {
-        if (occupant.color === color) continue; // own pawn blocks entry
-      }
-      moves.push({
-        pawnId: pawn.id,
-        from: pawn.pos,
-        to: { area: 'track', index: targetLoop },
-        isEntry: true,
-        isFinish: false,
-        capturedPawnId: occupant && occupant.color !== color ? occupant.id : undefined,
-        distance: 1,
-      });
-      continue;
-    }
-
-    // --- Moving on the track ---------------------------------------------
-    const fromIdx = pathIndex(color, pawn.pos);
-    // Scan forward along this pawn's remaining path for the rolled color.
-    for (let ahead = 1; fromIdx + ahead < RULES.trackFields; ahead++) {
-      const loopIdx = loopIndexFromPath(color, fromIdx + ahead);
-      if (FIELD_COLORS[loopIdx] !== face) continue;
-      // First matching field ahead.
-      const occupant = pawnOnTrack(state, loopIdx);
-      if (occupant && occupant.color === color) {
-        // Own pawn blocks this pawn for this roll.
-      } else {
-        moves.push({
-          pawnId: pawn.id,
-          from: pawn.pos,
-          to: { area: 'track', index: loopIdx },
-          isEntry: false,
-          isFinish: false,
-          capturedPawnId: occupant ? occupant.id : undefined,
-          distance: ahead,
-        });
-      }
-      break; // only the FIRST matching field counts
-    }
-
-    // --- Going home --------------------------------------------------------
-    // No matching color ahead → the pawn may enter its home row.
-    const hasMatchAhead = (() => {
-      for (let ahead = 1; fromIdx + ahead < RULES.trackFields; ahead++) {
-        if (FIELD_COLORS[loopIndexFromPath(color, fromIdx + ahead)] === face) return true;
-      }
-      return false;
-    })();
-    if (!hasMatchAhead && RULES.homeMatchesAnyColor) {
-      moves.push({
-        pawnId: pawn.id,
-        from: pawn.pos,
-        to: { area: 'home', index: 0 }, // slot resolved on apply
-        isEntry: false,
-        isFinish: true,
-        distance: RULES.trackFields - fromIdx,
-      });
-    }
+    const evalResult = evaluatePawn(state, face, pawn);
+    if (evalResult.move) moves.push(evalResult.move);
   }
-
   return moves;
+}
+
+/**
+ * Authoritative validation for ONE pawn — used for child-friendly feedback.
+ * Returns the move when legal, otherwise a machine-readable reason.
+ */
+export function validateMove(state: GameState, pawnId: string): MoveValidation {
+  const player = state.players[state.activeIndex]!;
+  const pawn = player.pawns.find((p) => p.id === pawnId);
+  if (!pawn) {
+    const elsewhere = pawnById(state, pawnId);
+    if (elsewhere) return { legal: false, reason: 'pawn-finished' };
+    return { legal: false };
+  }
+  const face = state.diceFace;
+  if (!face) return { legal: false };
+  const result = evaluatePawn(state, face, pawn);
+  return result.move ? { legal: true, move: result.move } : { legal: false, reason: result.reason };
 }
 
 // ---------------------------------------------------------------------------
@@ -146,28 +242,30 @@ export function getLegalMoves(state: GameState, face: DiceFaceId): LegalMove[] {
 interface ApplyResult {
   state: GameState;
   events: GameEvent[];
+  /** True when the same player earned another roll. */
+  extraTurn: 'capture' | 'own-color' | null;
 }
 
 /** Applies a legal move. Pure — returns a cloned state plus new events. */
 export function applyMove(input: GameState, move: LegalMove): ApplyResult {
   const state: GameState = cloneState(input);
+  const cfg = state.rulesConfig;
   const player = state.players[state.activeIndex];
   const color = player.color;
   const pawn = pawnById(state, move.pawnId)!;
   let seq = state.events.length;
-  let turn = state.turn;
   const events: GameEvent[] = [];
 
-  // Capture first: the victim goes back to its base (first free slot).
-  if (move.capturedPawnId) {
-    const victim = pawnById(state, move.capturedPawnId)!;
+  // Captures first: every victim goes back to its base (first free slot).
+  for (const victimId of move.capturedPawnIds) {
+    const victim = pawnById(state, victimId)!;
     const victimPlayer = state.players.find((p) => p.color === victim.color)!;
     const slot = firstFreeSlot(victimPlayer.pawns, 'base') ?? 0;
     victim.pos = { area: 'base', index: slot };
     state.captures += 1;
     events.push({
       seq: seq++,
-      turn,
+      turn: state.turn,
       kind: 'capture',
       player: color,
       pawnId: victim.id,

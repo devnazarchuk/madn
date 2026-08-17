@@ -1,6 +1,8 @@
 import type { DiceFaceId, PlayerColorId, TrackColorId } from '@/config/gameConfig';
+import type { RulesConfig } from './rulesConfig';
 
 export type { DiceFaceId, PlayerColorId, TrackColorId };
+export type { RulesConfig };
 
 export type PlayerKind = 'human' | 'ai';
 export type AiLevel = 'easy' | 'medium' | 'hard';
@@ -50,10 +52,25 @@ export interface LegalMove {
   isEntry: boolean;
   /** Pawn enters its home row. */
   isFinish: boolean;
-  /** Opponent pawn sent back to base. */
-  capturedPawnId?: string;
-  /** Number of fields advanced (progress metric, 1..6 for track moves). */
+  /** Opponent pawns sent back to base (all of them when "pawn towers" are on). */
+  capturedPawnIds: string[];
+  /** Number of fields advanced (progress metric). */
   distance: number;
+}
+
+/** Machine-readable reason a pawn cannot use the current roll. */
+export type MoveRejectionReason =
+  | 'pawn-finished'
+  | 'entry-color'
+  | 'own-pawn-blocks'
+  | 'blocked-path'
+  | 'no-capture-allowed'
+  | 'protected-field';
+
+export interface MoveValidation {
+  legal: boolean;
+  move?: LegalMove;
+  reason?: MoveRejectionReason;
 }
 
 export type GameEventKind =
@@ -88,8 +105,12 @@ export interface GameState {
   phase: GamePhase;
   /** Latest dice face (set when the engine rolls). */
   diceFace: DiceFaceId | null;
-  /** Rolls used in the current turn (for the stuck-reroll cap). */
+  /** Rolls used in the current turn (stuck-rerolls + extra rolls). */
   rollsThisTurn: number;
+  /** Why the active player may roll again, if they may ('capture' | 'own-color'). */
+  extraRoll: 'capture' | 'own-color' | null;
+  /** Rules used for THIS match — replayed matches keep their own config. */
+  rulesConfig: RulesConfig;
   winner: PlayerColorId | null;
   /** Seeded RNG state. */
   rngState: number;
