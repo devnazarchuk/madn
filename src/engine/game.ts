@@ -2,17 +2,21 @@ import { RULES, type DiceFaceId, type PlayerColorId } from '@/config/gameConfig'
 import { DEFAULT_COLORS, TURN_ORDER } from './board';
 import { cloneState } from './rules';
 import { randomSeed, rollDieFace, nextRandom } from './dice';
+import { CLASSIC_CONFIG, type RulesConfig } from './rulesConfig';
 import type { GameEvent, GameState, PlayerSetup } from './types';
 
-/** Character identity of each color (matches the physical Kids edition). */
+/**
+ * Character identity of each color — the four animal friends of the Kids
+ * edition: Fox (red), Bear (blue), Frog (green) and Chick (yellow).
+ */
 export const CHARACTERS: Record<
   PlayerColorId,
   { name: string; animal: string; blurb: string }
 > = {
-  blue: { name: 'Benny', animal: 'rabbit', blurb: 'quick & curious' },
-  yellow: { name: 'Millie', animal: 'mouse', blurb: 'brave & bright' },
-  red: { name: 'Ginger', animal: 'cat', blurb: 'clever & cozy' },
-  green: { name: 'Dougie', animal: 'dog', blurb: 'loyal & bouncy' },
+  red: { name: 'Rusty', animal: 'fox', blurb: 'clever & quick' },
+  blue: { name: 'Bruno', animal: 'bear', blurb: 'strong & cozy' },
+  green: { name: 'Frida', animal: 'frog', blurb: 'jumpy & happy' },
+  yellow: { name: 'Pip', animal: 'chick', blurb: 'brave & chirpy' },
 };
 
 export function defaultName(color: PlayerColorId): string {
@@ -26,11 +30,12 @@ export function defaultName(color: PlayerColorId): string {
  */
 export function createGame(
   setups: PlayerSetup[],
+  rulesConfig: RulesConfig = CLASSIC_CONFIG,
   seed: number = randomSeed(),
 ): GameState {
   const players = setups.map((setup) => ({
     ...setup,
-    pawns: Array.from({ length: RULES.pawnsPerPlayer }, (_, i) => ({
+    pawns: Array.from({ length: rulesConfig.pawnsPerPlayer }, (_, i) => ({
       id: `${setup.color}-${i}`,
       color: setup.color,
       pos: { area: 'base' as const, index: i },
@@ -46,6 +51,8 @@ export function createGame(
     phase: 'await-roll',
     diceFace: null,
     rollsThisTurn: 0,
+    extraRoll: null,
+    rulesConfig,
     winner: null,
     rngState: seed,
     events: [],
@@ -57,7 +64,7 @@ export function createGame(
     seq: 0,
     turn: 1,
     kind: 'game-started',
-    detail: `${players.length} players · seed ${seed}`,
+    detail: `${players.length} players · ${rulesConfig.preset} rules · seed ${seed}`,
   });
   state.events.push({
     seq: 1,
@@ -75,6 +82,7 @@ export function rollForTurn(input: GameState): { state: GameState; face: DiceFac
   state.rngState = next;
   state.diceFace = face;
   state.rollsThisTurn += 1;
+  state.extraRoll = null;
   const player = state.players[state.activeIndex]!;
   const event: GameEvent = {
     seq: state.events.length,
@@ -96,13 +104,13 @@ export function noteReroll(input: GameState): GameState {
     turn: state.turn,
     kind: 'reroll',
     player: player.color,
-    detail: `no legal move — roll ${state.rollsThisTurn}/${RULES.maxRollsPerTurn}`,
+    detail: `no legal move — roll ${state.rollsThisTurn}/${RULES.stuckRollsPerTurn}`,
   });
   return state;
 }
 
 /** Passes the turn to the next player (clockwise among seated players). */
-export function passTurn(input: GameState): GameState {
+export function passTurn(input: GameState, reason = 'no legal move this turn'): GameState {
   const state = cloneState(input);
   const player = state.players[state.activeIndex]!;
   state.events.push({
@@ -110,7 +118,7 @@ export function passTurn(input: GameState): GameState {
     turn: state.turn,
     kind: 'pass',
     player: player.color,
-    detail: 'no legal move this turn',
+    detail: reason,
   });
   return advanceTurn(state);
 }
@@ -122,6 +130,7 @@ export function advanceTurn(input: GameState): GameState {
   state.turn += 1;
   state.diceFace = null;
   state.rollsThisTurn = 0;
+  state.extraRoll = null;
   state.phase = 'await-roll';
   const player = state.players[state.activeIndex]!;
   state.events.push({

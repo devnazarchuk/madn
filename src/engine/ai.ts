@@ -3,8 +3,9 @@ import {
   FIELD_COLORS,
   loopIndexFromPath,
   pathIndex,
+  START_INDEX,
 } from './board';
-import { pawnOnTrack } from './rules';
+import { pawnsOnTrack } from './rules';
 import type { AiLevel, GameState, LegalMove } from './types';
 
 /**
@@ -15,6 +16,10 @@ import type { AiLevel, GameState, LegalMove } from './types';
  * medium → heuristic: finish > capture > progress > enter
  * hard   → medium + risk analysis (how likely is my pawn to be captured?) +
  *          denial value of captures (victim's progress)
+ *
+ * The AI can never bypass the rules engine: it only ever receives moves from
+ * getLegalMoves(), which honours the active rules configuration (blocking,
+ * protection, stacking, capturing, extra rolls) automatically.
  */
 
 interface ScoredMove {
@@ -22,14 +27,19 @@ interface ScoredMove {
   score: number;
 }
 
-function progressOf(move: LegalMove, color: GameState['players'][number]['color']): number {
-  void color;
-  return move.distance;
-}
-
-/** How many die faces would let ANY opponent pawn land on the given loop field next turn? */
+/**
+ * How many die faces would let ANY opponent pawn land on the given loop field
+ * next turn (approximation used by the hard level)?
+ */
 function threatOn(state: GameState, loopIdx: number, myColor: string): number {
-  let capturingColors = new Set<DiceFaceId>();
+  const cfg = state.rulesConfig;
+  // Without captures nobody can land on us at all.
+  if (!cfg.captureEnabled) return 0;
+  // A pawn on its OWN start field is safe when protection is on.
+  if (cfg.protectedStarts && START_INDEX[myColor as keyof typeof START_INDEX] === loopIdx) {
+    return 0;
+  }
+  const capturingColors = new Set<DiceFaceId>();
   for (const player of state.players) {
     if (player.color === myColor) continue;
     for (const pawn of player.pawns) {
@@ -48,13 +58,15 @@ function threatOn(state: GameState, loopIdx: number, myColor: string): number {
 }
 
 function victimProgress(state: GameState, move: LegalMove): number {
-  if (!move.capturedPawnId) return 0;
+  let total = 0;
   for (const player of state.players) {
     for (const pawn of player.pawns) {
-      if (pawn.id === move.capturedPawnId) return pathIndex(player.color, pawn.pos);
+      if (move.capturedPawnIds.includes(pawn.id)) {
+        total += pathIndex(player.color, pawn.pos);
+      }
     }
   }
-  return 0;
+  return total;
 }
 
 export function chooseAiMove(state: GameState, moves: LegalMove[]): LegalMove | null {
@@ -73,27 +85,35 @@ export function chooseAiMove(state: GameState, moves: LegalMove[]): LegalMove | 
     // Finishing a pawn is almost always best.
     if (move.isFinish) score += 120;
     // Capturing feels great and removes an enemy from the board.
-    if (move.capturedPawnId) score += 70;
-    // The further the victim had traveled, the sweeter the capture.
-    if (move.capturedPawnId) score += victimProgress(state, move) * 1.2;
+    if (move.capturedPawnIds.length > 0) score += 70;
+    // The further the victims had traveled, the sweeter the capture.
+    score += victimProgress(state, move) * 1.2;
     // General progress.
-    score += progressOf(move, color) * 3;
+    score += move.distance * 3;
     // Getting another pawn onto the board keeps options open.
     if (move.isEntry) score += 34;
+    // Extra-roll rewards make capturing even better.
+    if (state.rulesConfig.extraTurnOnCapture && move.capturedPawnIds.length > 0) score += 30;
 
     if (level === 'hard') {
       // Risk: landing where opponents can reach us next turn.
       if (move.to.area === 'track') {
         const threat = threatOn(state, move.to.index, color);
         score -= threat * 16;
-        // Finishing pawns early also protects them.
+        // Stacked towers are juicy targets — an opponent bumps ALL of them.
+        const stackMates = pawnsOnTrack(state, move.to.index).filter(
+          (p) => p.color === color,
+        ).length;
+        if (state.rulesConfig.friendlyStacking && stackMates > 0) {
+          score -= 10 * stackMates;
+        }
         // Keep a small preference for advancing the rear-most pawn
         // (keeps the team together and defends the leader).
         const fromIdx = move.from.area === 'base' ? -1 : pathIndex(color, move.from);
         score += (39 - fromIdx) * 0.15;
       }
       // Denial: entering the board can block an opponent's capture lane.
-      if (move.isEntry && move.capturedPawnId) score += 25;
+      if (move.isEntry && move.capturedPawnIds.length > 0) score += 25;
     }
 
     return { move, score: score + Math.random() * 4 };
