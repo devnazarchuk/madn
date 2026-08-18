@@ -1,24 +1,26 @@
 'use client';
 
 import * as THREE from 'three';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { LOOP, START_INDEX } from '@/engine/board';
 import { RULES, TIMING } from '@/config/gameConfig';
 import { COLORS, MATERIAL } from '@/config/theme';
+import { stackIndex } from '@/engine/rules';
 import { useGameStore, type MoveAnim } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { playSfx } from '@/services/audio';
 import type { PlayerColorId, Position } from '@/engine/types';
 import { cellTopY, worldOf } from './geometry';
+import { IDLE_STYLE, PawnCharacter } from './PawnCharacter';
 
 /**
  * All pawns + the animation "director".
  *  - Pawns read the logical state; while a MoveAnim is active the mover hops
- *    field-by-field and a captured victim flies back to its base.
+ *    field-by-field along the ENGINE path and captured victims fly back home.
  *  - The director calls confirmMoveAnimation() once the whole sequence is
  *    visually finished (the store also holds an independent failsafe).
+ *  - Illegal taps trigger a shake on the specific pawn (shakePawnId/token).
  */
 
 interface PawnSpec {
@@ -38,6 +40,13 @@ function isMovablePawn(st: GameStoreSnapshot, pawnId: string): boolean {
   if (g.phase !== 'choose-pawn' || st.moveAnim || st.diceRolling) return false;
   const p = g.players[g.activeIndex];
   return !!p && p.kind === 'human' && st.legalMoves.some((m) => m.pawnId === pawnId);
+}
+
+/** Offsets for pawns sharing one field ("pawn towers"). */
+function stackOffset(idx: number): [number, number] {
+  if (idx === 0) return [0, 0];
+  if (idx === 1) return [0.2, 0.15];
+  return [-0.2, 0.15];
 }
 
 // ---------------------------------------------------------------------------
@@ -74,9 +83,7 @@ function moverHops(anim: MoveAnim): Hop[] {
     }
     return hops.length > 0 ? hops : [{ from: pts[0]!, to: pts[pts.length - 1]! }];
   }
-  return [
-    { from: worldOf(anim.color, anim.from), to: worldOf(anim.color, anim.to) },
-  ];
+  return [{ from: worldOf(anim.color, anim.from), to: worldOf(anim.color, anim.to) }];
 }
 
 function hopDurationMs(anim: MoveAnim, reduced: boolean): number {
@@ -89,14 +96,17 @@ function hopHeight(anim: MoveAnim, reduced: boolean): number {
   return reduced ? base * 0.2 : base;
 }
 
-/** Total visual duration of the whole move (mover + victim return). */
+/** Total visual duration of the whole move (mover + all victims). */
 function moveTotalMs(anim: MoveAnim, reduced: boolean): number {
   const hops = moverHops(anim);
   const ms = hopDurationMs(anim, reduced);
   const moverTotal = hops.length * ms;
   const settle = anim.kind === 'finish' ? TIMING.finishBurstMs * (reduced ? 0.3 : 0.45) : 90;
-  if (anim.capture) {
-    return moverTotal + TIMING.captureImpactMs + TIMING.captureReturnMs * (reduced ? 0.5 : 1) + 60;
+  if (anim.victims.length > 0) {
+    const stagger = (anim.victims.length - 1) * 110;
+    return (
+      moverTotal + TIMING.captureImpactMs + stagger + TIMING.captureReturnMs * (reduced ? 0.5 : 1) + 60
+    );
   }
   return moverTotal + settle;
 }
@@ -112,10 +122,15 @@ function moverPosAt(anim: MoveAnim, hops: Hop[], t: number, reduced: boolean): T
   return pos;
 }
 
-function victimPosAt(anim: MoveAnim, moverTotal: number, t: number): THREE.Vector3 | null {
-  const cap = anim.capture;
+function victimPosAt(
+  anim: MoveAnim,
+  moverTotal: number,
+  t: number,
+  victimIdx: number,
+): THREE.Vector3 | null {
+  const cap = anim.victims[victimIdx];
   if (!cap) return null;
-  const start = moverTotal + TIMING.captureImpactMs;
+  const start = moverTotal + TIMING.captureImpactMs + victimIdx * 110;
   if (t < start) return worldOf(cap.color, cap.from);
   const u = Math.max(0, Math.min(1, (t - start) / TIMING.captureReturnMs));
   const from = worldOf(cap.color, cap.from);
@@ -123,6 +138,14 @@ function victimPosAt(anim: MoveAnim, moverTotal: number, t: number): THREE.Vecto
   const pos = from.clone().lerp(to, u);
   pos.y += 1.75 * Math.sin(u * Math.PI);
   return pos;
+}
+
+/** Shortest-path yaw interpolation. */
+function lerpYaw(current: number, target: number, rate: number): number {
+  let diff = (target - current) % (Math.PI * 2);
+  if (diff > Math.PI) diff -= Math.PI * 2;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  return current + diff * rate;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,9 +156,12 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const ringMat = useRef<THREE.MeshStandardMaterial>(null);
+  const yaw = useRef<number | null>(null);
+  const shake = useRef({ token: 0, start: 0 });
+  const [hovered, setHovered] = useState(false);
   const phaseOffset = useMemo(() => Math.random() * Math.PI * 2, []);
 
-  // Shared meeple material, created once (a pawn's color never changes).
+  // Per-pawn body material (a pawn's color never changes).
   const matRef = useRef<THREE.MeshStandardMaterial | null>(null);
   if (matRef.current === null) {
     matRef.current = new THREE.MeshStandardMaterial({
@@ -154,46 +180,76 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
     [],
   );
 
+  // Face targets by area.
+  const restingYaw = (pos: THREE.Vector3, area: Position['area']): number => {
+    if (area === 'track') {
+      // face the next loop field (travel direction)
+      const next = LOOP[(pawn.pos.area === 'track' ? (pawn.pos.index + 1) % RULES.trackFields : 0)]!;
+      const nx = (next.col - 5) * 1.18 - pos.x;
+      const nz = (next.row - 5) * 1.18 - pos.z;
+      if (nx * nx + nz * nz < 0.0004) return Math.atan2(pos.x, pos.z);
+      return Math.atan2(nx, nz);
+    }
+    if (area === 'home') return Math.atan2(-pos.x, -pos.z); // face the center
+    return Math.atan2(pos.x, pos.z); // base: face outward
+  };
+
   const onPawnClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    const st = useGameStore.getState();
-    if (isMovablePawn(st, pawn.id)) {
-      playSfx('pawnSelect');
-      st.choosePawn(pawn.id);
-    }
+    useGameStore.getState().tapPawn(pawn.id);
   };
   const onPawnOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    const st = useGameStore.getState();
-    if (isMovablePawn(st, pawn.id)) document.body.style.cursor = 'pointer';
+    setHovered(true);
+    if (isMovablePawn(useGameStore.getState(), pawn.id)) document.body.style.cursor = 'pointer';
   };
   const onPawnOut = () => {
+    setHovered(false);
     document.body.style.cursor = 'auto';
   };
 
-  useFrame(() => {
+  useFrame((state) => {
     const g = group.current;
     if (!g || !matRef.current) return;
     const st = useGameStore.getState();
     const reduced = useSettingsStore.getState().reducedMotion;
     const now = Date.now();
+    const t = state.clock.elapsedTime;
     const anim = st.moveAnim;
-    let movable = false;
+
+    // Shake feedback for illegal taps.
+    if (st.shakePawnId === pawn.id && shake.current.token !== st.shakeToken) {
+      shake.current = { token: st.shakeToken, start: now };
+    }
+    const shakeAge = now - shake.current.start;
+    const shaking = shakeAge >= 0 && shakeAge < 420 && shake.current.token > 0;
 
     if (anim && st.screen === 'game') {
       const isMover = anim.pawnId === pawn.id;
-      const isVictim = anim.capture?.pawnId === pawn.id;
-      if (isMover || isVictim) {
+      const victimIdx = anim.victims.findIndex((v) => v.pawnId === pawn.id);
+      if (isMover || victimIdx >= 0) {
         const hops = moverHops(anim);
         const ms = hopDurationMs(anim, reduced);
         const moverTotal = hops.length * ms;
-        const t = now - anim.startedAt;
+        const elapsed = now - anim.startedAt;
         if (isMover) {
-          g.position.copy(moverPosAt(anim, hops, t, reduced));
+          g.position.copy(moverPosAt(anim, hops, elapsed, reduced));
+          // face the hop direction
+          const k = Math.max(0, Math.min(hops.length - 1, Math.floor(elapsed / ms)));
+          const hop = hops[k]!;
+          const dx = hop.to.x - hop.from.x;
+          const dz = hop.to.z - hop.from.z;
+          if (dx * dx + dz * dz > 0.0001) {
+            yaw.current = lerpYaw(yaw.current ?? 0, Math.atan2(dx, dz), 0.35);
+            g.rotation.y = yaw.current;
+          }
+          g.rotation.z = 0;
+          g.scale.setScalar(1);
         } else {
-          const vp = victimPosAt(anim, moverTotal, t);
+          const vp = victimPosAt(anim, moverTotal, elapsed, victimIdx);
           if (vp) g.position.copy(vp);
-          if (anim.capture) g.rotation.y = t * 0.012;
+          yaw.current = (yaw.current ?? 0) + 0.14;
+          g.rotation.y = yaw.current;
         }
         matRef.current.emissiveIntensity = 0.22;
         if (ring.current) ring.current.visible = false;
@@ -203,20 +259,77 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
 
     // Static / selectable position.
     const base = worldOf(pawn.color, pawn.pos);
-    movable = isMovablePawn(st, pawn.id);
-    if (movable && !reduced) {
-      base.y += 0.1 + 0.055 * Math.sin(now * 0.0045 + phaseOffset);
-      matRef.current.emissiveIntensity = 0.4 + 0.3 * Math.sin(now * 0.006 + phaseOffset);
-    } else {
-      matRef.current.emissiveIntensity = 0;
-      g.rotation.y = 0;
+    const movable = isMovablePawn(st, pawn.id);
+    const isHome = pawn.pos.area === 'home';
+    const isWinnerRow = isHome && !!st.winner;
+
+    // Stack offset when own pawns share this track field.
+    if (pawn.pos.area === 'track' && st.game) {
+      const si = stackIndex(st.game, pawn);
+      if (si > 0) {
+        const [ox, oz] = stackOffset(si);
+        base.x += ox;
+        base.z += oz;
+      }
     }
-    g.position.copy(base);
+
+    const style = IDLE_STYLE[pawn.color];
+    let scale = 1;
+
+    if (isHome && !reduced) {
+      // Finished pawns celebrate on their home slot.
+      const energy = isWinnerRow ? 1.6 : 1;
+      base.y += Math.abs(Math.sin(t * 3.1 * energy + phaseOffset)) * (isWinnerRow ? 0.16 : 0.07);
+      if (isWinnerRow) {
+        yaw.current = (yaw.current ?? restingYaw(base, 'home')) + 0.03;
+        g.rotation.y = yaw.current;
+      }
+    } else if (movable && !reduced) {
+      base.y += 0.12 + 0.06 * Math.sin(t * 3.4 + phaseOffset);
+      matRef.current.emissiveIntensity = 0.4 + 0.3 * Math.sin(t * 4 + phaseOffset);
+    } else {
+      // Gentle idle with per-character personality.
+      base.y += style.bobAmplitude * Math.sin(t * style.bobSpeed * Math.PI + phaseOffset);
+      matRef.current.emissiveIntensity = hovered && movable ? 0.25 : 0;
+    }
+
+    if (hovered && movable) {
+      base.y += 0.09;
+      scale = 1.06;
+    }
+
+    // Idle squash/sway (skipped while moving).
+    if (!reduced) {
+      if (style.squash > 0) {
+        const s = 1 - style.squash * Math.max(0, Math.sin(t * style.squashSpeed * Math.PI + phaseOffset));
+        g.scale.set(scale * (1 + (1 - s) * 0.5), scale * s, scale * (1 + (1 - s) * 0.5));
+      } else {
+        g.scale.setScalar(scale);
+      }
+      g.rotation.z = style.sway * Math.sin(t * style.swaySpeed * Math.PI + phaseOffset);
+    } else {
+      g.scale.setScalar(scale);
+      g.rotation.z = 0;
+    }
+
+    // Face the natural direction (once set, lerp gently).
+    const targetYaw = restingYaw(base, pawn.pos.area);
+    yaw.current = yaw.current === null ? targetYaw : lerpYaw(yaw.current, targetYaw, 0.12);
+    g.rotation.y = yaw.current;
+
+    // Illegal-tap shake (x wobble that decays).
+    if (shaking) {
+      const k = 1 - shakeAge / 420;
+      g.position.x = base.x + Math.sin(shakeAge * 0.06) * 0.09 * k;
+    } else {
+      g.position.copy(base);
+    }
+
     if (ring.current) {
       ring.current.visible = movable;
       if (movable) {
-        ring.current.scale.setScalar(1 + 0.12 * Math.sin(now * 0.005 + phaseOffset));
-        if (ringMat.current) ringMat.current.emissiveIntensity = 0.8 + 0.4 * Math.sin(now * 0.005);
+        ring.current.scale.setScalar(1 + 0.12 * Math.sin(t * 3.1 + phaseOffset));
+        if (ringMat.current) ringMat.current.emissiveIntensity = 0.8 + 0.4 * Math.sin(t * 3.1);
       }
     }
   });
@@ -236,16 +349,10 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
         />
       </mesh>
 
-      {/* meeple: base puck + cone body + sphere head */}
-      <mesh castShadow position={[0, 0.045, 0]} material={mat} onClick={onPawnClick} onPointerOver={onPawnOver} onPointerOut={onPawnOut}>
-        <cylinderGeometry args={[0.33, 0.35, 0.09, 24]} />
-      </mesh>
-      <mesh castShadow position={[0, 0.33, 0]} material={mat} onClick={onPawnClick} onPointerOver={onPawnOver} onPointerOut={onPawnOut}>
-        <coneGeometry args={[0.25, 0.52, 24]} />
-      </mesh>
-      <mesh castShadow position={[0, 0.63, 0]} material={mat} onClick={onPawnClick} onPointerOver={onPawnOver} onPointerOut={onPawnOut}>
-        <sphereGeometry args={[0.165, 24, 18]} />
-      </mesh>
+      {/* the animal friend — pointer events bubble up from every part */}
+      <group onClick={onPawnClick} onPointerOver={onPawnOver} onPointerOut={onPawnOut}>
+        <PawnCharacter color={pawn.color} bodyMat={mat} />
+      </group>
     </group>
   );
 }
@@ -264,11 +371,7 @@ function TargetRings() {
 
   const onRingClick = (e: ThreeEvent<MouseEvent>, pawnId: string) => {
     e.stopPropagation();
-    const st = useGameStore.getState();
-    if (isMovablePawn(st, pawnId)) {
-      playSfx('pawnSelect');
-      st.choosePawn(pawnId);
-    }
+    useGameStore.getState().tapPawn(pawnId);
   };
 
   if (!visible) return null;
