@@ -1,43 +1,37 @@
 /**
  * ============================================================================
- * GAME CONFIG — "Color Hop! Kids" ruleset (RULES_VERSION: kids-v1)
+ * GAME CONFIG — static board & component constants (ruleset kids-v2)
  * ============================================================================
  * A color-dice race game inspired by the classic German children's game
- * "Mensch ärgere Dich nicht® Kids" (Schmidt Spiele, 4 players, 3 pawns each).
+ * "Mensch ärgere Dich nicht® Kids" (Schmidt Spiele, 2–4 players, 3 pawns each).
  *
  * RULES RESEARCH NOTE
  * -------------------
  * The original printed instructions of the Kids edition could not be fully
- * retrieved. Rules below were reconstructed from product imagery
- * (cross-shaped board, 6-color track cycle, color die with colored dots,
- * 3-slot home rows, 4 animal characters) and are documented here.
- * Every uncertain mechanic is a config flag so it can be corrected without
- * touching engine logic.
+ * retrieved (search services unreachable from the development sandbox).
+ * Rules were reconstructed from edition metadata and product imagery and are
+ * documented in RULES.md — verified facts vs. documented assumptions.
+ * Every uncertain mechanic is configurable at runtime via `rulesConfig.ts`
+ * (Classic / Quick / Family / Custom presets), never hard-coded here.
  *
- * DOCUMENTED RULES (v1)
- * ---------------------
+ * DOCUMENTED BOARD (edition reconstruction)
+ * -----------------------------------------
  * 1. Board: classic cross layout, 40 fields in one loop, 6 track colors
  *    (red, blue, green, yellow + neutral purple & black) in a repeating
  *    cycle. Each player's segment starts with their own color.
- * 2. The die is a real 6-faced color die: one face per track color.
- * 3. Movement: roll a color, move ONE of your pawns forward to the NEXT
- *    track field showing that color (distance 1-6 — the color die is a
- *    number die in disguise, no counting needed).
- * 4. Entering: roll YOUR OWN color to move a pawn from the base onto your
- *    start field (start fields are painted in the player's color).
- *    (KIDS_V1_ASSUMPTION) fastStart: while all 3 of your pawns are still in
- *    the base, ANY color lets the first pawn enter — no waiting at the start.
- * 5. Capturing: land on an opponent's pawn → it returns to its base.
- *    Landing on your own pawn is not allowed for that pawn.
- * 6. Home: when no matching color remains ahead, the pawn goes HOME
- *    (goal row of 3 star slots in the player's arm). First player with all
- *    3 pawns home wins. (KIDS_V1_ASSUMPTION: home matches every color.)
- * 7. Stuck turns: if no pawn can use the roll at all, the player may roll
- *    again, up to `maxRollsPerTurn` per turn, then the turn passes.
- * 8. No extra-roll rules (no "roll again after capture/entry").
+ * 2. The die is a 6-faced color die: one face per track color.
+ * 3. Movement: roll a color, move ONE pawn forward to the NEXT track field
+ *    showing that color (distance 1–6 — no counting needed).
+ * 4. Entering / passing / capturing / extra rolls / pawns per player are
+ *    configurable — see rulesConfig.ts (defaults = the documented
+ *    reconstruction, labelled Classic).
+ * 5. Home: when no matching color remains ahead, the pawn goes HOME
+ *    (home row of 3 slots; home matches every color). First player with all
+ *    pawns home wins.
+ * 6. Stuck turns: no legal move → roll again, up to 3 rolls per turn.
  */
 
-export const RULES_VERSION = 'kids-v1';
+export const RULES_VERSION = 'kids-v2';
 
 /** Repeating cycle of the six track colors along the loop. */
 export const TRACK_COLOR_CYCLE = [
@@ -59,29 +53,27 @@ export const DICE_FACES = [
   'black',
 ] as const;
 
+/**
+ * Static board constants. Behaviour flags (entry, passing, capture, extra
+ * turns, pawns per player) live in engine/rulesConfig.ts instead.
+ */
 export const RULES = {
-  /** Pawns per player (Kids edition: 3). */
-  pawnsPerPlayer: 3,
   /** Total fields of the main loop (classic cross layout). */
   trackFields: 40,
   /** Home (goal) slots per player. */
   homeSlots: 3,
-  /** Base slots per player. */
+  /** Base slots per player (geometry always offers 3; the config decides how many pawns use them). */
   baseSlots: 3,
   /**
-   * While every pawn of a player is still in the base, any color allows the
-   * first pawn to enter the board (prevents a frustrating opening).
+   * Hard cap on rolls per turn (covers stuck-rerolls AND extra-roll chains).
    */
-  fastStart: true,
-  /**
-   * A pawn whose rolled color has no matching field ahead of it may enter
-   * its home row (home matches every color).
-   */
-  homeMatchesAnyColor: true,
+  maxRollsPerTurn: 5,
   /** Rolls a player may attempt when no legal move exists (then pass). */
-  maxRollsPerTurn: 3,
+  stuckRollsPerTurn: 3,
   /** Auto-execute the move when exactly one legal move exists (ms delay). */
   autoSingleMoveDelay: 850,
+  /** Edition assumption A8: the home row matches every color. */
+  homeMatchesAnyColor: true,
 } as const;
 
 /** Timing for the presentation layer (milliseconds). */
