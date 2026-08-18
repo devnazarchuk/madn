@@ -85,7 +85,15 @@ function Table() {
 // Track / home / base geometry
 // ---------------------------------------------------------------------------
 
-function TrackField({ color, isStart }: { color: string; isStart: boolean }) {
+function TrackField({
+  color,
+  isStart,
+  protectedStart,
+}: {
+  color: string;
+  isStart: boolean;
+  protectedStart: boolean;
+}) {
   return (
     <group>
       <mesh castShadow receiveShadow>
@@ -96,6 +104,18 @@ function TrackField({ color, isStart }: { color: string; isStart: boolean }) {
         <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.47, 0.05, 10, 40]} />
           <meshStandardMaterial color={MATERIAL.gold} metalness={0.7} roughness={0.28} />
+        </mesh>
+      )}
+      {/* Safe-field halo — only when start protection is switched on. */}
+      {isStart && protectedStart && (
+        <mesh position={[0, 0.075, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.545, 0.045, 10, 44]} />
+          <meshStandardMaterial
+            color="#FDFBF4"
+            emissive="#FDFBF4"
+            emissiveIntensity={0.55}
+            roughness={0.35}
+          />
         </mesh>
       )}
     </group>
@@ -221,7 +241,7 @@ function ActiveBaseGlow() {
   const { x, z } = cellToWorld(block.col + 1.5, block.row + 1.5);
   return (
     <mesh ref={mesh} position={[x, BASE_PANEL_TOP + 0.06, z]} rotation={[Math.PI / 2, 0, 0]}>
-      <torusGeometry args={[2.58, 0.075, 10, 72]} />
+      <torusGeometry args={[2.32, 0.07, 10, 72]} />
       <meshStandardMaterial
         ref={mat}
         color={COLORS[activeColor]}
@@ -246,6 +266,11 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         return { x, z, color: FIELD_COLORS[i] as string, isStart: isStartField(i) };
       }),
     [],
+  );
+  // Safe-start halo appears when the active rules protect start fields —
+  // during a match the MATCH config is authoritative.
+  const protectedStarts = useGameStore((s) =>
+    s.screen === 'game' ? (s.game?.rulesConfig.protectedStarts ?? false) : false,
   );
 
   return (
@@ -282,7 +307,7 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
       {/* 40 loop fields */}
       {trackFields.map((f, i) => (
         <group key={i} position={[f.x, FIELD_Y, f.z]}>
-          <TrackField color={f.color} isStart={f.isStart} />
+          <TrackField color={f.color} isStart={f.isStart} protectedStart={protectedStarts} />
         </group>
       ))}
 
