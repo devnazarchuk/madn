@@ -1,8 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Dices, DoorOpen, Home, Hourglass, RefreshCw, Swords, Star, Trophy } from 'lucide-react';
+import {
+  Dices,
+  DoorOpen,
+  Hourglass,
+  RefreshCw,
+  ScrollText,
+  Star,
+  Swords,
+  Trophy,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,47 +24,33 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listMatches, type MatchRecord } from '@/services/matchesApi';
 import { COLORS, MATERIAL } from '@/config/theme';
+import { EDITION_FACTS, describeRules, type RulesConfig } from '@/engine/rulesConfig';
+import { useGameStore } from '@/store/gameStore';
 import type { PlayerColorId } from '@/engine/types';
 import { ColorDot, fmtDuration } from './shared';
 
 // ---------------------------------------------------------------------------
-// How to play
+// Rules reference — ALWAYS reflects the active rules configuration
 // ---------------------------------------------------------------------------
 
-const RULES_LIST: Array<{ icon: typeof Home; title: string; body: string }> = [
-  {
-    icon: Home,
-    title: 'Bring all 3 pawns home',
-    body: 'Race your three wooden pawns around the board and into your home row. First player with all pawns home wins.',
-  },
-  {
-    icon: Dices,
-    title: 'Roll the color die',
-    body: 'Tap the die. It shows a color — one of your pawns must hop to the next track field of that color.',
-  },
-  {
-    icon: DoorOpen,
-    title: 'Entering the board',
-    body: 'Roll your OWN color to move a pawn out of its base onto your start field. While all your pawns are still waiting in the base, any color lets you start.',
-  },
-  {
-    icon: Swords,
-    title: 'Captures',
-    body: 'Land on an opponent pawn and it is sent all the way back to its base. Landing on your own pawn is blocked.',
-  },
-  {
-    icon: Star,
-    title: 'Going home',
-    body: 'When no matching color lies ahead of a pawn, that pawn may enter its home row — every color matches home.',
-  },
-  {
-    icon: Hourglass,
-    title: 'Stuck turns',
-    body: 'No legal move? The die rolls again automatically, up to three tries — then the turn passes on.',
-  },
-];
+const SECTION_ICONS = [Dices, DoorOpen, Swords, Hourglass, Star];
 
-export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function RulesDialog({
+  open,
+  onClose,
+  config,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Falls back to the match config (in game) or the next-match config. */
+  config?: RulesConfig;
+}) {
+  const activeConfig = useGameStore((s) =>
+    s.screen === 'game' ? (s.game?.rulesConfig ?? s.rulesConfig) : s.rulesConfig,
+  );
+  const effective = config ?? activeConfig;
+  const sections = useMemo(() => describeRules(effective), [effective]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0] sm:max-w-md">
@@ -64,26 +59,36 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
             How to play
           </DialogTitle>
           <DialogDescription>
-            A cozy wooden race for 2–4 players, young and old.
+            These rules match the current settings{effective.preset === 'classic' ? ' (Classic).' : ` (${effective.preset} mode).`}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[55vh] pr-3">
-          <ul className="space-y-4">
-            {RULES_LIST.map((rule) => (
-              <li key={rule.title} className="flex gap-3">
-                <span
-                  className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl text-white"
-                  style={{ backgroundColor: MATERIAL.walnut }}
-                >
-                  <rule.icon size={17} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-[#3E2A18]">{rule.title}</p>
-                  <p className="text-sm text-[#6B4E35]">{rule.body}</p>
+          <div className="space-y-4">
+            {sections.map((section, i) => {
+              const Icon = SECTION_ICONS[i % SECTION_ICONS.length]!;
+              return (
+                <div key={section.title}>
+                  <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-[#3E2A18]">
+                    <span
+                      className="flex size-6 items-center justify-center rounded-lg text-white"
+                      style={{ backgroundColor: MATERIAL.walnut }}
+                    >
+                      <Icon size={13} />
+                    </span>
+                    {section.title}
+                  </p>
+                  <ul className="space-y-1">
+                    {section.points.map((point) => (
+                      <li key={point} className="flex gap-1.5 text-sm text-[#6B4E35]">
+                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>
