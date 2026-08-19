@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PLAYER_COLORS } from '@/config/gameConfig';
 import { COLORS, COLORS_DEEP } from '@/config/theme';
 import { CHARACTERS, defaultName } from '@/engine/game';
+import { rulesHeadline } from '@/engine/rulesConfig';
 import type { AiLevel, PlayerColorId, PlayerKind } from '@/engine/types';
 import { useGameStore, type SeatDraft } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
@@ -213,10 +214,11 @@ function SeatCard({
 
 export function SetupScreen() {
   const goScreen = useGameStore((s) => s.goScreen);
+  const goRules = useGameStore((s) => s.goRules);
   const playerCount = useGameStore((s) => s.playerCount);
   const seats = useGameStore((s) => s.seats);
   const setPlayerCount = useGameStore((s) => s.setPlayerCount);
-  const startGame = useGameStore((s) => s.startGame);
+  const rulesConfig = useGameStore((s) => s.rulesConfig);
 
   const activeSeats = seats.slice(0, playerCount);
   const takenColors = activeSeats.map((s) => s.color);
@@ -295,15 +297,25 @@ export function SetupScreen() {
           </CardContent>
         </Card>
 
+        {/* rules teaser — the full rules screen follows this one */}
+        <Card className="rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-xl shadow-black/30 backdrop-blur-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-[#3E2A18]">Rules for this match</CardTitle>
+            <CardDescription className="text-xs text-[#8A6B4F]">
+              {rulesHeadline(rulesConfig)}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
         {/* start */}
         <Button
           onClick={() => {
             playSfx('star');
-            startGame();
+            goRules('setup');
           }}
           className="h-14 w-full rounded-2xl bg-[#E8503A] text-lg font-bold text-white shadow-xl shadow-[#E8503A]/30 hover:bg-[#C23A28]"
         >
-          <Dices size={22} /> Let&apos;s play!
+          <Dices size={22} /> Choose rules &amp; play
           <Sparkles size={16} className="opacity-70" />
         </Button>
       </div>
