@@ -24,18 +24,26 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Color Hop! Kids — Wooden Board Race",
+  title: "Mensch ärgere Dich nicht Kids — 3D Board Game",
   description:
-    "A cozy 3D wooden board game: roll the color die, hop from field to field, bump your rivals home and guide all three pawns to safety. 2–4 players with clever robots.",
-  keywords: ["board game", "dice game", "kids game", "3D game", "color dice", "wooden toy"],
+    "The Kids edition of the classic German board game as a cozy 3D experience: roll the color die, hop from field to field, bump your rivals home and guide your three animal pawns to safety. 2–4 players with clever robots.",
+  keywords: [
+    "board game",
+    "dice game",
+    "kids game",
+    "3D game",
+    "color dice",
+    "Mensch ärgere Dich nicht",
+    "children",
+  ],
   authors: [{ name: "Z.ai" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "Color Hop! Kids",
-    description: "The wooden color-dice race for 2–4 players",
-    siteName: "Color Hop! Kids",
+    title: "Mensch ärgere Dich nicht Kids",
+    description: "The colorful 3D race for 2–4 players, ages 4 and up",
+    siteName: "Mensch ärgere Dich nicht Kids",
     type: "website",
   },
 };

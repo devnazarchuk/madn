@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useGameStore } from '@/store/gameStore';
 import { MenuScreen } from '@/components/hud/MenuScreen';
 import { SetupScreen } from '@/components/hud/SetupScreen';
+import { RulesScreen } from '@/components/hud/RulesScreen';
 import { GameHud } from '@/components/hud/GameHud';
 import { Overlays } from '@/components/hud/Overlays';
 import { Footer } from '@/components/hud/Footer';
@@ -94,6 +95,7 @@ export default function Home() {
         {/* screen overlays */}
         {screen === 'menu' && <MenuScreen />}
         {screen === 'setup' && <SetupScreen />}
+        {screen === 'rules' && <RulesScreen />}
         {screen === 'game' && <GameHud />}
         <Overlays />
       </main>
