@@ -96,12 +96,136 @@ export function RulesDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Match history (backed by /api/matches — SQLite)
+// About — edition research, verified facts vs. documented assumptions
+// ---------------------------------------------------------------------------
+
+export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0] sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
+            About this game
+          </DialogTitle>
+          <DialogDescription>
+            A loving digital adaptation of the Kids edition of the German classic.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh] pr-3">
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="mb-1 font-bold text-[#3E2A18]">What we know for sure</p>
+              <ul className="space-y-1">
+                {EDITION_FACTS.verified.map((fact) => (
+                  <li key={fact} className="flex gap-1.5 text-[#6B4E35]">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#43B57E]" aria-hidden />
+                    {fact}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1 font-bold text-[#3E2A18]">What we reconstructed</p>
+              <p className="mb-1 text-xs italic text-[#8A6B4F]">
+                The original printed rulebook could not be retrieved, so these mechanics are
+                documented assumptions — each one can be changed in the rules menu:
+              </p>
+              <ul className="space-y-1">
+                {EDITION_FACTS.assumed.map((fact) => (
+                  <li key={fact} className="flex gap-1.5 text-[#6B4E35]">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                    {fact}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1 font-bold text-[#3E2A18]">How we handle uncertainty</p>
+              <p className="text-[#6B4E35]">
+                Classic Rules reproduce the documented reconstruction exactly and are locked.
+                Everything uncertain becomes a switch in the Additional Rules menu — so families
+                can play it THEIR way, and nobody silently invents official rules. The full
+                research document ships with the project (RULES.md).
+              </p>
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event-log rendering (match review)
+// ---------------------------------------------------------------------------
+
+interface StoredEvent {
+  seq: number;
+  turn: number;
+  kind: string;
+  player?: string;
+  face?: string;
+  pawnId?: string;
+  capturedPawnId?: string;
+  detail?: string;
+}
+
+function eventLine(e: StoredEvent, names: Record<string, string>): string {
+  const who = e.player ? (names[e.player] ?? e.player) : '';
+  switch (e.kind) {
+    case 'game-started':
+      return `Match started — ${e.detail ?? ''}`;
+    case 'turn':
+      return e.detail?.includes('extra') ? `${who} — ${e.detail}` : `${who}'s turn`;
+    case 'roll':
+      return `${who} rolled ${e.face ?? '?'}`;
+    case 'reroll':
+      return `${who} — no legal move, rolling again`;
+    case 'move':
+      return `${who} · ${e.pawnId ?? ''} ${e.detail ?? 'moved'}`;
+    case 'capture':
+      return `${who} bumped ${e.capturedPawnId ?? ''} back to base`;
+    case 'finish':
+      return `${who} brought ${e.pawnId ?? ''} home`;
+    case 'pass':
+      return `${who} passed (${e.detail ?? 'no move'})`;
+    case 'game-over':
+      return `Game over — ${e.detail ?? ''}`;
+    default:
+      return e.detail ?? e.kind;
+  }
+}
+
+function EventLogView({ events, players }: { events: StoredEvent[]; players: Array<{ name: string; color: string }> }) {
+  const names: Record<string, string> = {};
+  for (const p of players) names[p.color] = p.name;
+  return (
+    <ScrollArea className="max-h-56 pr-3">
+      <ol className="space-y-1">
+        {events.map((e, i) => (
+          <li key={i} className="flex items-baseline gap-2 text-xs text-[#6B4E35]">
+            <span className="w-9 shrink-0 text-right font-mono text-[10px] text-[#B08A5E]">
+              #{e.turn}
+            </span>
+            <span className="flex items-center gap-1.5">
+              {e.player && <ColorDot color={e.player as PlayerColorId} size={8} />}
+              {eventLine(e, names)}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </ScrollArea>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Match history (backed by /api/matches — SQLite) with per-match review
 // ---------------------------------------------------------------------------
 
 export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [rows, setRows] = useState<MatchRecord[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,35 +269,60 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
             <ul className="space-y-2">
               {rows.map((m) => {
                 const winnerColor = m.winnerColor as PlayerColorId;
+                const reviewing = reviewId === m.id;
+                const hasLog = Array.isArray(m.eventLog) && m.eventLog.length > 0;
                 return (
                   <li
                     key={m.id}
-                    className="flex items-center gap-3 rounded-xl border border-[#5B3A24]/15 bg-white/60 px-3 py-2.5"
+                    className="rounded-xl border border-[#5B3A24]/15 bg-white/60 px-3 py-2.5"
                   >
-                    <span
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full text-white"
-                      style={{ backgroundColor: COLORS[winnerColor] ?? MATERIAL.walnut }}
-                    >
-                      <Trophy size={16} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#3E2A18]">
-                        {m.winnerName}
-                        <span className="ml-2 font-normal text-[#8A6B4F]">won</span>
-                      </p>
-                      <p className="text-xs text-[#8A6B4F]">
-                        {m.players.length} players · {m.moves} moves · {m.captures} captures ·{' '}
-                        {fmtDuration(m.durationSec)} · {format(new Date(m.createdAt), 'd MMM, HH:mm')}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#8A6B4F]">
-                        {m.players.map((p, i) => (
-                          <span key={i} className="inline-flex items-center gap-1">
-                            <ColorDot color={p.color as PlayerColorId} size={7} />
-                            {p.name}
-                          </span>
-                        ))}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full text-white"
+                        style={{ backgroundColor: COLORS[winnerColor] ?? MATERIAL.walnut }}
+                      >
+                        <Trophy size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#3E2A18]">
+                          {m.winnerName}
+                          <span className="ml-2 font-normal text-[#8A6B4F]">won</span>
+                          {m.preset && m.preset !== 'classic' && (
+                            <span className="ml-2 rounded-full bg-[#F4E7CE] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[#8A6B4F]">
+                              {m.preset} rules
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-[#8A6B4F]">
+                          {m.players.length} players · {m.moves} moves · {m.captures} captures ·{' '}
+                          {fmtDuration(m.durationSec)} · {format(new Date(m.createdAt), 'd MMM, HH:mm')}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#8A6B4F]">
+                          {m.players.map((p, i) => (
+                            <span key={i} className="inline-flex items-center gap-1">
+                              <ColorDot color={p.color as PlayerColorId} size={7} />
+                              {p.name}
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                      {hasLog && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 rounded-lg border-[#5B3A24]/25"
+                          onClick={() => setReviewId(reviewing ? null : m.id)}
+                          aria-expanded={reviewing}
+                        >
+                          <ScrollText size={13} /> {reviewing ? 'Hide' : 'Review'}
+                        </Button>
+                      )}
                     </div>
+                    {reviewing && hasLog && (
+                      <div className="mt-2 rounded-lg bg-[#F4E7CE]/60 p-2">
+                        <EventLogView events={m.eventLog as StoredEvent[]} players={m.players} />
+                      </div>
+                    )}
                   </li>
                 );
               })}
