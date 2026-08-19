@@ -1,7 +1,19 @@
 'use client';
 
-import { Check, Home, LogOut, Pause, Play, RotateCcw, Swords, Trophy } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  BookOpen,
+  Check,
+  Home,
+  LogOut,
+  Pause,
+  Play,
+  RotateCcw,
+  Swords,
+  Trophy,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,9 +27,104 @@ import { useGameStore } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
 import { COLORS } from '@/config/theme';
 import { CHARACTERS } from '@/engine/game';
-import type { PlayerColorId } from '@/engine/types';
-import { CHAR_ICON, ColorDot, fmtDuration } from './shared';
+import { AnimalIcon, ColorDot, fmtDuration } from './shared';
 import { SettingsPanel } from './SettingsPanel';
+import { RulesDialog } from './Dialogs';
+
+// ---------------------------------------------------------------------------
+// Confetti — a restrained celebration (plain canvas, no dependencies)
+// ---------------------------------------------------------------------------
+
+function ConfettiBurst() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const resize = () => {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const palette = [COLORS.red, COLORS.blue, COLORS.green, COLORS.yellow, '#D9A441', '#F6EBD9'];
+    interface Particle {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      rot: number;
+      vr: number;
+      size: number;
+      color: string;
+      shape: number;
+    }
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const particles: Particle[] = [];
+    for (let i = 0; i < 130; i++) {
+      const fromLeft = i % 2 === 0;
+      particles.push({
+        x: (fromLeft ? rnd(0.05, 0.25) : rnd(0.75, 0.95)) * canvas.width,
+        y: canvas.height * rnd(0.55, 0.75),
+        vx: rnd(-1, 1) * 2.4 * dpr + (fromLeft ? 1.6 : -1.6) * dpr,
+        vy: rnd(-9.5, -5.5) * dpr,
+        rot: rnd(0, Math.PI * 2),
+        vr: rnd(-0.16, 0.16),
+        size: rnd(5, 10) * dpr,
+        color: palette[Math.floor(Math.random() * palette.length)]!,
+        shape: Math.random() < 0.55 ? 0 : 1,
+      });
+    }
+
+    let raf = 0;
+    const startedAt = performance.now();
+    const tick = () => {
+      const age = performance.now() - startedAt;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const fade = age > 3200 ? Math.max(0, 1 - (age - 3200) / 700) : 1;
+      for (const p of particles) {
+        p.vy += 0.16 * dpr;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = p.color;
+        if (p.shape === 0) {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      if (age < 3900) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-[60]"
+      style={{ width: '100vw', height: '100vh' }}
+    />
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Winner overlay
