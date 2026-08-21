@@ -1,16 +1,21 @@
 import { db } from '@/lib/db';
 import type { Match } from '@prisma/client';
 import { z } from 'zod';
+import { normalizeRulesConfig } from '@/engine/rulesConfig';
 
 export const dynamic = 'force-dynamic';
 
 const COLORS = ['red', 'blue', 'green', 'yellow'] as const;
+const PRESETS = ['classic', 'custom', 'quick', 'family'] as const;
 
 const playerSchema = z.object({
   name: z.string().trim().min(1).max(40),
   color: z.enum(COLORS),
   kind: z.enum(['human', 'ai']),
 });
+
+/** Loose event schema — the engine's event log shape, stored verbatim. */
+const eventSchema = z.record(z.string(), z.unknown());
 
 const matchInputSchema = z
   .object({
@@ -22,6 +27,9 @@ const matchInputSchema = z
     captures: z.number().int().min(0),
     durationSec: z.number().int().min(1),
     players: z.array(playerSchema).min(2).max(4),
+    preset: z.enum(PRESETS).default('classic'),
+    rulesConfig: z.record(z.string(), z.unknown()).default({}),
+    eventLog: z.array(eventSchema).max(2500).default([]),
   })
   .superRefine((data, ctx) => {
     if (data.aiCount > data.playerCount) {
@@ -46,14 +54,17 @@ type ApiMatch = {
   captures: number;
   durationSec: number;
   players: ApiMatchPlayer[];
+  preset: string;
+  rulesConfig: unknown;
+  eventLog: unknown[];
 };
 
-function parsePlayers(raw: string): ApiMatchPlayer[] {
+function parseJson<T>(raw: string, fallback: T): T {
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return (parsed ?? fallback) as T;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
@@ -68,7 +79,10 @@ function toApiMatch(row: Match): ApiMatch {
     moves: row.moves,
     captures: row.captures,
     durationSec: row.durationSec,
-    players: parsePlayers(row.players),
+    players: parseJson<ApiMatchPlayer[]>(row.players, []),
+    preset: row.preset,
+    rulesConfig: parseJson<unknown>(row.rulesConfig, {}),
+    eventLog: parseJson<unknown[]>(row.eventLog ?? '[]', []),
   };
 }
 
@@ -108,6 +122,11 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+  // Server-side normalization guarantees the stored rules are a valid,
+  // self-consistent configuration (the same rules the engine would accept).
+  const rulesConfig = normalizeRulesConfig(input.rulesConfig);
+  const eventLogJson = JSON.stringify(input.eventLog);
+
   try {
     const row = await db.match.create({
       data: {
@@ -119,6 +138,9 @@ export async function POST(request: Request) {
         captures: input.captures,
         durationSec: input.durationSec,
         players: JSON.stringify(input.players),
+        preset: input.preset,
+        rulesConfig: JSON.stringify(rulesConfig),
+        eventLog: eventLogJson.length > 400_000 ? null : eventLogJson,
       },
     });
     return Response.json(toApiMatch(row), { status: 201 });

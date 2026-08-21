@@ -20,9 +20,14 @@ export interface MatchRecord {
   captures: number;
   durationSec: number;
   players: MatchPlayer[];
+  preset?: string;
+  rulesConfig?: Record<string, unknown>;
+  eventLog?: Record<string, unknown>[];
 }
 
-export type MatchRecordInput = Omit<MatchRecord, 'id' | 'createdAt'>;
+export type MatchRecordInput = Omit<MatchRecord, 'id' | 'createdAt' | 'eventLog'> & {
+  eventLog?: Record<string, unknown>[];
+};
 
 export async function saveMatch(input: MatchRecordInput): Promise<MatchRecord | null> {
   try {

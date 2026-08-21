@@ -42,4 +42,7 @@ model Match {
   captures    Int
   durationSec Int
   players     String   // JSON-serialized array (SQLite has no list types)
+  preset      String   @default("classic") // rules preset used for the match
+  rulesConfig String   @default("{}") // JSON snapshot of the exact rules configuration
+  eventLog    String?  // JSON event history (rolls/moves/captures — replayable)
 }
