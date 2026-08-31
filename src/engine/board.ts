@@ -1,22 +1,22 @@
-import {
-  RULES,
-  TRACK_COLOR_CYCLE,
-  type PlayerColorId,
-  type TrackColorId,
-} from '@/config/gameConfig';
+import { RULES, type PlayerColorId } from '@/config/gameConfig';
 import type { Position } from './types';
 
 /**
  * ============================================================================
  * BOARD TOPOLOGY — classic cross layout (11×11 grid), one 40-field loop.
  * ============================================================================
+ * Pure topology only (cells, indices, position helpers). The deliberate
+ * visual color of every field — plus ids, world coordinates and start/finish
+ * metadata — lives in engine/boardTrackConfig.ts, the single authoritative
+ * track layout definition.
+ *
  * Grid coordinates (col,row) from 0..10 (row 0 = "north" edge).
  *
  *  - Four 4×4 corner blocks hold the player bases (3 slots each).
  *  - Four 3×4 arms; each arm's two outer columns carry the track, the center
  *    column holds the player's HOME row (3 slots) plus a decorative mouth.
  *  - The center 3×3 block: 4 corner cells are track fields, 4 edge cells are
- *    home mouths, the middle cell is the medallion.
+ *    home mouths, the middle cell is the central dice plaza.
  *
  * Player assignment (clockwise): blue = north-west, yellow = north-east,
  * red = south-east, green = south-west. A player's start field begins their
@@ -89,21 +89,6 @@ export const DEFAULT_COLORS: Record<number, PlayerColorId[]> = {
   3: ['red', 'green', 'blue'],
   4: ['red', 'green', 'blue', 'yellow'],
 };
-
-function rotateCycle(start: PlayerColorId): TrackColorId[] {
-  const idx = TRACK_COLOR_CYCLE.indexOf(start);
-  return Array.from(
-    { length: TRACK_COLOR_CYCLE.length },
-    (_, i) => TRACK_COLOR_CYCLE[(idx + i) % TRACK_COLOR_CYCLE.length],
-  );
-}
-
-/** Color of every loop field: four 10-field segments, each starting with the owner's color. */
-export const FIELD_COLORS: TrackColorId[] = LOOP.map((_, i) => {
-  const segment = Math.floor(i / 10);
-  const owner: PlayerColorId = (['blue', 'yellow', 'red', 'green'] as const)[segment];
-  return rotateCycle(owner)[i % 10];
-});
 
 /** Home rows: 3 slots per player inside their arm's center column + the mouth cell. */
 export const HOME_ROW: Record<PlayerColorId, GridCell[]> = {
