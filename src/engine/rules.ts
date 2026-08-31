@@ -72,10 +72,10 @@ export function pawnPathIndex(color: PlayerColorId, pos: Position): number {
 /** Slot index of a pawn among the pawns sharing its field (for stack offsets). */
 export function stackIndex(state: GameState, pawn: PawnState): number {
   if (pawn.pos.area !== 'track') return 0;
-  const sharing = pawnsOnTrack(state, pawn.pos.index)
+  const sharing = pawnsOnTrackSrc(state, pawn.pos.index)
     .filter((p) => p.color === pawn.color)
     .sort((a, b) => a.id.localeCompare(b.id));
   return Math.max(0, sharing.findIndex((p) => p.id === pawn.id));
 }
 
-export { LOOP, START_INDEX };
+export { LOOP, START_INDEX, FIELD_COLORS };
