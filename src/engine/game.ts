@@ -4,7 +4,6 @@ import { cloneState } from './rules';
 import { randomSeed, rollDieFace, nextRandom } from './dice';
 import { CLASSIC_CONFIG, type RulesConfig } from './rulesConfig';
 import type { GameEvent, GameState, PlayerSetup } from './types';
-
 /**
  * Character identity of each color — the four animal friends of the Kids
  * edition: Fox (red), Bear (blue), Frog (green) and Chick (yellow).
@@ -93,6 +92,27 @@ export function rollForTurn(input: GameState): { state: GameState; face: DiceFac
   };
   state.events.push(event);
   return { state, face };
+}
+
+/**
+ * Resolves a star (wild) roll to a concrete color — the engine's single
+ * authoritative record of what the star became. Only legal while the star
+ * is actually pending; otherwise a no-op returning the input unchanged.
+ */
+export function resolveStarFace(input: GameState, chosen: PlayerColorId): GameState {
+  const state = cloneState(input);
+  if (state.phase !== 'choose-star' || state.diceFace !== 'star') return state;
+  const player = state.players[state.activeIndex]!;
+  state.diceFace = chosen;
+  state.phase = 'choose-pawn';
+  state.events.push({
+    seq: state.events.length,
+    turn: state.turn,
+    kind: 'star-choice',
+    player: player.color,
+    detail: `star → ${chosen}`,
+  });
+  return state;
 }
 
 /** Registers a "no legal move" reroll (same face bookkeeping is re-rolled). */

@@ -12,11 +12,18 @@ import {
   defaultName,
   noteReroll,
   passTurn,
+  resolveStarFace,
   rollForTurn,
   suggestedColors,
 } from '@/engine/game';
-import { applyMove, getLegalMoves, pawnById, validateMove } from '@/engine/rules';
-import { chooseAiMove } from '@/engine/ai';
+import {
+  applyMove,
+  getLegalMoves,
+  pawnById,
+  starOptions as computeStarOptions,
+  validateMove,
+} from '@/engine/rules';
+import { chooseAiMove, chooseAiStarColor } from '@/engine/ai';
 import {
   CLASSIC_CONFIG,
   FAMILY_CONFIG,
@@ -107,6 +114,8 @@ interface GameStore {
   game: GameState | null;
   legalMoves: LegalMove[];
   selectedPawnId: string | null;
+  /** Productive colors for a pending star roll (empty when none). */
+  starOptions: PlayerColorId[];
   diceRolling: boolean;
   diceAnimToken: number;
   moveAnim: MoveAnim | null;
@@ -140,6 +149,8 @@ interface GameStore {
   finishIntro(): void;
   rollDice(): void;
   confirmDiceAnimation(token: number): void;
+  /** Resolve a pending star (wild) roll to a concrete color. */
+  chooseStarColor(color: PlayerColorId): void;
   tapPawn(pawnId: string): void;
   choosePawn(pawnId: string): void;
   confirmMoveAnimation(token: number): void;
@@ -157,22 +168,30 @@ interface GameStore {
 
 function rejectionText(reason: MoveRejectionReason, cfg: RulesConfig): string {
   switch (reason) {
-    case 'pawn-finished':
-      return 'This pawn is already home!';
-    case 'entry-color':
+    case 'PAWN_NOT_OWNED_BY_ACTIVE_PLAYER':
+      return 'That pawn belongs to another player!';
+    case 'NO_DICE_RESULT':
+    case 'STAR_UNRESOLVED':
+      return 'Roll the die first!';
+    case 'WRONG_DICE_COLOR':
       return cfg.entryAssist
         ? 'While all your pawns wait in the base, any color works — now you need your OWN color!'
         : 'You need your OWN color to leave the base!';
-    case 'own-pawn-blocks':
+    case 'PATH_BLOCKED':
+      return 'Another pawn is blocking the way!';
+    case 'DESTINATION_OCCUPIED':
       return cfg.friendlyStacking
         ? 'Your pawns cannot stand there.'
         : 'Your own pawn is standing there!';
-    case 'blocked-path':
-      return 'Another pawn is blocking the way!';
-    case 'no-capture-allowed':
+    case 'CAPTURE_DISABLED':
       return 'Bumping is switched off — you cannot land on another pawn!';
-    case 'protected-field':
+    case 'PROTECTED_FIELD':
       return 'That pawn is safe on its start field!';
+    case 'FINISH_LANE_BLOCKED':
+      return 'The home slot ahead is taken — walk your pawn inside deeper first!';
+    case 'MOVE_EXCEEDS_FINISH':
+    case 'PAWN_FINISHED':
+      return 'This pawn is already home!';
     default:
       return 'That pawn cannot move right now.';
   }
@@ -247,6 +266,27 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (player.kind === 'ai') {
         later(TIMING.aiRollDelay, () => {
           if (get().game?.phase === 'await-roll') get().rollDice();
+        });
+      }
+      return;
+    }
+
+    if (s.game.phase === 'choose-star') {
+      if (player.kind === 'ai') {
+        later(TIMING.aiThinkDelay, () => {
+          const cur = get();
+          if (!cur.game || cur.game.phase !== 'choose-star') return;
+          const color = chooseAiStarColor(cur.game);
+          if (color) cur.chooseStarColor(color);
+        });
+      } else if (s.starOptions.length === 1) {
+        // Only one productive color — not a real choice: auto-resolve it.
+        const only = s.starOptions[0]!;
+        later(RULES.autoStarResolveDelay, () => {
+          const cur = get();
+          if (cur.game?.phase === 'choose-star' && cur.starOptions.includes(only)) {
+            cur.chooseStarColor(only);
+          }
         });
       }
       return;
@@ -383,6 +423,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     game: null,
     legalMoves: [],
     selectedPawnId: null,
+    starOptions: [],
     diceRolling: false,
     diceAnimToken: 0,
     moveAnim: null,
@@ -522,6 +563,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         introPlaying: true,
         legalMoves: [],
         selectedPawnId: null,
+        starOptions: [],
         diceRolling: false,
         moveAnim: null,
         winner: null,
@@ -551,20 +593,34 @@ export const useGameStore = create<GameStore>()((set, get) => {
       }
       clearTimers();
       initAudio();
+      // Normalize the restored phase: transient animation phases cannot be
+      // resumed, a pending star re-derives its productive colors.
+      const game = { ...a.game };
+      let starChoices: PlayerColorId[] = [];
+      if (game.phase === 'choose-star') {
+        starChoices = computeStarOptions(game);
+        if (starChoices.length === 0) {
+          game.phase = 'no-moves';
+        }
+      } else if (game.phase !== 'await-roll' && game.phase !== 'game-over') {
+        game.phase = 'await-roll';
+        game.diceFace = null;
+      }
       set({
-        game: a.game,
+        game,
         screen: 'game',
         paused: false,
         introPlaying: false,
         legalMoves: [],
         selectedPawnId: null,
+        starOptions: starChoices,
         diceRolling: false,
         moveAnim: null,
         winner: null,
         totalMoves: a.totalMoves,
         matchSaved: false,
         notice: null,
-        rulesConfig: a.game.rulesConfig,
+        rulesConfig: game.rulesConfig,
       });
       startMusic();
       notify('Welcome back — the match continues!', 'success');
@@ -612,22 +668,54 @@ export const useGameStore = create<GameStore>()((set, get) => {
       const s = get();
       if (s.diceAnimToken !== token || !s.diceRolling) return;
       const game = s.game!;
-      const face = game.diceFace!;
-      const moves = getLegalMoves(game, face);
-
       set({ diceRolling: false });
 
+      // A star must be resolved to a concrete color before anything moves.
+      if (game.diceFace === 'star') {
+        const options = computeStarOptions(game);
+        if (options.length === 0) {
+          set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
+          playSfx('noMoves');
+          tick();
+          return;
+        }
+        set({ game: { ...game, phase: 'choose-star' }, legalMoves: [], starOptions: options });
+        tick();
+        return;
+      }
+
+      const moves = getLegalMoves(game);
       if (moves.length === 0) {
-        set({
-          game: { ...game, phase: 'no-moves' },
-          legalMoves: [],
-        });
+        set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
         playSfx('noMoves');
         tick();
         return;
       }
 
-      set({ game: { ...game, phase: 'choose-pawn' }, legalMoves: moves });
+      set({ game: { ...game, phase: 'choose-pawn' }, legalMoves: moves, starOptions: [] });
+      tick();
+    },
+
+    // ---------------------------------------------------------------------
+    chooseStarColor: (color) => {
+      const s = get();
+      if (!s.game || s.game.phase !== 'choose-star' || s.game.diceFace !== 'star') return;
+      const state = resolveStarFace(s.game, color);
+      const moves = getLegalMoves(state);
+      if (moves.length === 0) {
+        // Defensive: the chosen color yields nothing (the picker only offers
+        // productive colors, but a blockade may have changed since).
+        set({ game: { ...state, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
+        playSfx('noMoves');
+        tick();
+        return;
+      }
+      const player = state.players[state.activeIndex]!;
+      if (player.kind === 'ai') {
+        notify(`${player.name} picked ${color} for the star!`, 'info');
+      }
+      set({ game: state, legalMoves: moves, starOptions: [] });
+      playSfx('star');
       tick();
     },
 
@@ -807,6 +895,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         paused: false,
         legalMoves: [],
         selectedPawnId: null,
+        starOptions: [],
         diceRolling: false,
         moveAnim: null,
         winner: null,
@@ -821,8 +910,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
     quitToMenu: () => {
       clearTimers();
       // An abandoned match keeps its autosave so it can be continued later.
-      if (get().game && get().game.phase !== 'game-over') {
-        saveAutosave(get().game!, get().totalMoves);
+      const current = get().game;
+      if (current && current.phase !== 'game-over') {
+        saveAutosave(current, get().totalMoves);
         set({ autosave: loadAutosave() });
       } else {
         clearAutosave();
@@ -834,6 +924,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         paused: false,
         legalMoves: [],
         selectedPawnId: null,
+        starOptions: [],
         diceRolling: false,
         moveAnim: null,
         winner: null,

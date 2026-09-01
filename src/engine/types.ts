@@ -38,6 +38,7 @@ export interface PlayerRuntime extends PlayerSetup {
 export type GamePhase =
   | 'await-roll'      // waiting for the active player to roll
   | 'rolling'         // dice animation running
+  | 'choose-star'     // star rolled — the active player picks a color
   | 'choose-pawn'     // waiting for pawn selection (moves highlighted)
   | 'animating'       // pawn move/capture/finish animation running
   | 'no-moves'        // roll produced no legal move (brief pause, then pass/reroll)
@@ -48,24 +49,34 @@ export interface LegalMove {
   pawnId: string;
   from: Position;
   to: Position;
-  /** Pawn leaves its base. */
+  /** Pawn leaves its base onto its start field. */
   isEntry: boolean;
-  /** Pawn enters its home row. */
+  /** Pawn steps from the track into its home row (mouth slot). */
   isFinish: boolean;
+  /** Pawn walks one slot deeper inside its home row. */
+  isHomeAdvance: boolean;
   /** Opponent pawns sent back to base (all of them when "pawn towers" are on). */
   capturedPawnIds: string[];
   /** Number of fields advanced (progress metric). */
   distance: number;
 }
 
-/** Machine-readable reason a pawn cannot use the current roll. */
+/**
+ * Machine-readable reason a pawn cannot use the current roll.
+ * Structured codes — the UI translates them into child-friendly messages.
+ */
 export type MoveRejectionReason =
-  | 'pawn-finished'
-  | 'entry-color'
-  | 'own-pawn-blocks'
-  | 'blocked-path'
-  | 'no-capture-allowed'
-  | 'protected-field';
+  | 'PAWN_NOT_OWNED_BY_ACTIVE_PLAYER'
+  | 'NO_DICE_RESULT'
+  | 'STAR_UNRESOLVED'
+  | 'WRONG_DICE_COLOR'
+  | 'PATH_BLOCKED'
+  | 'DESTINATION_OCCUPIED'
+  | 'CAPTURE_DISABLED'
+  | 'PROTECTED_FIELD'
+  | 'FINISH_LANE_BLOCKED'
+  | 'MOVE_EXCEEDS_FINISH'
+  | 'PAWN_FINISHED';
 
 export interface MoveValidation {
   legal: boolean;
@@ -76,6 +87,7 @@ export interface MoveValidation {
 export type GameEventKind =
   | 'game-started'
   | 'roll'
+  | 'star-choice'
   | 'reroll'
   | 'move'
   | 'capture'
@@ -103,7 +115,11 @@ export interface GameState {
   activeIndex: number;
   turn: number;
   phase: GamePhase;
-  /** Latest dice face (set when the engine rolls). */
+  /**
+   * Latest dice face — THE single authoritative result (set when the engine
+   * rolls). 'star' means the wild was rolled and is not yet resolved to a
+   * color; no move is legal while it is unresolved.
+   */
   diceFace: DiceFaceId | null;
   /** Rolls used in the current turn (stuck-rerolls + extra rolls). */
   rollsThisTurn: number;

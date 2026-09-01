@@ -34,6 +34,12 @@ export const BOARD = {
   slotRadius: 0.44,
   /** Height fields/slots rise above the surface. */
   tileHeight: 0.075,
+  /** Height of the cream playing surface top (y). */
+  surfaceTop: 0.6,
+  /** Central dice plaza: decorative hub inlay radius. */
+  diceHubRadius: 0.72,
+  /** Central dice pedestal (the die rests on top of it). */
+  dicePedestal: { radius: 0.78, height: 0.14 },
 } as const;
 
 export interface WorldPoint {
@@ -77,8 +83,11 @@ export const BASE_POINTS: Record<PlayerColorId, WorldPoint[]> = {
   green: BASE_SLOTS.green.map((c) => cellToWorld(c.col, c.row)),
 };
 
-/** Where the 3D die rests (on the table beside the east arm). */
-export const DICE_REST: WorldPoint = { x: 8.75, z: 0.4 };
+/** Top of the central dice pedestal (the die rests on this). */
+export const DICE_PEDESTAL_TOP = BOARD.surfaceTop + BOARD.dicePedestal.height;
+
+/** Where the 3D die rests: the CENTER of the table, on its pedestal. */
+export const DICE_REST: WorldPoint = { x: 0, z: 0 };
 
 /** Orbit target defaults. */
 export const CAMERA_DEFAULTS = {
