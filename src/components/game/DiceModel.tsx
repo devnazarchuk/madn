@@ -6,21 +6,23 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { TIMING } from '@/config/gameConfig';
-import { COLORS, MATERIAL } from '@/config/theme';
+import { COLORS, MATERIAL, STAR_COLOR, STAR_COLOR_DEEP } from '@/config/theme';
 import { useGameStore } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
 import type { DiceFaceId } from '@/engine/types';
-import { DICE_REST, DIE_SIZE, easeOutCubic, quatForFace } from './geometry';
+import { DICE_REST, DIE_SIZE, easeOutCubic, makeStarShape, quatForFace } from './geometry';
 
 /**
- * The 6-sided color die. Click (or press Space) to roll while it is your
- * turn: it tumbles, bounces, settles with the rolled face up and then tells
- * the store the animation is complete.
+ * The 6-sided color die (4 colors + 2 golden star wilds). It lives on the
+ * central pedestal of the board — the primary interaction spot: click it (or
+ * press Space, or use the HUD button) while it is your turn. It tumbles,
+ * bounces, settles with the ENGINE's rolled face up, and then tells the store
+ * the animation is complete. The animation never decides the result.
  */
 
 const HALF = DIE_SIZE / 2;
 
-/** Sticker layout per face: [+X, -X, +Y, -Y, +Z, -Z]. */
+/** Sticker layout per physical face: [+X, -X, +Y, -Y, +Z, -Z]. */
 const STICKERS: Array<{
   face: DiceFaceId;
   position: [number, number, number];
@@ -30,8 +32,8 @@ const STICKERS: Array<{
   { face: 'blue', position: [-HALF - 0.004, 0, 0], rotation: [0, -Math.PI / 2, 0] },
   { face: 'green', position: [0, HALF + 0.004, 0], rotation: [-Math.PI / 2, 0, 0] },
   { face: 'yellow', position: [0, -HALF - 0.004, 0], rotation: [Math.PI / 2, 0, 0] },
-  { face: 'purple', position: [0, 0, HALF + 0.004], rotation: [0, 0, 0] },
-  { face: 'black', position: [0, 0, -HALF - 0.004], rotation: [0, Math.PI, 0] },
+  { face: 'star', position: [0, 0, HALF + 0.004], rotation: [0, 0, 0] },
+  { face: 'star', position: [0, 0, -HALF - 0.004], rotation: [0, Math.PI, 0] },
 ];
 
 const IDLE_SPIN = new THREE.Euler(0, 0, 0);
@@ -107,6 +109,35 @@ export function DiceModel() {
   );
   useEffect(() => () => bodyMat.dispose(), [bodyMat]);
 
+  // The golden star sticker geometry (shared by the two star faces).
+  const starGeo = useMemo(() => {
+    const shape = makeStarShape(0.3, 0.135);
+    return new THREE.ShapeGeometry(shape, 12);
+  }, []);
+  useEffect(() => () => starGeo.dispose(), [starGeo]);
+  const starMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: STAR_COLOR,
+        roughness: 0.32,
+        metalness: 0.35,
+        emissive: new THREE.Color(STAR_COLOR),
+        emissiveIntensity: 0.18,
+      }),
+    [],
+  );
+  useEffect(() => () => starMat.dispose(), [starMat]);
+  const starRimMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: STAR_COLOR_DEEP,
+        roughness: 0.45,
+        metalness: 0.2,
+      }),
+    [],
+  );
+  useEffect(() => () => starRimMat.dispose(), [starRimMat]);
+
   useFrame((state, dt) => {
     const g = group.current;
     if (!g) return;
@@ -177,9 +208,9 @@ export function DiceModel() {
 
   return (
     <group>
-      {/* invitation ring on the table */}
-      <mesh ref={ring} position={[DICE_REST[0], 0.03, DICE_REST[2]]} rotation={[Math.PI / 2, 0, 0]} visible={false}>
-        <torusGeometry args={[0.85, 0.07, 10, 48]} />
+      {/* invitation halo on top of the central pedestal */}
+      <mesh ref={ring} position={[0, DICE_REST[1] - HALF + 0.035, 0]} rotation={[Math.PI / 2, 0, 0]} visible={false}>
+        <torusGeometry args={[0.66, 0.055, 10, 48]} />
         <meshStandardMaterial
           ref={ringMat}
           color={MATERIAL.gold}
@@ -202,18 +233,38 @@ export function DiceModel() {
           onPointerOver={onDieOver}
           onPointerOut={onDieOut}
         />
-        {STICKERS.map((s) => (
-          <mesh
-            key={s.face}
-            position={s.position}
-            rotation={s.rotation}
-            onClick={onDieClick}
-            onPointerOver={onDieOver}
-            onPointerOut={onDieOut}
-          >
-            <circleGeometry args={[0.3, 36]} />
-            <meshStandardMaterial color={COLORS[s.face]} roughness={0.42} metalness={0.02} />
-          </mesh>
+        {STICKERS.map((s, i) => (
+          <group key={i} position={s.position} rotation={s.rotation}>
+            {s.face === 'star' ? (
+              <>
+                <mesh
+                  geometry={starGeo}
+                  material={starMat}
+                  onClick={onDieClick}
+                  onPointerOver={onDieOver}
+                  onPointerOut={onDieOut}
+                />
+                <mesh
+                  geometry={starGeo}
+                  material={starRimMat}
+                  scale={1.12}
+                  position={[0, 0, -0.004]}
+                  onClick={onDieClick}
+                  onPointerOver={onDieOver}
+                  onPointerOut={onDieOut}
+                />
+              </>
+            ) : (
+              <mesh
+                onClick={onDieClick}
+                onPointerOver={onDieOver}
+                onPointerOut={onDieOut}
+              >
+                <circleGeometry args={[0.3, 36]} />
+                <meshStandardMaterial color={COLORS[s.face]} roughness={0.42} metalness={0.02} />
+              </mesh>
+            )}
+          </group>
         ))}
       </group>
     </group>

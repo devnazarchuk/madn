@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { cellToWorld } from '@/engine/layout';
+import { BOARD, cellToWorld, DICE_PEDESTAL_TOP } from '@/engine/layout';
 import { cellForPosition } from '@/engine/board';
 import { DICE_FACES, type DiceFaceId } from '@/config/gameConfig';
 import type { Area, PlayerColorId, Position } from '@/engine/types';
@@ -12,14 +12,15 @@ import type { Area, PlayerColorId, Position } from '@/engine/types';
  * dimension or the extruded geometry bloats and covers the board.
  */
 
-export const SURFACE_TOP = 0.6;
+export const SURFACE_TOP = BOARD.surfaceTop;
 export const FIELD_TOP = SURFACE_TOP + 0.075; // 0.675
 export const BASE_PANEL_TOP = SURFACE_TOP + 0.14; // 0.74
 export const BASE_TOP = BASE_PANEL_TOP + 0.075; // 0.815
 
-/** Where the die rests on the table (east side, beside the board arm). */
-export const DICE_REST: [number, number, number] = [8.75, 0.5, 0.4];
-export const DIE_SIZE = 0.95;
+export const DIE_SIZE = 1.05;
+
+/** The die rests at the CENTER of the table on its pedestal. */
+export const DICE_REST: [number, number, number] = [0, DICE_PEDESTAL_TOP + DIE_SIZE / 2, 0];
 
 /** Top surface y of the cell a pawn stands on, by logical area. */
 export function cellTopY(area: Area): number {

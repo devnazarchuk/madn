@@ -7,12 +7,10 @@ import { RoundedBox } from '@react-three/drei';
 import {
   BASE_BLOCK,
   BASE_SLOTS,
-  FIELD_COLORS,
   HOME_MOUTH,
   HOME_ROW,
-  LOOP,
-  START_INDEX,
 } from '@/engine/board';
+import { TRACK_FIELDS } from '@/engine/boardTrackConfig';
 import { BOARD, cellToWorld } from '@/engine/layout';
 import { COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL } from '@/config/theme';
 import { PLAYER_COLORS } from '@/config/gameConfig';
@@ -23,8 +21,10 @@ import { BASE_PANEL_TOP, FIELD_TOP, SURFACE_TOP } from './geometry';
 
 /**
  * The classic 11×11 cross board: walnut foundation, cream playing surface,
- * 40 colored track fields, home rows with mouths, 4 corner bases and the
- * golden medallion. Fully static (memoized) except the active-base glow.
+ * 40 colored inlay track fields (colors from engine/boardTrackConfig — the
+ * single authoritative track layout), home rows with mouths, 4 corner bases
+ * and the central dice plaza with the pedestal the die rests on.
+ * Fully static (memoized) except the active-base glow.
  */
 
 const FOUNDATION_H = 0.44; // top at 0.44 (valid RoundedBox radius 0.2 < 0.22)
@@ -34,9 +34,6 @@ const FIELD_Y = SURFACE_TOP + BOARD.tileHeight / 2; // 0.6375
 const HOME_Y = FIELD_Y;
 const MOUTH_Y = SURFACE_TOP + 0.016;
 const GOLD_FRAME_Y = FOUNDATION_TOP + 0.015;
-
-const isStartField = (i: number): boolean =>
-  (Object.values(START_INDEX) as number[]).includes(i);
 
 // ---------------------------------------------------------------------------
 // Lights & table
@@ -85,30 +82,55 @@ function Table() {
 // Track / home / base geometry
 // ---------------------------------------------------------------------------
 
+/**
+ * One track field as a crafted colored inlay: a warm cream socket ring
+ * (consistent separation between neighbours), a slightly raised colored
+ * inlay with soft highlights, and a deep-tone painted edge. Start fields
+ * additionally carry a golden ring.
+ */
 function TrackField({
   color,
+  deepColor,
   isStart,
   protectedStart,
 }: {
   color: string;
+  deepColor: string;
   isStart: boolean;
   protectedStart: boolean;
 }) {
   return (
     <group>
+      {/* cream socket — clear separation between adjacent spaces */}
       <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, 32]} />
-        <meshStandardMaterial color={color} roughness={0.52} metalness={0.04} />
+        <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, 28]} />
+        <meshStandardMaterial color={MATERIAL.creamDeep} roughness={0.6} metalness={0.02} />
+      </mesh>
+      {/* the colored inlay — slightly proud of the socket */}
+      <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.44, 0.455, BOARD.tileHeight + 0.008, 32]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.38}
+          metalness={0.05}
+          emissive={color}
+          emissiveIntensity={0.055}
+        />
+      </mesh>
+      {/* painted edge — the inlay's deep-tone rim */}
+      <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.44, 0.018, 8, 40]} />
+        <meshStandardMaterial color={deepColor} roughness={0.5} metalness={0.03} />
       </mesh>
       {isStart && (
-        <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.47, 0.05, 10, 40]} />
+        <mesh position={[0, 0.058, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.475, 0.042, 10, 44]} />
           <meshStandardMaterial color={MATERIAL.gold} metalness={0.7} roughness={0.28} />
         </mesh>
       )}
       {/* Safe-field halo — only when start protection is switched on. */}
       {isStart && protectedStart && (
-        <mesh position={[0, 0.075, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0.085, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.545, 0.045, 10, 44]} />
           <meshStandardMaterial
             color="#FDFBF4"
@@ -150,11 +172,11 @@ function HomeMouth({ color }: { color: PlayerColorId }) {
   return (
     <group position={[x, MOUTH_Y, z]}>
       <mesh receiveShadow>
-        <cylinderGeometry args={[0.42, 0.42, 0.032, 28]} />
+        <cylinderGeometry args={[0.36, 0.36, 0.032, 28]} />
         <meshStandardMaterial color={COLORS[color]} roughness={0.55} transparent opacity={0.35} />
       </mesh>
       <mesh position={[0, 0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.42, 0.035, 8, 36]} />
+        <torusGeometry args={[0.36, 0.035, 8, 36]} />
         <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.4} />
       </mesh>
     </group>
@@ -197,20 +219,35 @@ function BaseCorner({ color }: { color: PlayerColorId }) {
   );
 }
 
-function Medallion() {
+/**
+ * The central dice plaza: a warm wooden hub inlay with a raised pedestal —
+ * THE place the die lives. Sized to stay clear of the four home mouths and
+ * all track fields.
+ */
+function DicePlaza() {
+  const hubR = BOARD.diceHubRadius;
+  const ped = BOARD.dicePedestal;
+  const pedY = SURFACE_TOP + ped.height / 2;
   return (
     <group>
-      <mesh castShadow receiveShadow position={[0, SURFACE_TOP + 0.045, 0]}>
-        <cylinderGeometry args={[1.55, 1.62, 0.09, 48]} />
-        <meshStandardMaterial color={MATERIAL.medallion} roughness={0.6} metalness={0.08} />
+      {/* hub inlay on the surface */}
+      <mesh receiveShadow position={[0, SURFACE_TOP + 0.008, 0]}>
+        <cylinderGeometry args={[hubR, hubR, 0.016, 40]} />
+        <meshStandardMaterial color={MATERIAL.medallion} roughness={0.55} metalness={0.06} />
       </mesh>
-      <mesh position={[0, SURFACE_TOP + 0.092, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[1.55, 0.055, 12, 64]} />
+      <mesh position={[0, SURFACE_TOP + 0.022, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[hubR - 0.02, 0.03, 8, 48]} />
+        <meshStandardMaterial color={MATERIAL.gold} metalness={0.68} roughness={0.3} />
+      </mesh>
+      {/* the raised pedestal the die rests on */}
+      <mesh castShadow receiveShadow position={[0, pedY, 0]}>
+        <cylinderGeometry args={[ped.radius, ped.radius + 0.02, ped.height, 44]} />
+        <meshStandardMaterial color={MATERIAL.walnut} roughness={0.62} metalness={0.05} />
+      </mesh>
+      {/* golden trim on the pedestal rim */}
+      <mesh position={[0, SURFACE_TOP + ped.height - 0.012, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[ped.radius - 0.015, 0.028, 10, 44]} />
         <meshStandardMaterial color={MATERIAL.gold} metalness={0.72} roughness={0.25} />
-      </mesh>
-      <mesh position={[0, SURFACE_TOP + 0.096, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.85, 0.03, 8, 48]} />
-        <meshStandardMaterial color={MATERIAL.goldDeep} metalness={0.6} roughness={0.35} />
       </mesh>
     </group>
   );
@@ -261,10 +298,13 @@ function ActiveBaseGlow() {
 export function BoardModel({ quality }: { quality: QualityLevel }) {
   const trackFields = useMemo(
     () =>
-      LOOP.map((cell, i) => {
-        const { x, z } = cellToWorld(cell.col, cell.row);
-        return { x, z, color: FIELD_COLORS[i] as string, isStart: isStartField(i) };
-      }),
+      TRACK_FIELDS.map((f) => ({
+        x: f.world.x,
+        z: f.world.z,
+        color: f.color,
+        deepColor: COLORS_DEEP[f.color],
+        isStart: f.isStart,
+      })),
     [],
   );
   // Safe-start halo appears when the active rules protect start fields —
@@ -304,10 +344,15 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         <meshStandardMaterial color={MATERIAL.cream} roughness={0.78} />
       </RoundedBox>
 
-      {/* 40 loop fields */}
+      {/* 40 loop fields — colored inlays from the authoritative track config */}
       {trackFields.map((f, i) => (
         <group key={i} position={[f.x, FIELD_Y, f.z]}>
-          <TrackField color={f.color} isStart={f.isStart} protectedStart={protectedStarts} />
+          <TrackField
+            color={COLORS[f.color]}
+            deepColor={f.deepColor}
+            isStart={f.isStart}
+            protectedStart={protectedStarts}
+          />
         </group>
       ))}
 
@@ -324,7 +369,7 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         <BaseCorner key={color} color={color} />
       ))}
 
-      <Medallion />
+      <DicePlaza />
       <ActiveBaseGlow />
     </group>
   );
