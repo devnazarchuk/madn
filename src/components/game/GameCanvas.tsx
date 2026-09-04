@@ -17,7 +17,8 @@ export default function GameCanvas() {
 
   return (
     <Canvas
-      shadows={quality === 'high' ? 'soft' : quality === 'medium' ? 'basic' : false}
+      // three r0.187 removed PCFSoftShadowMap — 'percentage' (PCFShadowMap) is the softest map left.
+      shadows={quality === 'high' ? 'percentage' : quality === 'medium' ? 'basic' : false}
       dpr={quality === 'high' ? [1, 2] : quality === 'medium' ? [1, 1.5] : [0.75, 1]}
       camera={{ position: CAMERA_DEFAULTS.position, fov: CAMERA_DEFAULTS.fov }}
       gl={{ antialias: quality !== 'low' }}

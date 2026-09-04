@@ -39,16 +39,16 @@ export function worldOf(color: PlayerColorId, pos: Position): THREE.Vector3 {
 // ---------------------------------------------------------------------------
 
 /**
- * Sticker placement: +X red · −X blue · +Y green · −Y yellow · +Z purple · −Z black
- * (matches DICE_FACES order). Quaternions bring that face pointing +Y (up).
+ * Sticker placement: +X red · −X blue · +Y green · −Y yellow · +Z star · −Z star
+ * (the two golden star wilds sit on opposite faces). Quaternions bring that
+ * face pointing +Y (up).
  */
 const FACE_EULERS: Record<DiceFaceId, THREE.Euler> = {
   red: new THREE.Euler(0, 0, Math.PI / 2),
   blue: new THREE.Euler(0, 0, -Math.PI / 2),
   green: new THREE.Euler(0, 0, 0),
   yellow: new THREE.Euler(Math.PI, 0, 0),
-  purple: new THREE.Euler(-Math.PI / 2, 0, 0),
-  black: new THREE.Euler(Math.PI / 2, 0, 0),
+  star: new THREE.Euler(-Math.PI / 2, 0, 0),
 };
 
 export const FACE_UP_QUAT: Record<DiceFaceId, THREE.Quaternion> = Object.fromEntries(
@@ -58,6 +58,26 @@ export const FACE_UP_QUAT: Record<DiceFaceId, THREE.Quaternion> = Object.fromEnt
 /** Orientation that shows `face` on top (defaults to green). */
 export function quatForFace(face: DiceFaceId | null): THREE.Quaternion {
   return FACE_UP_QUAT[face ?? 'green']!;
+}
+
+// ---------------------------------------------------------------------------
+// Star sticker — the golden five-point wild
+// ---------------------------------------------------------------------------
+
+/** Flat five-pointed star shape (outer radius 0.3). */
+export function makeStarShape(outer: number, inner: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const points = 5;
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  return shape;
 }
 
 // ---------------------------------------------------------------------------

@@ -65,11 +65,18 @@ function trackCellWorld(color: PlayerColorId, loopIdx: number): THREE.Vector3 {
 }
 
 function moverHops(anim: MoveAnim): Hop[] {
+  // Walking deeper inside the home row: a single gentle hop.
+  if (anim.from.area === 'home') {
+    return [{ from: worldOf(anim.color, anim.from), to: worldOf(anim.color, anim.to) }];
+  }
   if (anim.kind === 'move') {
     const start = START_INDEX[anim.color];
     const norm = (i: number) => (i - start + RULES.trackFields) % RULES.trackFields;
     const fromIdx = anim.from.area === 'track' ? norm(anim.from.index) : -1;
-    const toIdx = anim.to.area === 'track' ? norm(anim.to.index) : RULES.trackFields;
+    // Entering home walks the remaining TRACK fields (up to the last one),
+    // then hops into the mouth slot — never past the start field again.
+    const toIdx =
+      anim.to.area === 'track' ? norm(anim.to.index) : RULES.trackFields - 1;
     const pts: THREE.Vector3[] = [worldOf(anim.color, anim.from)];
     for (let p = fromIdx + 1; p <= toIdx; p++) {
       pts.push(trackCellWorld(anim.color, (start + p) % RULES.trackFields));
