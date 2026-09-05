@@ -1,7 +1,7 @@
 'use client';
 
-import { COLORS, COLORS_DEEP } from '@/config/theme';
-import type { PlayerColorId, TrackColorId } from '@/engine/types';
+import { COLORS, COLORS_DEEP, STAR_COLOR } from '@/config/theme';
+import type { DiceFaceId, PlayerColorId } from '@/engine/types';
 
 // ---------------------------------------------------------------------------
 // Animal icons — small hand-drawn silhouettes of the four characters
@@ -76,7 +76,7 @@ export function ColorDot({
   size = 10,
   className = '',
 }: {
-  color: TrackColorId;
+  color: DiceFaceId;
   size?: number;
   className?: string;
 }) {
@@ -84,7 +84,7 @@ export function ColorDot({
     <span
       aria-hidden
       className={`inline-block shrink-0 rounded-full ring-1 ring-black/15 ${className}`}
-      style={{ width: size, height: size, backgroundColor: COLORS[color] }}
+      style={{ width: size, height: size, backgroundColor: color === 'star' ? STAR_COLOR : COLORS[color] }}
     />
   );
 }

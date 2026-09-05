@@ -68,7 +68,7 @@ function ColorPicker({
                 : 'inset 0 -3px 6px rgba(0,0,0,0.25)',
             }}
           >
-            <Icon size={20} strokeWidth={2.4} />
+            <Icon size={20} />
             {taken && !selected && (
               <span className="absolute -bottom-1 rounded-full bg-[#3E2A18] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[#F6EBD9]">
                 swap

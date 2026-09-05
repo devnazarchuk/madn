@@ -62,12 +62,12 @@ export function MenuScreen() {
   const savedPlayers = autosave?.game.players ?? [];
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+    <div className="pointer-events-none absolute inset-0 flex justify-center overflow-y-auto overscroll-contain p-4">
       <motion.div
         initial={{ opacity: 0, y: 28, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="pointer-events-auto w-full max-w-md"
+        className="pointer-events-auto my-auto w-full max-w-md"
       >
         <Card className="rounded-[2rem] border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-2xl shadow-black/50 backdrop-blur-md">
           <CardHeader className="items-center pb-2 text-center">

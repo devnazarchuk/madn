@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BookOpen, Bot, Crown, Dices, Focus, Pause, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Bot, Crown, Dices, Focus, Pause, SkipForward, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -39,7 +39,55 @@ const PRESET_LABEL: Record<string, string> = {
 };
 
 function faceLabel(face: DiceFaceId): string {
-  return face.charAt(0).toUpperCase() + face.slice(1);
+  return face === 'star' ? 'Star' : face.charAt(0).toUpperCase() + face.slice(1);
+}
+
+/**
+ * Star picker — shown after a human rolls the golden star wild. Offers only
+ * the productive colors (each yields at least one legal move for the roll).
+ */
+function StarPicker({ options, activeColor }: { options: PlayerColorId[]; activeColor: PlayerColorId | null }) {
+  const chooseStarColor = useGameStore((s) => s.chooseStarColor);
+  if (options.length === 0) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.96 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      role="dialog"
+      aria-label="Pick a color for your star"
+      className="pointer-events-auto mx-auto w-full max-w-md rounded-3xl border-2 border-[#D9A441]/60 bg-[#FBF3E0]/97 p-4 shadow-2xl shadow-black/40 backdrop-blur-md"
+    >
+      <p className="mb-3 flex items-center justify-center gap-2 text-center text-base font-extrabold text-[#3E2A18]">
+        <Sparkles size={19} className="text-[#B6842B]" aria-hidden />
+        You rolled a STAR — pick any color!
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2.5">
+        {options.map((color) => {
+          const own = color === activeColor;
+          return (
+            <button
+              key={color}
+              type="button"
+              aria-label={own ? `Choose your own color ${color}` : `Choose ${color}`}
+              onClick={() => {
+                playSfx('uiClick');
+                chooseStarColor(color);
+              }}
+              className="flex min-h-11 flex-col items-center gap-1 rounded-2xl px-4 py-2.5 font-bold text-white shadow-lg transition hover:scale-105 active:scale-95"
+              style={{ backgroundColor: COLORS[color] }}
+            >
+              <AnimalIcon color={color} size={22} />
+              <span className="text-xs">
+                {own ? `${faceLabel(color)} · yours!` : faceLabel(color)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
 }
 
 function PlayerChip({
@@ -138,6 +186,7 @@ export function GameHud() {
   const winner = useGameStore((s) => s.winner);
   const paused = useGameStore((s) => s.paused);
   const legalMoves = useGameStore((s) => s.legalMoves);
+  const starOptions = useGameStore((s) => s.starOptions);
   const activeName = useGameStore((s) => s.game?.players[s.game.activeIndex]?.name ?? '');
   const activeKind = useGameStore((s) => s.game?.players[s.game.activeIndex]?.kind ?? 'ai');
   const activeColor = useGameStore((s) => s.game?.players[s.game.activeIndex]?.color ?? null);
@@ -154,6 +203,8 @@ export function GameHud() {
   const humanAwaitRoll =
     phase === 'await-roll' && activeKind === 'human' && !diceRolling && !paused && !winner;
   const humanChoosing = phase === 'choose-pawn' && activeKind === 'human' && !paused && !winner;
+  const humanStarPick =
+    phase === 'choose-star' && activeKind === 'human' && !paused && !winner && starOptions.length > 0;
 
   const status: StatusInfo = (() => {
     if (winner) {
@@ -172,6 +223,10 @@ export function GameHud() {
           : { text: `${activeName} — tap the die to roll!`, tone: 'action' };
       case 'rolling':
         return { text: 'Rolling the die…', tone: 'wait' };
+      case 'choose-star':
+        return activeKind === 'ai'
+          ? { text: `${activeName} rolled a star and is thinking…`, tone: 'wait' }
+          : { text: 'A golden star! Pick any color you like.', tone: 'action' };
       case 'no-moves':
         return {
           text: `${activeName} rolled ${faceLabel(diceFace ?? 'red')} — no pawn can use it.`,
@@ -261,6 +316,10 @@ export function GameHud() {
       <div className="relative flex-1">
         <div className="sticky top-4 z-10">
           <NoticeToast />
+        </div>
+        {/* star picker — a star roll is resolved by picking a color */}
+        <div className="pointer-events-none absolute inset-x-0 top-[38%] z-20 flex justify-center px-3">
+          <AnimatePresence>{humanStarPick && <StarPicker options={starOptions} activeColor={activeColor} />}</AnimatePresence>
         </div>
       </div>
 

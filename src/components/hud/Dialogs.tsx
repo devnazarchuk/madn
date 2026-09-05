@@ -320,7 +320,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
                     </div>
                     {reviewing && hasLog && (
                       <div className="mt-2 rounded-lg bg-[#F4E7CE]/60 p-2">
-                        <EventLogView events={m.eventLog as StoredEvent[]} players={m.players} />
+                        <EventLogView events={(m.eventLog ?? []) as unknown as StoredEvent[]} players={m.players} />
                       </div>
                     )}
                   </li>
