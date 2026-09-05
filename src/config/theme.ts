@@ -1,4 +1,4 @@
-import type { PlayerColorId, TrackColorId } from './gameConfig';
+import type { DiceFaceId, PlayerColorId, TrackColorId } from './gameConfig';
 
 /**
  * ============================================================================
@@ -11,8 +11,6 @@ export const COLORS = {
   blue: '#3E8ED0',
   green: '#43B57E',
   yellow: '#F2C14E',
-  purple: '#9D6BC3',
-  black: '#3B3A46',
 } as const satisfies Record<TrackColorId, string>;
 
 /** Slightly deeper variants for rims/shadows. */
@@ -21,9 +19,11 @@ export const COLORS_DEEP: Record<TrackColorId, string> = {
   blue: '#2D6EA8',
   green: '#2E8F63',
   yellow: '#D9A32E',
-  purple: '#7C50A2',
-  black: '#26252E',
 };
+
+/** The golden star die face (wild roll). */
+export const STAR_COLOR = '#D9A441';
+export const STAR_COLOR_DEEP = '#B6842B';
 
 /** Light tints for UI surfaces. */
 export const COLORS_SOFT: Record<PlayerColorId, string> = {
@@ -57,10 +57,10 @@ export const CHARACTER_ICON: Record<PlayerColorId, string> = {
   green: '🐶',
 };
 
-export function faceColor(face: TrackColorId): string {
-  return COLORS[face];
+export function faceColor(face: DiceFaceId): string {
+  return face === 'star' ? STAR_COLOR : COLORS[face];
 }
 
-export function faceLabel(face: TrackColorId): string {
-  return face.charAt(0).toUpperCase() + face.slice(1);
+export function faceLabel(face: DiceFaceId): string {
+  return face === 'star' ? 'Star' : face.charAt(0).toUpperCase() + face.slice(1);
 }

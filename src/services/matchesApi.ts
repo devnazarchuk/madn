@@ -25,8 +25,12 @@ export interface MatchRecord {
   eventLog?: Record<string, unknown>[];
 }
 
-export type MatchRecordInput = Omit<MatchRecord, 'id' | 'createdAt' | 'eventLog'> & {
-  eventLog?: Record<string, unknown>[];
+export type MatchRecordInput = Omit<
+  MatchRecord,
+  'id' | 'createdAt' | 'eventLog' | 'rulesConfig'
+> & {
+  rulesConfig?: unknown;
+  eventLog?: unknown[];
 };
 
 export async function saveMatch(input: MatchRecordInput): Promise<MatchRecord | null> {

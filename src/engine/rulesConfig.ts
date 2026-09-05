@@ -56,13 +56,13 @@ export interface RulesConfig {
 // Presets
 // ---------------------------------------------------------------------------
 
-/** The documented Kids-edition reconstruction (RULES.md §3). */
+/** The documented Kids-edition reconstruction (RULES.md §3) — strict edition. */
 export const CLASSIC_CONFIG: RulesConfig = {
   version: 1,
   preset: 'classic',
   entryRule: 'own-color',
-  entryAssist: true,
-  passingRule: 'free',
+  entryAssist: false,
+  passingRule: 'strict-blocking',
   captureEnabled: true,
   protectedStarts: false,
   friendlyStacking: false,
@@ -81,10 +81,11 @@ export const QUICK_CONFIG: RulesConfig = {
   pawnsPerPlayer: 2,
 };
 
-/** Easier for younger players; no hidden advantages. */
+/** Easier for younger players: hop over others, safe starts, skipping. */
 export const FAMILY_CONFIG: RulesConfig = {
   ...CLASSIC_CONFIG,
   preset: 'family',
+  passingRule: 'free',
   protectedStarts: true,
   maySkipMove: true,
 };
@@ -128,7 +129,7 @@ export const PRESET_META: Record<
 > = {
   classic: {
     title: 'Classic Rules',
-    tagline: 'The original Kids edition, just as documented.',
+    tagline: 'Strict edition rules — your own color starts, nobody may be jumped over.',
     locked: true,
   },
   quick: {
@@ -138,7 +139,7 @@ export const PRESET_META: Record<
   },
   family: {
     title: 'Family Mode',
-    tagline: 'Friendlier for the youngest — safe start fields and skipping moves.',
+    tagline: 'Friendlier for the youngest — hop over others, safe start fields, skipping moves.',
     locked: false,
   },
   custom: {
@@ -368,8 +369,9 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   sections.push({
     title: 'Rolling & moving',
     points: [
-      'Tap the die. It shows one of six colors.',
-      'Move ONE of your pawns forward to the NEXT field showing that color — no counting needed.',
+      'Tap the die. Four faces show a color and two show a golden STAR.',
+      'Roll a color → move ONE of your pawns forward to the NEXT field showing that color — no counting needed.',
+      'Roll a STAR → it counts as ANY color you like. Pick your favorite!',
       config.passingRule === 'free'
         ? 'You may hop right over pawns standing in your way — only your landing field matters.'
         : 'Pawns may NOT jump over anybody: if a pawn stands between you and your next matching field, you must wait.',
@@ -380,11 +382,12 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   if (config.entryRule === 'any-color') {
     entry.push('ANY color lets a pawn step out of the base onto your start field.');
   } else {
-    entry.push('Roll YOUR OWN color to move a pawn out of the base.');
+    entry.push('Roll YOUR OWN color to move a pawn out of the base — any other color is rejected.');
     if (config.entryAssist) {
       entry.push('Little help: while all your pawns still wait in the base, any color lets the first one out.');
     }
   }
+  entry.push('A golden STAR also lets a pawn out — choose your own color for it.');
   sections.push({ title: 'Leaving the base', points: entry });
 
   const capture: string[] = [];
@@ -424,9 +427,9 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   sections.push({
     title: 'Going home',
     points: [
-      'When the rolled color has no matching field left ahead of a pawn, that pawn may enter its home row.',
-      'The home row matches every color — every roll carries a pawn one step further in.',
-      'Home pawns never move again and cannot be bumped.',
+      'Near the end of the track, when the rolled color has no matching field left ahead, that pawn steps into its home row — right into the mouth slot.',
+      'Every later roll walks a home pawn one slot deeper — make room for the pawns behind you!',
+      'A pawn at the very last slot is finished: it never moves again and cannot be bumped.',
     ],
   });
 
@@ -437,7 +440,7 @@ export function describeRules(config: RulesConfig): RulesSection[] {
 export function rulesHeadline(config: RulesConfig): string {
   const parts: string[] = [];
   parts.push(config.entryRule === 'any-color' ? 'any color starts' : 'own color starts');
-  parts.push(config.passingRule === 'strict-blocking' ? 'blocked paths' : 'free passing');
+  parts.push(config.passingRule === 'strict-blocking' ? 'no jumping over' : 'free passing');
   parts.push(config.captureEnabled ? (config.protectedStarts ? 'safe starts' : 'bumping on') : 'no bumping');
   if (config.friendlyStacking) parts.push('pawn towers');
   if (config.captureEnabled && config.extraTurnOnCapture) parts.push('extra roll on bump');
@@ -455,11 +458,11 @@ export const EDITION_FACTS = {
     'Capturing opponents is part of the game',
   ],
   assumed: [
-    'The six die colors (red, blue, green, yellow, purple, black)',
+    'The die faces: the four colors plus two golden star wilds',
     'Own color required to leave the base',
-    'Free passing (pawns may be jumped over)',
+    'Strict blocking — pawns may not be jumped over',
+    'The home row queue: enter at the mouth, walk one slot per roll',
     'No extra-roll rules',
-    'Home row matches every color',
     'Up to three rolls when stuck, then the turn passes',
   ],
 } as const;

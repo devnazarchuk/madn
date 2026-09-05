@@ -82,7 +82,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#241B14]">
-      <main className="relative min-h-[560px] flex-1">
+      <main className="relative min-h-[420px] flex-1">
         {/* warm 3D scene */}
         <GameCanvas />
 

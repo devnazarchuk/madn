@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * GAME CONFIG — static board & component constants (ruleset kids-v2)
+ * GAME CONFIG — static board & component constants (ruleset kids-v3)
  * ============================================================================
  * A color-dice race game inspired by the classic German children's game
  * "Mensch ärgere Dich nicht® Kids" (Schmidt Spiele, 2–4 players, 3 pawns each).
@@ -14,43 +14,38 @@
  * Every uncertain mechanic is configurable at runtime via `rulesConfig.ts`
  * (Classic / Quick / Family / Custom presets), never hard-coded here.
  *
- * DOCUMENTED BOARD (edition reconstruction)
- * -----------------------------------------
- * 1. Board: classic cross layout, 40 fields in one loop, 6 track colors
- *    (red, blue, green, yellow + neutral purple & black) in a repeating
- *    cycle. Each player's segment starts with their own color.
- * 2. The die is a 6-faced color die: one face per track color.
+ * DOCUMENTED BOARD (edition reconstruction, kids-v3)
+ * ---------------------------------------------------
+ * 1. Board: classic cross layout, 40 fields in one loop. The track uses
+ *    ONLY the four player colors (red, blue, green, yellow) woven from two
+ *    mirrored 4-color cycles so that every color appears exactly 10 times,
+ *    no two adjacent fields share a color, and every segment starts with
+ *    its owner's color (see engine/boardTrackConfig.ts for the full table).
+ * 2. The die is a 6-faced color die: the four player colors once each plus
+ *    TWO golden STAR faces. A star is a wild roll — the player picks any of
+ *    the four colors and applies it.
  * 3. Movement: roll a color, move ONE pawn forward to the NEXT track field
- *    showing that color (distance 1–6 — no counting needed).
- * 4. Entering / passing / capturing / extra rolls / pawns per player are
- *    configurable — see rulesConfig.ts (defaults = the documented
- *    reconstruction, labelled Classic).
- * 5. Home: when no matching color remains ahead, the pawn goes HOME
- *    (home row of 3 slots; home matches every color). First player with all
- *    pawns home wins.
+ *    showing that color (distance 1–5 — no counting needed). Every
+ *    intermediate field must be free (strict blocking) unless the active
+ *    rules allow free passing.
+ * 4. Entering: roll YOUR OWN color (or a star, which counts as any color
+ *    including your own) to move a pawn onto your start field.
+ * 5. Home: when no matching color remains ahead, the pawn steps into its
+ *    home row at the mouth slot and later rolls walk it deeper, one slot at
+ *    a time. First player with ALL pawns home wins.
  * 6. Stuck turns: no legal move → roll again, up to 3 rolls per turn.
  */
 
-export const RULES_VERSION = 'kids-v2';
+export const RULES_VERSION = 'kids-v3';
 
-/** Repeating cycle of the six track colors along the loop. */
-export const TRACK_COLOR_CYCLE = [
-  'red',
-  'blue',
-  'purple',
-  'black',
-  'green',
-  'yellow',
-] as const;
-
-/** Faces of the 6-sided color die (one face per track color). */
+/** Faces of the 6-sided die: four player colors + two golden star wilds. */
 export const DICE_FACES = [
   'red',
   'blue',
   'green',
   'yellow',
-  'purple',
-  'black',
+  'star',
+  'star',
 ] as const;
 
 /**
@@ -72,6 +67,8 @@ export const RULES = {
   stuckRollsPerTurn: 3,
   /** Auto-execute the move when exactly one legal move exists (ms delay). */
   autoSingleMoveDelay: 850,
+  /** Auto-resolve a star roll when only one color is playable (ms delay). */
+  autoStarResolveDelay: 900,
   /** Edition assumption A8: the home row matches every color. */
   homeMatchesAnyColor: true,
 } as const;
@@ -93,9 +90,12 @@ export const TIMING = {
 
 /** Player/track color palette (world-facing hex values live in theme.ts). */
 export const PLAYER_COLORS = ['red', 'blue', 'green', 'yellow'] as const;
-export const NEUTRAL_COLORS = ['purple', 'black'] as const;
 
 export type PlayerColorId = (typeof PLAYER_COLORS)[number];
-export type NeutralColorId = (typeof NEUTRAL_COLORS)[number];
-export type TrackColorId = PlayerColorId | NeutralColorId;
-export type DiceFaceId = TrackColorId;
+/** Track spaces only ever carry the four player colors (no black/purple). */
+export type TrackColorId = PlayerColorId;
+/** Die faces: the four track colors plus the golden star wild. */
+export type DiceFaceId = TrackColorId | 'star';
+
+/** Convenience list of the four colors a star may resolve to. */
+export const STAR_CHOICES = PLAYER_COLORS;

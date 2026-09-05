@@ -9,12 +9,25 @@ import type { GameState } from './types';
  * data is discarded gracefully (the game falls back to defaults).
  */
 
-const AUTOSAVE_KEY = 'madn-kids-autosave-v1';
+const AUTOSAVE_KEY = 'madn-kids-autosave-v2';
 const PRESETS_KEY = 'madn-kids-rule-presets-v1';
 const SETUP_KEY = 'madn-kids-last-setup-v1';
 
 /** Events kept in the autosave (the full log is persisted server-side on win). */
 const MAX_AUTOSAVE_EVENTS = 600;
+
+const VALID_PHASES = [
+  'await-roll',
+  'rolling',
+  'choose-star',
+  'choose-pawn',
+  'animating',
+  'no-moves',
+  'turn-end',
+  'game-over',
+] as const;
+const VALID_FACES = ['red', 'blue', 'green', 'yellow', 'star'] as const;
+const VALID_COLORS = ['red', 'blue', 'green', 'yellow'] as const;
 
 // ---------------------------------------------------------------------------
 // Autosave of the running match
@@ -29,16 +42,30 @@ export interface AutosavePayload {
 function isGameState(value: unknown): value is GameState {
   if (!value || typeof value !== 'object') return false;
   const g = value as Record<string, unknown>;
-  return (
-    Array.isArray(g.players) &&
-    g.players.length >= 2 &&
-    typeof g.activeIndex === 'number' &&
-    typeof g.phase === 'string' &&
-    typeof g.turn === 'number' &&
-    g.rulesConfig !== null &&
-    typeof g.rulesConfig === 'object' &&
-    Array.isArray(g.events)
-  );
+  if (
+    !Array.isArray(g.players) ||
+    g.players.length < 2 ||
+    typeof g.activeIndex !== 'number' ||
+    typeof g.phase !== 'string' ||
+    typeof g.turn !== 'number' ||
+    g.rulesConfig === null ||
+    typeof g.rulesConfig !== 'object' ||
+    !Array.isArray(g.events)
+  ) {
+    return false;
+  }
+  // Incompatible saves (old rulesets / die faces) are discarded, never
+  // partially trusted.
+  if (!VALID_PHASES.includes(g.phase as (typeof VALID_PHASES)[number])) return false;
+  if (g.diceFace !== null && !VALID_FACES.includes(g.diceFace as (typeof VALID_FACES)[number])) {
+    return false;
+  }
+  for (const p of g.players) {
+    const player = p as Record<string, unknown>;
+    if (!VALID_COLORS.includes(player.color as (typeof VALID_COLORS)[number])) return false;
+    if (!Array.isArray(player.pawns)) return false;
+  }
+  return true;
 }
 
 export function saveAutosave(game: GameState, totalMoves: number): void {
@@ -195,7 +222,7 @@ export function loadLastSetup(): LastSetup | null {
     if (!parsed || typeof parsed !== 'object') return null;
     const p = parsed as Record<string, unknown>;
     if (typeof p.playerCount !== 'number' || !Array.isArray(p.seats)) return null;
-    return p as LastSetup;
+    return p as unknown as LastSetup;
   } catch {
     return null;
   }
