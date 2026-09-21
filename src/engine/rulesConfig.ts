@@ -334,6 +334,14 @@ export const RULE_OPTIONS: RuleOptionMeta[] = [
     ],
   },
   {
+    key: 'starMode',
+    group: 'movement',
+    kind: 'toggle',
+    title: 'Star Mode (wild die)',
+    explanation:
+      'OFF (standard): the die carries a WHITE and a BLACK face — roll them to hop to the next white or black platform on the track. ON: those two faces become golden STARS — a star counts as ANY color you like (including white or black).',
+  },
+  {
     key: 'captureEnabled',
     group: 'capture',
     kind: 'toggle',
@@ -359,7 +367,20 @@ export const RULE_OPTIONS: RuleOptionMeta[] = [
     kind: 'toggle',
     title: 'Pawn towers',
     explanation:
-      'Your own pawns may stand together on one field. Careful: an opponent who lands on your tower bumps ALL of them!',
+      'Your own pawns may stand together on one TRACK field. Careful: an opponent who lands on your tower bumps ALL of them! Inside the home stretch every finish slot always holds ONE pawn — the strict limit applies even with towers on.',
+  },
+  {
+    key: 'ownColorToMove',
+    group: 'turn',
+    kind: 'toggle',
+    title: 'Only your color moves you',
+    explanation:
+      'Roll YOUR color to move — a golden star is wild and may become any color (including the white/black platform you need for the arrow gateway). Any other plain face skips your whole turn right away. Needs Star Mode: with the standard die there is no star to save you, and pawns would strand at the arrow forever.',
+    requires: {
+      key: 'starMode',
+      value: true,
+      why: 'Star Mode must be ON — without the wild star faces nobody could ever roll the arrow gateway\'s platform color, and every pawn would get stuck right before its home stretch.',
+    },
   },
   {
     key: 'extraTurnOnCapture',
@@ -382,6 +403,28 @@ export const RULE_OPTIONS: RuleOptionMeta[] = [
     kind: 'toggle',
     title: 'Skipping moves',
     explanation: 'A Skip button lets you pass on a move you do not like. Off means: if you can move, you must.',
+  },
+  {
+    key: 'finishRule',
+    group: 'finish',
+    kind: 'select',
+    title: 'Reaching the golden goal',
+    explanation:
+      'How the golden winning cell may be reached at the end of the home stretch (inside the row — the golden arrow gateway before it is always a mandatory stop).',
+    choices: [
+      {
+        value: 'exact',
+        label: 'Exact landing (strict)',
+        description:
+          'Inside the row only rolls that keep the pawn ON the row move it — a roll that would carry it PAST the golden cell cannot move that pawn.',
+      },
+      {
+        value: 'flexible',
+        label: 'Carry past is fine',
+        description:
+          'Any roll that carries a home pawn ONTO or PAST the golden cell completes it — nobody gets stuck at the door.',
+      },
+    ],
   },
   {
     key: 'pawnsPerPlayer',
@@ -412,22 +455,37 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   sections.push({
     title: 'The race',
     points: [
-      `Each player races ${config.pawnsPerPlayer === 3 ? 'three' : 'two'} pawns around the board and into their home row.`,
-      'The first player whose pawns are ALL home wins — the game ends immediately.',
+      `Each player races ${config.pawnsPerPlayer === 3 ? 'three' : 'two'} pawns around the board and into their home stretch.`,
+      'The home stretch is fed straight from the arm tip opposite your color row — your pawn walks in through the outer cell.',
+      'Every finish cell holds ONE pawn: the first finisher stands on the golden winning cell forever, the others park behind it — one pawn per slot.',
+      'The first player whose pawns ALL stand inside their home stretch — packed onto the golden cell — wins. The game ends immediately.',
     ],
   });
 
-  sections.push({
-    title: 'Rolling & moving',
-    points: [
-      'Tap the die. Four faces show a color and two show a golden STAR.',
-      'Roll a color → move ONE of your pawns forward to the NEXT field showing that color — no counting needed.',
-      'Roll a STAR → it counts as ANY color you like. Pick your favorite!',
-      config.passingRule === 'free'
-        ? 'You may hop right over pawns standing in your way — only your landing field matters.'
-        : 'Pawns may NOT jump over anybody: if a pawn stands between you and your next matching field, you must wait.',
-    ],
-  });
+  const rolling: string[] = config.starMode
+    ? [
+        'Tap the die. Four faces show a color and two show a golden STAR.',
+        'Roll a color → move ONE of your pawns forward to the NEXT field showing that color — no counting needed.',
+        'Roll a STAR → it counts as ANY color you like (even white or black). Pick your favorite!',
+      ]
+    : [
+        'Tap the die. Four faces show a color, one shows WHITE and one shows BLACK.',
+        'Roll a color → move ONE of your pawns forward to the NEXT field showing that color — no counting needed.',
+        'Roll WHITE or BLACK → hop to the next white or black platform on the track — a nice long stride!',
+      ];
+  if (config.ownColorToMove) {
+    rolling.push(
+      'Color match: ONLY your own color (or a star) lets you move. Any other plain face skips your turn right away — no re-rolling.',
+    );
+  }
+  rolling.push(
+    config.passingRule === 'free'
+      ? 'You may hop right over pawns standing in your way — only your landing field matters.'
+      : 'Pawns may NOT jump over anybody: if a pawn stands between you and your next matching field, you must wait.',
+    'The golden ARROW at each arm tip is a mandatory stop: you can never jump over it into your home stretch — you must first land ON the arrow cell by rolling its exact color, and then roll your OWN color to step inside.',
+    'No legal move? Your turn is skipped — the die is never re-rolled automatically.',
+  );
+  sections.push({ title: 'Rolling & moving', points: rolling });
 
   const entry: string[] = [];
   if (config.entryRule === 'any-color') {
@@ -448,7 +506,8 @@ export function describeRules(config: RulesConfig): RulesSection[] {
       capture.push('Pawns on their OWN start field are safe — nobody can land there.');
     }
     if (config.friendlyStacking) {
-      capture.push('Your own pawns may share one field ("pawn towers"). If an opponent lands on your tower, ALL of them go home!');
+      capture.push('Your own pawns may share one TRACK field ("pawn towers"). If an opponent lands on your tower, ALL of them go home!');
+      capture.push('Inside the home stretch every finish slot always holds just ONE pawn — the strict limit applies even with pawn towers on.');
     } else {
       capture.push('You cannot land on your own pawn — find another move.');
     }
@@ -458,7 +517,7 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   }
   sections.push({ title: 'Bumping & landing', points: capture });
 
-  const turns: string[] = ['No legal move? The die rolls again automatically — up to three tries, then the turn passes.'];
+  const turns: string[] = ['No legal move? The turn is simply skipped — no automatic re-rolls.'];
   if (config.captureEnabled && config.extraTurnOnCapture) {
     turns.push('Bump an opponent → roll again right away!');
   }
@@ -475,14 +534,24 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   }
   sections.push({ title: 'Turns', points: turns });
 
-  sections.push({
-    title: 'Going home',
-    points: [
-      'Near the end of the track, when the rolled color has no matching field left ahead, that pawn steps into its home row — right into the mouth slot.',
-      'Every later roll walks a home pawn one slot deeper — make room for the pawns behind you!',
-      'A pawn at the very last slot is finished: it never moves again and cannot be bumped.',
-    ],
-  });
+  const finish: string[] = [
+    'After a full circuit your pawn arrives at the arm tip directly opposite your color row — the golden ARROW cell — and it is a MANDATORY stop: no pawn may jump over it.',
+    'Step 1: standing before the arrow, roll the arrow cell\u2019s exact color (it is a white or black platform) to move ONTO it. Once there, a pawn may never continue around the board loop.',
+    'Step 2: on a later turn, roll your OWN color (or a golden star) to step onto the first cell of your home stretch.',
+    'The home stretch is YOUR color: roll your OWN color again and again to walk slot by slot — the first pawn reaches the golden winning cell and stands there forever; the later pawns park behind it, one per cell.',
+    'Winning: bring ALL your pawns into the row — one per finish cell, packed onto the golden cell — and you win immediately.',
+  ];
+  if (config.finishRule === 'exact') {
+    finish.push(
+      'Strict finish inside the row: a roll that would carry a pawn PAST the golden cell cannot move it — foreign colors simply do not help there.',
+    );
+  } else {
+    finish.push(
+      'Flexible finish inside the row: ANY roll that carries a pawn onto or past the golden winning cell completes it — nobody waits at the door.',
+    );
+  }
+  finish.push('A finished pawn stands on the winning cell forever: it never moves again and cannot be bumped.');
+  sections.push({ title: 'Going home', points: finish });
 
   return sections;
 }
@@ -496,6 +565,9 @@ export function rulesHeadline(config: RulesConfig): string {
   if (config.friendlyStacking) parts.push('pawn towers');
   if (config.captureEnabled && config.extraTurnOnCapture) parts.push('extra roll on bump');
   if (config.extraTurnOnOwnColor) parts.push('extra roll on own color');
+  if (config.ownColorToMove) parts.push('own color only');
+  parts.push(config.starMode ? 'star wilds' : 'white & black platforms');
+  parts.push(config.finishRule === 'exact' ? 'exact goal landing' : 'goal on any reach');
   if (config.pawnsPerPlayer === 2) parts.push('2 pawns');
   return parts.join(' · ');
 }
@@ -509,11 +581,15 @@ export const EDITION_FACTS = {
     'Capturing opponents is part of the game',
   ],
   assumed: [
-    'The die faces: the four colors plus two golden star wilds',
+    'The die faces: the four colors plus white & black platforms (Star Mode swaps them for two golden star wilds)',
     'Own color required to leave the base',
     'Strict blocking — pawns may not be jumped over',
-    'The home row queue: enter at the mouth, walk one slot per roll',
+    'The home stretch is painted in the player\'s own color and walked with own-color rolls',
+    'The golden arrow gateway (the arm tip) is a MANDATORY stop: reach it by rolling its exact platform color, step into the row with the own color, never loop past it',
+    'Strictly one pawn per finish cell inside the home stretch (the golden cell keeps its first finisher; later pawns park behind)',
+    'Victory when all pawns stand in the home stretch, one per cell, packed onto the golden cell',
+    'The exact-roll finish rule inside the row',
+    'Skipped turns instead of automatic re-rolls',
     'No extra-roll rules',
-    'Up to three rolls when stuck, then the turn passes',
   ],
 } as const;

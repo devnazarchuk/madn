@@ -9,7 +9,13 @@ import type { GameState } from './types';
  * data is discarded gracefully (the game falls back to defaults).
  */
 
-const AUTOSAVE_KEY = 'madn-kids-autosave-v2';
+/**
+ * v4 — kids-v5 board generation: white & black platforms woven into the
+ * track, the standard die carries white/black faces (Star Mode is optional).
+ * Saves from older board generations are discarded rather than mis-rendered
+ * (their pawns stood on a different color weave).
+ */
+const AUTOSAVE_KEY = 'madn-kids-autosave-v4';
 const PRESETS_KEY = 'madn-kids-rule-presets-v1';
 const SETUP_KEY = 'madn-kids-last-setup-v1';
 
@@ -26,7 +32,7 @@ const VALID_PHASES = [
   'turn-end',
   'game-over',
 ] as const;
-const VALID_FACES = ['red', 'blue', 'green', 'yellow', 'star'] as const;
+const VALID_FACES = ['red', 'blue', 'green', 'yellow', 'white', 'black', 'star'] as const;
 const VALID_COLORS = ['red', 'blue', 'green', 'yellow'] as const;
 
 // ---------------------------------------------------------------------------
