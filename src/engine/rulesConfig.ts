@@ -5,7 +5,7 @@ import { z } from 'zod';
  * RULES CONFIGURATION — versioned, validated, persisted.
  * ============================================================================
  * One authoritative schema drives:
- *   • the engine (legal moves, captures, extra turns),
+ *   • the engine (legal moves, captures, extra turns, the finish boundary),
  *   • the Additional Rules editor (metadata below),
  *   • the dynamic in-game rules reference (describeRules),
  *   • the saved-preset system (persistence.ts).
@@ -18,10 +18,12 @@ import { z } from 'zod';
 export type RulesPresetId = 'classic' | 'custom' | 'quick' | 'family';
 export type EntryRuleId = 'own-color' | 'any-color';
 export type PassingRuleId = 'free' | 'strict-blocking';
+/** A6 — how the golden winning cell may be reached. */
+export type FinishRuleId = 'exact' | 'flexible';
 
 export interface RulesConfig {
   /** Schema version — bump when options change. */
-  version: 1;
+  version: 3;
   preset: RulesPresetId;
   /** A3 — required color to leave the base. */
   entryRule: EntryRuleId;
@@ -39,6 +41,34 @@ export interface RulesConfig {
   extraTurnOnCapture: boolean;
   /** A7 — extra roll after rolling your own color. */
   extraTurnOnOwnColor: boolean;
+  /**
+   * A6 finish — 'exact' (Classic default): a pawn must LAND on the golden
+   * winning cell with an exact die roll; a roll that would carry it past the
+   * winning cell cannot move it. 'flexible': any roll that carries the pawn
+   * onto or past the winning cell completes it.
+   */
+  finishRule: FinishRuleId;
+  /**
+   * Star Mode (kids-v5, default OFF) — the optional wild-die variant. ON:
+   * the die's white and black faces are replaced by two golden STAR wilds;
+   * a star counts as ANY of the six track colors (four player colors, white
+   * or black). OFF (the standard game): the die carries a WHITE face and a
+   * BLACK face that walk a pawn to the next white/black platform, exactly
+   * like a color roll walks to the next field of that color.
+   */
+  starMode: boolean;
+  /**
+   * A9 color-match turns — when ON (Star Mode required), only the player's
+   * OWN color (or a golden star, which is wild) lets them move; any plain
+   * foreign face skips the whole turn immediately — no extra roll, no
+   * re-rolling. OFF (Classic default): every face moves a pawn to the next
+   * field of that color. Under the mandatory golden-arrow stop (kids-v6)
+   * this variant NEEDS Star Mode: with the standard die the arrow gateway's
+   * white/black platform color could never be rolled and pawns would strand
+   * forever right before their home stretch — the normalization therefore
+   * drops the variant when Star Mode is off.
+   */
+  ownColorToMove: boolean;
   /** Voluntary skip of a legal move (Skip button in the HUD). */
   maySkipMove: boolean;
   /** V2 — 3 for the edition, 2 for shorter matches. */
@@ -46,19 +76,12 @@ export interface RulesConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Zod schema
-// ---------------------------------------------------------------------------
-
-// (Schema is declared after CLASSIC_CONFIG below so the classic-preset
-// refinement can compare against it.)
-
-// ---------------------------------------------------------------------------
 // Presets
 // ---------------------------------------------------------------------------
 
 /** The documented Kids-edition reconstruction (RULES.md §3) — strict edition. */
 export const CLASSIC_CONFIG: RulesConfig = {
-  version: 1,
+  version: 3,
   preset: 'classic',
   entryRule: 'own-color',
   entryAssist: false,
@@ -68,6 +91,9 @@ export const CLASSIC_CONFIG: RulesConfig = {
   friendlyStacking: false,
   extraTurnOnCapture: false,
   extraTurnOnOwnColor: false,
+  finishRule: 'exact',
+  starMode: false,
+  ownColorToMove: false,
   maySkipMove: false,
   pawnsPerPlayer: 3,
 };
@@ -81,12 +107,14 @@ export const QUICK_CONFIG: RulesConfig = {
   pawnsPerPlayer: 2,
 };
 
-/** Easier for younger players: hop over others, safe starts, skipping. */
+/** Easier for younger players: hop over others, safe starts, skipping, and a
+ *  forgiving finish — any roll that reaches the goal completes the pawn. */
 export const FAMILY_CONFIG: RulesConfig = {
   ...CLASSIC_CONFIG,
   preset: 'family',
   passingRule: 'free',
   protectedStarts: true,
+  finishRule: 'flexible',
   maySkipMove: true,
 };
 
@@ -94,7 +122,7 @@ export const PRESET_ORDER: RulesPresetId[] = ['classic', 'quick', 'family', 'cus
 
 export const rulesConfigSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(3),
     preset: z.enum(['classic', 'custom', 'quick', 'family']),
     entryRule: z.enum(['own-color', 'any-color']),
     entryAssist: z.boolean(),
@@ -104,6 +132,9 @@ export const rulesConfigSchema = z
     friendlyStacking: z.boolean(),
     extraTurnOnCapture: z.boolean(),
     extraTurnOnOwnColor: z.boolean(),
+    finishRule: z.enum(['exact', 'flexible']),
+    starMode: z.boolean(),
+    ownColorToMove: z.boolean(),
     maySkipMove: z.boolean(),
     pawnsPerPlayer: z.union([z.literal(2), z.literal(3)]),
   })
@@ -129,7 +160,8 @@ export const PRESET_META: Record<
 > = {
   classic: {
     title: 'Classic Rules',
-    tagline: 'Strict edition rules — your own color starts, nobody may be jumped over.',
+    tagline:
+      'Strict edition rules — your own color starts, nobody may be jumped over, and every pawn must STOP on the golden arrow before walking home.',
     locked: true,
   },
   quick: {
@@ -139,7 +171,8 @@ export const PRESET_META: Record<
   },
   family: {
     title: 'Family Mode',
-    tagline: 'Friendlier for the youngest — hop over others, safe start fields, skipping moves.',
+    tagline:
+      'Friendliest for the youngest — hop over others, safe start fields, and a forgiving goal once a pawn is inside its row.',
     locked: false,
   },
   custom: {
@@ -156,13 +189,23 @@ export const PRESET_META: Record<
 /**
  * Parses unknown data into a valid config; drops nonsensical combinations so
  * the engine can trust the result. Falls back to Classic when unparseable.
+ * Version 1 saves (kids-v3) are migrated by filling the new options with
+ * their Classic defaults; version 2 saves (kids-v4, the star-era die) are
+ * migrated to Star Mode ON — those matches were created when the two wild
+ * faces were stars, and custom presets keep that behavior.
  */
 export function normalizeRulesConfig(input: unknown): RulesConfig {
   const base = CLASSIC_CONFIG;
   if (!input || typeof input !== 'object') return { ...base };
   const raw = input as Record<string, unknown>;
+  // kids-v4 (v2) configs predate Star Mode: their die carried two golden
+  // star wilds. Migrate them to starMode ON so saved custom presets keep
+  // playing exactly as they were created. (Preset configs resolve to the
+  // v3 preset definitions below, which use the standard die.)
+  const legacyStarEra = raw.version !== 3 || raw.starMode === undefined;
   const merged = { ...base, ...(raw as Partial<RulesConfig>) } as RulesConfig;
-  merged.version = 1;
+  merged.version = 3;
+  if (legacyStarEra && merged.preset === 'custom') merged.starMode = true;
   // Drop nonsensical combinations:
   if (!merged.captureEnabled) {
     merged.extraTurnOnCapture = false; // no captures → no capture extra roll
@@ -170,6 +213,14 @@ export function normalizeRulesConfig(input: unknown): RulesConfig {
   }
   if (merged.entryRule === 'any-color') {
     merged.entryAssist = true; // any-color already includes the assist idea
+  }
+  if (!merged.starMode) {
+    // kids-v6: the golden-arrow gateway is a MANDATORY stop — reaching it
+    // requires rolling the arrow cell's white/black platform face. Without
+    // a wild star that face can never be used under the own-color-only
+    // variant, so the variant is dropped with the standard die (otherwise
+    // every pawn would strand forever right before its home stretch).
+    merged.ownColorToMove = false;
   }
   if (merged.preset === 'classic') return { ...CLASSIC_CONFIG };
   if (merged.preset === 'quick') return { ...QUICK_CONFIG };
