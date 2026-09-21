@@ -41,7 +41,7 @@ export type GamePhase =
   | 'choose-star'     // star rolled — the active player picks a color
   | 'choose-pawn'     // waiting for pawn selection (moves highlighted)
   | 'animating'       // pawn move/capture/finish animation running
-  | 'no-moves'        // roll produced no legal move (brief pause, then pass/reroll)
+  | 'no-moves'        // roll produced no legal move (brief pause, then the turn is skipped)
   | 'turn-end'        // brief transition before next player
   | 'game-over';      // a player has won
 
@@ -51,9 +51,11 @@ export interface LegalMove {
   to: Position;
   /** Pawn leaves its base onto its start field. */
   isEntry: boolean;
-  /** Pawn steps from the track into its home row (mouth slot). */
+  /** Pawn lands on the golden winning cell (home slot 2) — the first pawn to
+   * finish stands there forever; later pawns park behind it, one per slot. */
   isFinish: boolean;
-  /** Pawn walks one slot deeper inside its home row. */
+  /** Pawn moves to a home slot short of the winning cell (stepping from the
+   * golden arrow gateway into the stretch or advancing inside it). */
   isHomeAdvance: boolean;
   /** Opponent pawns sent back to base (all of them when "pawn towers" are on). */
   capturedPawnIds: string[];
@@ -76,7 +78,14 @@ export type MoveRejectionReason =
   | 'PROTECTED_FIELD'
   | 'FINISH_LANE_BLOCKED'
   | 'MOVE_EXCEEDS_FINISH'
-  | 'PAWN_FINISHED';
+  | 'PAWN_FINISHED'
+  /**
+   * No field showing the rolled face lies within the pawn's legal reach —
+   * with the golden arrow gateway cap this is a REAL state: the next match
+   * would lie beyond the gateway (or past the goal), so the pawn must wait
+   * for another roll.
+   */
+  | 'NO_MATCH_AHEAD';
 
 export interface MoveValidation {
   legal: boolean;
@@ -88,7 +97,6 @@ export type GameEventKind =
   | 'game-started'
   | 'roll'
   | 'star-choice'
-  | 'reroll'
   | 'move'
   | 'capture'
   | 'finish'
@@ -121,7 +129,13 @@ export interface GameState {
    * color; no move is legal while it is unresolved.
    */
   diceFace: DiceFaceId | null;
-  /** Rolls used in the current turn (stuck-rerolls + extra rolls). */
+  /**
+   * True while the pending dice result originated as a golden STAR. A star
+   * is wild: even with `ownColorToMove` on, a resolved star may become ANY
+   * color — the color-match rule only voids plain color rolls.
+   */
+  diceFromStar: boolean;
+  /** Rolls used in the current turn (extra-roll chains). */
   rollsThisTurn: number;
   /** Why the active player may roll again, if they may ('capture' | 'own-color'). */
   extraRoll: 'capture' | 'own-color' | null;

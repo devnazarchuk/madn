@@ -1,4 +1,4 @@
-import { DICE_FACES, type DiceFaceId } from '@/config/gameConfig';
+import { diceFacesFor, type DiceFaceId } from '@/config/gameConfig';
 
 /** Deterministic, seedable RNG (mulberry32) so games are replayable. */
 export function nextRandom(state: number): { value: number; next: number } {
@@ -10,9 +10,19 @@ export function nextRandom(state: number): { value: number; next: number } {
   return { value, next: t };
 }
 
-export function rollDieFace(rngState: number): { face: DiceFaceId; next: number } {
+/**
+ * Rolls one face of the match's die. Standard mode (starMode OFF): the four
+ * player colors + WHITE + BLACK (the platform faces). Star Mode: the four
+ * colors + two golden STAR wilds. `diceFacesFor` is the single source of the
+ * face list — the engine and the 3D die agree on it by construction.
+ */
+export function rollDieFace(
+  rngState: number,
+  starMode: boolean,
+): { face: DiceFaceId; next: number } {
   const { value, next } = nextRandom(rngState);
-  const face = DICE_FACES[Math.floor(value * DICE_FACES.length)]!;
+  const faces = diceFacesFor(starMode);
+  const face = faces[Math.floor(value * faces.length)]!;
   return { face, next };
 }
 
