@@ -39,6 +39,26 @@ export function homeSlotOccupied(player: PlayerRuntime, slot: number): boolean {
   return player.pawns.some((p) => p.pos.area === 'home' && p.pos.index === slot);
 }
 
+/**
+ * The kids-v6 VICTORY condition: a player wins when their pawns ALL stand
+ * inside their home stretch, strictly ONE PAWN PER CELL, packed against the
+ * golden winning cell — the row fills sequentially (first finisher onto the
+ * golden cell, the next onto the middle slot, the last onto the outer slot),
+ * every pawn blocked from advancing by a teammate ahead. Equivalently: the
+ * occupied slots are exactly {2}, {2,1} or {2,1,0} — no gaps, golden taken.
+ * (The strict one-pawn-per-cell limit inside the stretch ALWAYS applies, even
+ * when friendly stacking is enabled for the main track.)
+ */
+export function homeRowPacked(player: PlayerRuntime): boolean {
+  if (!player.pawns.every((p) => p.pos.area === 'home')) return false;
+  const lastSlot = RULES.homeSlots - 1;
+  const slots = player.pawns.map((p) => p.pos.index);
+  // Packed against the golden cell: each pawn is ON the winning cell or has a
+  // teammate directly ahead of it (which, with one pawn per cell, means the
+  // occupied slots form a gapless block ending at the golden cell).
+  return slots.every((s) => s === lastSlot || slots.includes(s + 1));
+}
+
 /** Find a pawn by id across all players. */
 export function pawnById(state: GameState, id: string): PawnState | null {
   for (const p of state.players) {

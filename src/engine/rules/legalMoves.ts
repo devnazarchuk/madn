@@ -1,4 +1,4 @@
-import { PLAYER_COLORS, RULES, type PlayerColorId } from '@/config/gameConfig';
+import { RULES, TRACK_COLORS } from '@/config/gameConfig';
 import { loopIndexFromPath, pathIndex, START_INDEX } from '../board';
 import type {
   GameState,
@@ -6,10 +6,17 @@ import type {
   MoveRejectionReason,
   MoveValidation,
   PawnState,
+  PlayerColorId,
   PlayerRuntime,
+  TrackColorId,
 } from '../types';
 import { homeSlotOccupied } from './occupancy';
-import { intermediatePathClear, matchingFieldAhead, pathRangeOccupied } from './validatePath';
+import {
+  GATEWAY_POSITION,
+  intermediatePathClear,
+  matchingFieldAhead,
+  WINNING_POSITION,
+} from './validatePath';
 import { validateTrackDestination } from './validateDestination';
 
 /**
@@ -18,16 +25,31 @@ import { validateTrackDestination } from './validateDestination';
  * options for the CURRENT dice result (the engine's own diceFace — never a
  * value supplied by the presentation layer).
  * ============================================================================
+ * One rule drives everything: "walk to the next field showing the rolled
+ * face", measured along the pawn's 43-position journey (40 track fields,
+ * woven from the four player colors AND the white/black platforms, plus the
+ * 3 home slots painted in the player's own color) — WITH the golden arrow
+ * gateway as a MANDATORY STOP before the home stretch (kids-v6):
+ *   • a track pawn may only land up to and INCLUDING the gateway (J39);
+ *     reaching the gateway requires rolling that arrow cell's exact color;
+ *   • from the gateway only the OWN color (or a resolved star) steps onto
+ *     the first home cell — there is never a loop back onto the track;
+ *   • a roll whose match lies beyond the pawn's reach yields NO_MATCH_AHEAD.
+ * Inside the home stretch every finish slot holds strictly ONE pawn (even
+ * with friendly stacking enabled for the main track); the golden winning
+ * cell keeps its first finisher forever, later pawns park behind it.
  * Stages, in order:
  *   1. pawn belongs to the ACTIVE player          → PAWN_NOT_OWNED_BY_ACTIVE_PLAYER
  *   2. a dice result exists                       → NO_DICE_RESULT
- *   3. a star is resolved to a concrete color    → STAR_UNRESOLVED
- *   4. entry color match (base pawns)            → WRONG_DICE_COLOR
- *   5. every intermediate field free (strict)     → PATH_BLOCKED
- *   6. destination occupancy / capture           → DESTINATION_OCCUPIED /
- *      CAPTURE_DISABLED / PROTECTED_FIELD
- *   7. home-lane boundary / queue                → FINISH_LANE_BLOCKED /
- *      MOVE_EXCEEDS_FINISH / PAWN_FINISHED
+ *   3. a star is resolved to a concrete color     → STAR_UNRESOLVED
+ *   3b. plain foreign color (own-color rule on)   → WRONG_DICE_COLOR
+ *   4. entry color match (base pawns)             → WRONG_DICE_COLOR
+ *   5. every intermediate position free (strict) → PATH_BLOCKED
+ *   6. destination occupancy / capture            → DESTINATION_OCCUPIED /
+ *      CAPTURE_DISABLED / PROTECTED_FIELD / FINISH_LANE_BLOCKED
+ *   7. finish boundary: a roll carrying a pawn    → MOVE_EXCEEDS_FINISH ('exact')
+ *      PAST the golden winning cell is only legal
+ *      with the flexible finish rule              / PAWN_FINISHED
  *
  * Pure functions throughout — no validation ever mutates the state. A move is
  * only offered (or applied) after the WHOLE path is confirmed legal.
@@ -38,10 +60,15 @@ interface PawnEvaluation {
   reason?: MoveRejectionReason;
 }
 
-/** Whether a base pawn may leave with the given (resolved) face. */
+/**
+ * Whether a base pawn may leave with the given (resolved) face. White and
+ * black are PLATFORM faces, not player colors: under the own-color rule they
+ * never authorize an entry (any-color entry and the first-pawn assist accept
+ * them like any other face).
+ */
 export function canEnterBoard(
   player: PlayerRuntime,
-  face: PlayerColorId,
+  face: TrackColorId,
   rules: { entryRule: 'own-color' | 'any-color'; entryAssist: boolean },
 ): boolean {
   if (rules.entryRule === 'any-color') return true;
