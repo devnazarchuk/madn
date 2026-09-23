@@ -1,6 +1,6 @@
 import { RULES } from '@/config/gameConfig';
 import type { GameEvent, GameState, LegalMove } from '../types';
-import { cloneState, firstFreeSlot, pawnById } from './occupancy';
+import { cloneState, firstFreeSlot, homeRowPacked, pawnById } from './occupancy';
 
 /**
  * ============================================================================
@@ -11,6 +11,13 @@ import { cloneState, firstFreeSlot, pawnById } from './occupancy';
  *   captures (victims → their bases) → the pawn itself moves → events are
  *   emitted → win check → extra-roll check. The input state is never mutated;
  *   a fresh cloned state is returned.
+ *
+ * The win condition (kids-v6): a player wins when their pawns ALL stand
+ * inside the home stretch — strictly ONE PAWN PER FINISH CELL — packed
+ * against the golden winning cell (the row fills sequentially: the first
+ * finisher onto the golden cell, the next onto the middle slot, the last
+ * onto the outer slot). Pawns merely inside the stretch with a free cell
+ * ahead of them still have work to do.
  */
 
 export interface ApplyResult {
@@ -62,9 +69,11 @@ export function applyMove(input: GameState, move: LegalMove): ApplyResult {
     detail: move.isEntry
       ? `entered the board (${cfg.entryRule === 'any-color' ? 'any color' : 'own color'})`
       : move.isFinish
-        ? 'stepped into the home row'
+        ? 'reached the golden winning cell'
         : move.isHomeAdvance
-          ? `walked deeper into home (slot ${move.to.index})`
+          ? move.from.area === 'home'
+            ? `walked deeper into the home stretch (slot ${move.to.index})`
+            : 'stepped from the arrow gateway into the home stretch (slot 0)'
           : 'moved',
   });
 
@@ -79,8 +88,10 @@ export function applyMove(input: GameState, move: LegalMove): ApplyResult {
     });
   }
 
-  // Win check: ALL pawns of the player are home — the match ends immediately.
-  if (player.pawns.every((p) => p.pos.area === 'home')) {
+  // Win check: ALL pawns of the player stand inside the home stretch, ONE PER
+  // FINISH CELL, packed against the golden winning cell — the match ends
+  // immediately (see homeRowPacked for the exact packing semantics).
+  if (homeRowPacked(player)) {
     state.winner = color;
     state.phase = 'game-over';
     events.push({

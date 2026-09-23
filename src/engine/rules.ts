@@ -1,5 +1,5 @@
-import { LOOP, START_INDEX, pathIndex } from './board';
-import { FIELD_COLORS } from './boardTrackConfig';
+import { LOOP, START_INDEX, journeyIndex } from './board';
+import { FIELD_COLORS, HOME_COLORS } from './boardTrackConfig';
 import { RULES } from '@/config/gameConfig';
 import { pawnsOnTrack as pawnsOnTrackSrc } from './rules/occupancy';
 import type { GameState, PawnState, PlayerColorId, PlayerRuntime, Position } from './types';
@@ -11,7 +11,7 @@ import type { GameState, PawnState, PlayerColorId, PlayerRuntime, Position } fro
  * The implementation lives in focused modules under engine/rules/ (mirroring
  * the validation pipeline):
  *   rules/occupancy.ts           — logical board occupancy (pawns per position)
- *   rules/validatePath.ts        — intermediate path checks + movement paths
+ *   rules/validatePath.ts        — the journey color model + path checks
  *   rules/validateDestination.ts — landing-field rules (capture eligibility)
  *   rules/legalMoves.ts          — the per-pawn pipeline: getLegalMoves,
  *                                  validateMove, star resolution options
@@ -27,6 +27,7 @@ export {
   pawnById,
   playerOf,
   cloneState,
+  homeRowPacked,
 } from './rules/occupancy';
 export {
   getLegalMoves,
@@ -38,8 +39,12 @@ export {
 export { applyMove } from './rules/applyMove';
 export {
   calculateMovementPath,
+  journeyColor,
   matchingFieldAhead,
   intermediatePathClear,
+  pathRangeOccupied,
+  GATEWAY_POSITION,
+  WINNING_POSITION,
 } from './rules/validatePath';
 
 // ---------------------------------------------------------------------------
@@ -58,24 +63,46 @@ export function pawnCounts(player: PlayerRuntime): PawnCounts {
   return counts;
 }
 
-/** 0..1 progress of a pawn along its journey. */
+/** 0..1 progress of a pawn along its full 43-position journey (goal = 1). */
 export function pawnProgress(color: PlayerColorId, pos: Position): number {
-  const idx = pathIndex(color, pos);
-  return Math.max(0, Math.min(1, (idx + 1) / (RULES.trackFields + 1)));
+  const idx = journeyIndex(color, pos);
+  const length = RULES.trackFields + RULES.homeSlots; // 43
+  return Math.max(0, Math.min(1, (idx + 1) / length));
 }
 
 /** How close a pawn is to finishing — used by the AI. */
 export function pawnPathIndex(color: PlayerColorId, pos: Position): number {
-  return pathIndex(color, pos);
+  return journeyIndex(color, pos);
 }
 
-/** Slot index of a pawn among the pawns sharing its field (for stack offsets). */
+/** True when the pawn stands finished on the golden winning cell — the row's
+ * first finisher, which stands there forever (later pawns park behind it). */
+export function isPawnFinished(pawn: PawnState): boolean {
+  return pawn.pos.area === 'home' && pawn.pos.index === RULES.homeSlots - 1;
+}
+
+/**
+ * Slot index of a pawn among the pawns sharing its position (for stack
+ * offsets) — track towers ("pawn towers") only: since kids-v6 every finish
+ * cell inside the home stretch holds strictly ONE pawn, so home pawns never
+ * stack (the finish-shelf branch merely keeps legacy saves readable).
+ */
 export function stackIndex(state: GameState, pawn: PawnState): number {
-  if (pawn.pos.area !== 'track') return 0;
-  const sharing = pawnsOnTrackSrc(state, pawn.pos.index)
-    .filter((p) => p.color === pawn.color)
+  const finished = isPawnFinished(pawn);
+  if (pawn.pos.area !== 'track' && !finished) return 0;
+  const sameArea = (p: PawnState) =>
+    finished ? isPawnFinished(p) : p.pos.area === 'track' && p.pos.index === pawn.pos.index;
+  const sharing = state.players
+    .flatMap((p) => p.pawns)
+    .filter((p) => p.color === pawn.color && sameArea(p))
     .sort((a, b) => a.id.localeCompare(b.id));
   return Math.max(0, sharing.findIndex((p) => p.id === pawn.id));
 }
 
-export { LOOP, START_INDEX, FIELD_COLORS };
+export {
+  LOOP,
+  START_INDEX,
+  FIELD_COLORS,
+  HOME_COLORS,
+  journeyIndex,
+};

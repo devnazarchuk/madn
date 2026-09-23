@@ -1,4 +1,4 @@
-import { RULES, type DiceFaceId, type PlayerColorId } from '@/config/gameConfig';
+import { RULES, type DiceFaceId, type PlayerColorId, type TrackColorId } from '@/config/gameConfig';
 import { DEFAULT_COLORS, TURN_ORDER } from './board';
 import { cloneState } from './rules';
 import { randomSeed, rollDieFace, nextRandom } from './dice';
@@ -49,6 +49,7 @@ export function createGame(
     turn: 1,
     phase: 'await-roll',
     diceFace: null,
+    diceFromStar: false,
     rollsThisTurn: 0,
     extraRoll: null,
     rulesConfig,
@@ -74,12 +75,16 @@ export function createGame(
   return state;
 }
 
-/** Rolls the die for the current turn. Pure — returns cloned state. */
+/** Rolls the die for the current turn. Pure — returns cloned state.
+ * The face list comes from the match's Star Mode toggle: the standard die
+ * carries the four colors + WHITE + BLACK; the Star Mode die carries two
+ * golden STAR wilds instead. */
 export function rollForTurn(input: GameState): { state: GameState; face: DiceFaceId } {
   const state = cloneState(input);
-  const { face, next } = rollDieFace(state.rngState);
+  const { face, next } = rollDieFace(state.rngState, state.rulesConfig.starMode);
   state.rngState = next;
   state.diceFace = face;
+  state.diceFromStar = face === 'star';
   state.rollsThisTurn += 1;
   state.extraRoll = null;
   const player = state.players[state.activeIndex]!;
@@ -95,15 +100,20 @@ export function rollForTurn(input: GameState): { state: GameState; face: DiceFac
 }
 
 /**
- * Resolves a star (wild) roll to a concrete color — the engine's single
+ * Resolves a star (wild) roll to a concrete track color — the engine's single
  * authoritative record of what the star became. Only legal while the star
  * is actually pending; otherwise a no-op returning the input unchanged.
+ * The roll keeps its star origin (`diceFromStar`) — a resolved star may
+ * become ANY of the six track colors (four player colors, white or black:
+ * a platform stride), even when only the player's own color would normally
+ * move them.
  */
-export function resolveStarFace(input: GameState, chosen: PlayerColorId): GameState {
+export function resolveStarFace(input: GameState, chosen: TrackColorId): GameState {
   const state = cloneState(input);
   if (state.phase !== 'choose-star' || state.diceFace !== 'star') return state;
   const player = state.players[state.activeIndex]!;
   state.diceFace = chosen;
+  state.diceFromStar = true;
   state.phase = 'choose-pawn';
   state.events.push({
     seq: state.events.length,
@@ -115,22 +125,11 @@ export function resolveStarFace(input: GameState, chosen: PlayerColorId): GameSt
   return state;
 }
 
-/** Registers a "no legal move" reroll (same face bookkeeping is re-rolled). */
-export function noteReroll(input: GameState): GameState {
-  const state = cloneState(input);
-  const player = state.players[state.activeIndex]!;
-  state.events.push({
-    seq: state.events.length,
-    turn: state.turn,
-    kind: 'reroll',
-    player: player.color,
-    detail: `no legal move — roll ${state.rollsThisTurn}/${RULES.stuckRollsPerTurn}`,
-  });
-  return state;
-}
-
 /** Passes the turn to the next player (clockwise among seated players). */
-export function passTurn(input: GameState, reason = 'no legal move this turn'): GameState {
+export function passTurn(
+  input: GameState,
+  reason = 'no legal move this turn',
+): GameState {
   const state = cloneState(input);
   const player = state.players[state.activeIndex]!;
   state.events.push({
@@ -149,6 +148,7 @@ export function advanceTurn(input: GameState): GameState {
   state.activeIndex = (state.activeIndex + 1) % state.players.length;
   state.turn += 1;
   state.diceFace = null;
+  state.diceFromStar = false;
   state.rollsThisTurn = 0;
   state.extraRoll = null;
   state.phase = 'await-roll';
