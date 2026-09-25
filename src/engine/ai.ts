@@ -1,4 +1,4 @@
-import { RULES, type PlayerColorId } from '@/config/gameConfig';
+import { RULES, type TrackColorId } from '@/config/gameConfig';
 import { loopIndexFromPath, pathIndex, START_INDEX } from './board';
 import { FIELD_COLORS } from './boardTrackConfig';
 import { pawnsOnTrack } from './rules';
@@ -16,10 +16,10 @@ import type { AiLevel, GameState, LegalMove } from './types';
  *
  * The AI can never bypass the rules engine: it only ever receives moves from
  * getLegalMoves(), which honours the active rules configuration (blocking,
- * protection, stacking, capturing, extra rolls) automatically. A star roll is
- * resolved through the same enumeration the UI offers: every legal color is
- * considered, and the resolution is recorded through the engine's
- * resolveStarFace like any human choice.
+ * protection, stacking, capturing, extra rolls) automatically. A star roll
+ * (Star Mode only) is resolved through the same enumeration the UI offers:
+ * every legal color is considered, and the resolution is recorded through the
+ * engine's resolveStarFace like any human choice.
  */
 
 interface ScoredMove {
@@ -28,8 +28,9 @@ interface ScoredMove {
 }
 
 /**
- * How many die faces (colors + star) would let ANY opponent pawn land on the
- * given loop field next turn (approximation used by the hard level).
+ * How many die faces (colors + platforms + star, whichever the mode's die
+ * carries) would let ANY opponent pawn land on the given loop field next
+ * turn (approximation used by the hard level).
  */
 function threatOn(state: GameState, loopIdx: number, myColor: string): number {
   const cfg = state.rulesConfig;
@@ -45,8 +46,11 @@ function threatOn(state: GameState, loopIdx: number, myColor: string): number {
     for (const pawn of player.pawns) {
       if (pawn.pos.area !== 'track') continue;
       const fromIdx = pathIndex(player.color, pawn.pos);
-      // The woven track guarantees every color re-occurs within 5 fields.
-      for (let ahead = 1; ahead <= 5 && fromIdx + ahead < RULES.trackFields; ahead++) {
+      // The woven track guarantees every face re-occurs within 8 fields
+      // (7 fields per player color, 6 white + 6 black platforms) — and the
+      // < trackFields bound mirrors the golden arrow gateway cap: no
+      // opponent can ever land beyond their own arrow in ONE move.
+      for (let ahead = 1; ahead <= 8 && fromIdx + ahead < RULES.trackFields; ahead++) {
         const target = loopIndexFromPath(player.color, fromIdx + ahead);
         if (target === loopIdx) {
           capturingFaces.add(FIELD_COLORS[target]!);
@@ -55,8 +59,9 @@ function threatOn(state: GameState, loopIdx: number, myColor: string): number {
       }
     }
   }
-  // A star can imitate any color that reaches us.
-  if (capturingFaces.size > 0) capturingFaces.add('star');
+  // Only a STAR-mode die carries the wild face that can imitate any color
+  // that reaches us — the standard die has no stars.
+  if (cfg.starMode && capturingFaces.size > 0) capturingFaces.add('star');
   return capturingFaces.size;
 }
 
@@ -138,7 +143,7 @@ export function chooseAiMove(state: GameState, moves: LegalMove[]): LegalMove | 
 }
 
 /** The AI's chosen color for a pending star roll (null = no productive color). */
-export function chooseAiStarColor(state: GameState): PlayerColorId | null {
+export function chooseAiStarColor(state: GameState): TrackColorId | null {
   if (state.diceFace !== 'star') return null;
   const level = state.players[state.activeIndex]!.aiLevel;
   const options = starOptions(state);
@@ -148,7 +153,7 @@ export function chooseAiStarColor(state: GameState): PlayerColorId | null {
     return options[Math.floor(Math.random() * options.length)]!;
   }
   // Score every (color × move) combination exactly as a human could pick.
-  let bestColor: PlayerColorId | null = null;
+  let bestColor: TrackColorId | null = null;
   let bestScore = -Infinity;
   for (const color of options) {
     const probe: GameState = { ...state, diceFace: color };
