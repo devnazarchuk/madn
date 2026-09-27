@@ -11,6 +11,10 @@ export const COLORS = {
   blue: '#3E8ED0',
   green: '#43B57E',
   yellow: '#F2C14E',
+  /** White platform — bright ivory (pops against the cream socket). */
+  white: '#FBF9F1',
+  /** Black platform — soft charcoal (kid-friendly, never pure black). */
+  black: '#37332D',
 } as const satisfies Record<TrackColorId, string>;
 
 /** Slightly deeper variants for rims/shadows. */
@@ -19,6 +23,10 @@ export const COLORS_DEEP: Record<TrackColorId, string> = {
   blue: '#2D6EA8',
   green: '#2E8F63',
   yellow: '#D9A32E',
+  /** Slate rim framing the white platform. */
+  white: '#97917F',
+  /** Deep rim framing the black platform. */
+  black: '#161310',
 };
 
 /** The golden star die face (wild roll). */
