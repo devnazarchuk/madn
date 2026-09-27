@@ -6,34 +6,67 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { TIMING } from '@/config/gameConfig';
-import { COLORS, MATERIAL, STAR_COLOR, STAR_COLOR_DEEP } from '@/config/theme';
+import { COLORS, COLORS_DEEP, MATERIAL, STAR_COLOR, STAR_COLOR_DEEP } from '@/config/theme';
 import { useGameStore } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
 import type { DiceFaceId } from '@/engine/types';
 import { DICE_REST, DIE_SIZE, easeOutCubic, makeStarShape, quatForFace } from './geometry';
 
 /**
- * The 6-sided color die (4 colors + 2 golden star wilds). It lives on the
- * central pedestal of the board — the primary interaction spot: click it (or
- * press Space, or use the HUD button) while it is your turn. It tumbles,
- * bounces, settles with the ENGINE's rolled face up, and then tells the store
- * the animation is complete. The animation never decides the result.
+ * The 6-sided color die, matched to the match's rules: STANDARD (default) it
+ * carries the four player colors + a WHITE face and a BLACK face (the two
+ * platform faces — they walk a pawn to the next white/black platform); STAR
+ * MODE swaps those two for golden STAR wilds. It lives on the central
+ * pedestal of the board — the primary interaction spot: click it (or press
+ * Space, or use the HUD button) while it is your turn. It tumbles, bounces,
+ * settles with the ENGINE's rolled face up, and then tells the store the
+ * animation is complete. The animation never decides the result.
  */
 
 const HALF = DIE_SIZE / 2;
 
-/** Sticker layout per physical face: [+X, -X, +Y, -Y, +Z, -Z]. */
-const STICKERS: Array<{
+/**
+ * Sticker layout per physical face: [+X, -X, +Y, -Y, +Z, -Z]. The four
+ * color faces are fixed; the two “wild slots” ±Z carry white & black in the
+ * standard game and the golden stars in Star Mode.
+ */
+interface Sticker {
   face: DiceFaceId;
   position: [number, number, number];
   rotation: [number, number, number];
-}> = [
-  { face: 'red', position: [HALF + 0.004, 0, 0], rotation: [0, Math.PI / 2, 0] },
-  { face: 'blue', position: [-HALF - 0.004, 0, 0], rotation: [0, -Math.PI / 2, 0] },
-  { face: 'green', position: [0, HALF + 0.004, 0], rotation: [-Math.PI / 2, 0, 0] },
-  { face: 'yellow', position: [0, -HALF - 0.004, 0], rotation: [Math.PI / 2, 0, 0] },
-  { face: 'star', position: [0, 0, HALF + 0.004], rotation: [0, 0, 0] },
-  { face: 'star', position: [0, 0, -HALF - 0.004], rotation: [0, Math.PI, 0] },
+}
+
+const COLOR_STICKERS: Array<Pick<Sticker, 'position' | 'rotation'>> = [
+  { position: [HALF + 0.004, 0, 0], rotation: [0, Math.PI / 2, 0] }, // red (+X)
+  { position: [-HALF - 0.004, 0, 0], rotation: [0, -Math.PI / 2, 0] }, // blue (−X)
+  { position: [0, HALF + 0.004, 0], rotation: [-Math.PI / 2, 0, 0] }, // green (+Y)
+  { position: [0, -HALF - 0.004, 0], rotation: [Math.PI / 2, 0, 0] }, // yellow (−Y)
+];
+const WILD_SLOT_A: Pick<Sticker, 'position' | 'rotation'> = {
+  position: [0, 0, HALF + 0.004],
+  rotation: [0, 0, 0],
+}; // +Z
+const WILD_SLOT_B: Pick<Sticker, 'position' | 'rotation'> = {
+  position: [0, 0, -HALF - 0.004],
+  rotation: [0, Math.PI, 0],
+}; // −Z
+
+const STICKERS_STANDARD: Sticker[] = [
+  { face: 'red', ...COLOR_STICKERS[0]! },
+  { face: 'blue', ...COLOR_STICKERS[1]! },
+  { face: 'green', ...COLOR_STICKERS[2]! },
+  { face: 'yellow', ...COLOR_STICKERS[3]! },
+  { face: 'white', ...WILD_SLOT_A },
+  { face: 'black', ...WILD_SLOT_B },
+];
+
+const STICKERS_STAR_MODE: Sticker[] = [
+  { face: 'red', ...COLOR_STICKERS[0]! },
+  { face: 'blue', ...COLOR_STICKERS[1]! },
+  { face: 'green', ...COLOR_STICKERS[2]! },
+  { face: 'yellow', ...COLOR_STICKERS[3]! },
+  { face: 'star', ...WILD_SLOT_A },
+  { face: 'star', ...WILD_SLOT_B },
 ];
 
 const IDLE_SPIN = new THREE.Euler(0, 0, 0);
@@ -46,6 +79,10 @@ export function DiceModel() {
   const diceRolling = useGameStore((s) => s.diceRolling);
   const animToken = useGameStore((s) => s.diceAnimToken);
   const screen = useGameStore((s) => s.screen);
+  // The physical die matches the match's rules: Star Mode swaps the two
+  // platform faces (white & black) for the golden star wilds.
+  const starMode = useGameStore((s) => s.game?.rulesConfig.starMode ?? false);
+  const stickers = starMode ? STICKERS_STAR_MODE : STICKERS_STANDARD;
 
   const roll = useRef({
     token: 0,
@@ -233,7 +270,7 @@ export function DiceModel() {
           onPointerOver={onDieOver}
           onPointerOut={onDieOut}
         />
-        {STICKERS.map((s, i) => (
+        {stickers.map((s, i) => (
           <group key={i} position={s.position} rotation={s.rotation}>
             {s.face === 'star' ? (
               <>
@@ -253,6 +290,35 @@ export function DiceModel() {
                   onPointerOver={onDieOver}
                   onPointerOut={onDieOut}
                 />
+              </>
+            ) : s.face === 'white' || s.face === 'black' ? (
+              <>
+                {/* platform face — a framed disc, distinct from the cream body */}
+                <mesh
+                  onClick={onDieClick}
+                  onPointerOver={onDieOver}
+                  onPointerOut={onDieOut}
+                >
+                  <circleGeometry args={[0.3, 36]} />
+                  <meshStandardMaterial
+                    color={COLORS[s.face]}
+                    roughness={s.face === 'white' ? 0.3 : 0.42}
+                    metalness={0.03}
+                  />
+                </mesh>
+                <mesh
+                  position={[0, 0, -0.005]}
+                  onClick={onDieClick}
+                  onPointerOver={onDieOver}
+                  onPointerOut={onDieOut}
+                >
+                  <ringGeometry args={[0.3, 0.375, 40]} />
+                  <meshStandardMaterial
+                    color={COLORS_DEEP[s.face]}
+                    roughness={0.45}
+                    metalness={0.12}
+                  />
+                </mesh>
               </>
             ) : (
               <mesh

@@ -1,14 +1,16 @@
 'use client';
 
 import * as THREE from 'three';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import {
   BASE_BLOCK,
   BASE_SLOTS,
+  FINISH_TIP_INDEX,
   HOME_MOUTH,
   HOME_ROW,
+  LOOP,
 } from '@/engine/board';
 import { TRACK_FIELDS } from '@/engine/boardTrackConfig';
 import { BOARD, cellToWorld } from '@/engine/layout';
@@ -17,14 +19,20 @@ import { PLAYER_COLORS } from '@/config/gameConfig';
 import type { PlayerColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
 import type { QualityLevel } from '@/store/settingsStore';
-import { BASE_PANEL_TOP, FIELD_TOP, SURFACE_TOP } from './geometry';
+import { BASE_PANEL_TOP, FIELD_TOP, makeStarShape, SURFACE_TOP } from './geometry';
 
 /**
  * The classic 11×11 cross board: walnut foundation, cream playing surface,
- * 40 colored inlay track fields (colors from engine/boardTrackConfig — the
- * single authoritative track layout), home rows with mouths, 4 corner bases
- * and the central dice plaza with the pedestal the die rests on.
- * Fully static (memoized) except the active-base glow.
+ * 40 colored inlay track fields woven from the four player colors and the
+ * white & black PLATFORMS (colors from engine/boardTrackConfig — the single
+ * authoritative track layout), home stretches painted in each player's OWN
+ * color as clearly smaller, semi-transparent finish platforms (one pawn per
+ * slot) leading to the star-marked winning area (the last one ringed in
+ * gold), golden feed arrows on the arm tips — the MANDATORY STOP gateways
+ * where a full circuit must halt before stepping into its color row —
+ * 4 corner bases with triangle slot formations, and the central dice plaza
+ * with the pedestal the die rests on. Fully static (memoized) except the
+ * active-base glow.
  */
 
 const FOUNDATION_H = 0.44; // top at 0.44 (valid RoundedBox radius 0.2 < 0.22)
@@ -85,8 +93,9 @@ function Table() {
 /**
  * One track field as a crafted colored inlay: a warm cream socket ring
  * (consistent separation between neighbours), a slightly raised colored
- * inlay with soft highlights, and a deep-tone painted edge. Start fields
- * additionally carry a golden ring.
+ * inlay with soft highlights, and a deep-tone painted edge. White & black
+ * PLATFORM fields use the same craft with their platform colors. Start
+ * fields additionally carry a golden ring.
  */
 function TrackField({
   color,
@@ -144,21 +153,57 @@ function TrackField({
   );
 }
 
+/**
+ * The home stretch: three FINISH PLATFORMS painted in the PLAYER'S OWN COLOR
+ * (the classic look — 3 matching cells leading into the winning area marked
+ * with a star), deliberately styled apart from the regular track cells:
+ * clearly smaller inlays with a semi-transparent tint, so a child instantly
+ * reads them as home/finish platforms rather than ordinary track fields —
+ * each one a private parking slot for exactly ONE pawn (the golden winning
+ * cell keeps the first finisher, later pawns park behind it). The last slot
+ * keeps the golden winning-cell ring. The engine follows the paint: the
+ * golden arrow gateway feeds the row — own-color rolls step a pawn in and
+ * slot by slot onto the golden cell (see engine/rules/validatePath.ts).
+ */
 function HomeSlots({ color }: { color: PlayerColorId }) {
+  const goalIdx = HOME_ROW[color].length - 1;
   return (
     <group>
       {HOME_ROW[color].map((cell, i) => {
         const { x, z } = cellToWorld(cell.col, cell.row);
         return (
           <group key={i} position={[x, HOME_Y, z]}>
+            {/* cream socket — noticeably tighter than a track cell */}
             <mesh castShadow receiveShadow>
-              <cylinderGeometry args={[0.44, 0.44, BOARD.tileHeight, 28]} />
-              <meshStandardMaterial color={COLORS_SOFT[color]} roughness={0.5} />
+              <cylinderGeometry args={[0.38, 0.38, BOARD.tileHeight, 28]} />
+              <meshStandardMaterial color={MATERIAL.creamDeep} roughness={0.6} metalness={0.02} />
             </mesh>
-            <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.41, 0.05, 10, 40]} />
-              <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.42} />
+            {/* the player-color finish platform — smaller & semi-transparent,
+                clearly distinct from the saturated track inlays */}
+            <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.3, 0.315, BOARD.tileHeight + 0.008, 32]} />
+              <meshStandardMaterial
+                color={COLORS[color]}
+                roughness={0.38}
+                metalness={0.05}
+                emissive={COLORS[color]}
+                emissiveIntensity={0.055}
+                transparent
+                opacity={0.78}
+              />
             </mesh>
+            {/* the player-color framing rim */}
+            <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.3, 0.022, 8, 40]} />
+              <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.5} metalness={0.03} />
+            </mesh>
+            {/* the golden winning cell */}
+            {i === goalIdx && (
+              <mesh position={[0, 0.058, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.335, 0.032, 10, 44]} />
+                <meshStandardMaterial color={MATERIAL.gold} metalness={0.7} roughness={0.28} />
+              </mesh>
+            )}
           </group>
         );
       })}
