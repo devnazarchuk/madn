@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BOARD, cellToWorld, DICE_PEDESTAL_TOP } from '@/engine/layout';
 import { cellForPosition } from '@/engine/board';
-import { DICE_FACES, type DiceFaceId } from '@/config/gameConfig';
+import { type DiceFaceId } from '@/config/gameConfig';
 import type { Area, PlayerColorId, Position } from '@/engine/types';
 
 /**
@@ -39,20 +39,27 @@ export function worldOf(color: PlayerColorId, pos: Position): THREE.Vector3 {
 // ---------------------------------------------------------------------------
 
 /**
- * Sticker placement: +X red · −X blue · +Y green · −Y yellow · +Z star · −Z star
- * (the two golden star wilds sit on opposite faces). Quaternions bring that
- * face pointing +Y (up).
+ * Sticker placement: +X red · −X blue · +Y green · −Y yellow · +Z white
+ * (or STAR in Star Mode) · −Z black (or STAR). The two “wild” slots ±Z carry
+ * the white & black platform faces in the standard game and the two golden
+ * stars when Star Mode is on. Quaternions bring a given face pointing +Y
+ * (up) so the settled die always shows the ENGINE's rolled face on top.
  */
 const FACE_EULERS: Record<DiceFaceId, THREE.Euler> = {
   red: new THREE.Euler(0, 0, Math.PI / 2),
   blue: new THREE.Euler(0, 0, -Math.PI / 2),
   green: new THREE.Euler(0, 0, 0),
   yellow: new THREE.Euler(Math.PI, 0, 0),
+  white: new THREE.Euler(-Math.PI / 2, 0, 0),
+  black: new THREE.Euler(Math.PI / 2, 0, 0),
   star: new THREE.Euler(-Math.PI / 2, 0, 0),
 };
 
 export const FACE_UP_QUAT: Record<DiceFaceId, THREE.Quaternion> = Object.fromEntries(
-  DICE_FACES.map((face) => [face, new THREE.Quaternion().setFromEuler(FACE_EULERS[face])]),
+  (Object.keys(FACE_EULERS) as DiceFaceId[]).map((face) => [
+    face,
+    new THREE.Quaternion().setFromEuler(FACE_EULERS[face]!),
+  ]),
 ) as Record<DiceFaceId, THREE.Quaternion>;
 
 /** Orientation that shows `face` on top (defaults to green). */

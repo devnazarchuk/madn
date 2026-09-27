@@ -72,3 +72,8 @@ export function faceColor(face: DiceFaceId): string {
 export function faceLabel(face: DiceFaceId): string {
   return face === 'star' ? 'Star' : face.charAt(0).toUpperCase() + face.slice(1);
 }
+
+/** True for faces that need dark text on top (the white face). */
+export function faceIsLight(face: DiceFaceId): boolean {
+  return face === 'white';
+}

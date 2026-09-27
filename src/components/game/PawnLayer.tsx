@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
-import { LOOP, START_INDEX } from '@/engine/board';
+import { LOOP, journeyIndex, loopIndexFromPath } from '@/engine/board';
 import { RULES, TIMING } from '@/config/gameConfig';
 import { COLORS, MATERIAL } from '@/config/theme';
-import { stackIndex } from '@/engine/rules';
+import { isPawnFinished, stackIndex } from '@/engine/rules';
 import { useGameStore, type MoveAnim } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { PlayerColorId, Position } from '@/engine/types';
@@ -64,33 +64,35 @@ function trackCellWorld(color: PlayerColorId, loopIdx: number): THREE.Vector3 {
   return new THREE.Vector3(x, cellTopY('track'), z);
 }
 
+/** World position of any JOURNEY position (track fields and home slots alike). */
+function journeyWorld(color: PlayerColorId, journey: number): THREE.Vector3 {
+  if (journey >= RULES.trackFields) {
+    return worldOf(color, { area: 'home', index: journey - RULES.trackFields });
+  }
+  return trackCellWorld(color, loopIndexFromPath(color, journey));
+}
+
 function moverHops(anim: MoveAnim): Hop[] {
-  // Walking deeper inside the home row: a single gentle hop.
-  if (anim.from.area === 'home') {
+  // Entry from the base: one celebratory hop onto the start field.
+  if (anim.from.area === 'base') {
     return [{ from: worldOf(anim.color, anim.from), to: worldOf(anim.color, anim.to) }];
   }
-  if (anim.kind === 'move') {
-    const start = START_INDEX[anim.color];
-    const norm = (i: number) => (i - start + RULES.trackFields) % RULES.trackFields;
-    const fromIdx = anim.from.area === 'track' ? norm(anim.from.index) : -1;
-    // Entering home walks the remaining TRACK fields (up to the last one),
-    // then hops into the mouth slot — never past the start field again.
-    const toIdx =
-      anim.to.area === 'track' ? norm(anim.to.index) : RULES.trackFields - 1;
-    const pts: THREE.Vector3[] = [worldOf(anim.color, anim.from)];
-    for (let p = fromIdx + 1; p <= toIdx; p++) {
-      pts.push(trackCellWorld(anim.color, (start + p) % RULES.trackFields));
-    }
-    pts.push(worldOf(anim.color, anim.to));
-    const hops: Hop[] = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i]!;
-      const b = pts[i + 1]!;
-      if (a.distanceTo(b) > 0.001) hops.push({ from: a, to: b });
-    }
-    return hops.length > 0 ? hops : [{ from: pts[0]!, to: pts[pts.length - 1]! }];
+  // Track & home moves walk the ENGINE journey field by field: through the
+  // arm tip and straight along the home stretch — the animation always
+  // follows the exact logical route.
+  const fromJ = journeyIndex(anim.color, anim.from);
+  const toJ = journeyIndex(anim.color, anim.to);
+  const pts: THREE.Vector3[] = [worldOf(anim.color, anim.from)];
+  for (let j = fromJ + 1; j <= toJ; j++) {
+    pts.push(journeyWorld(anim.color, j));
   }
-  return [{ from: worldOf(anim.color, anim.from), to: worldOf(anim.color, anim.to) }];
+  const hops: Hop[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!;
+    const b = pts[i + 1]!;
+    if (a.distanceTo(b) > 0.001) hops.push({ from: a, to: b });
+  }
+  return hops.length > 0 ? hops : [{ from: pts[0]!, to: pts[pts.length - 1]! }];
 }
 
 function hopDurationMs(anim: MoveAnim, reduced: boolean): number {
@@ -270,8 +272,10 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
     const isHome = pawn.pos.area === 'home';
     const isWinnerRow = isHome && !!st.winner;
 
-    // Stack offset when own pawns share this track field.
-    if (pawn.pos.area === 'track' && st.game) {
+    // Stack offset when own pawns share this TRACK field ("pawn towers").
+    // Home pawns never share a cell since kids-v6 (one pawn per finish slot);
+    // the finished-pawn branch only keeps legacy autosaves readable.
+    if ((pawn.pos.area === 'track' || isPawnFinished(pawn)) && st.game) {
       const si = stackIndex(st.game, pawn);
       if (si > 0) {
         const [ox, oz] = stackOffset(si);
