@@ -211,9 +211,21 @@ function HomeSlots({ color }: { color: PlayerColorId }) {
   );
 }
 
+/**
+ * The decorative goal cell just beyond each winning cell: a soft player-color
+ * halo with a small golden star inlay — the trophy a finished pawn reaches
+ * toward, right beside the central dice plaza.
+ */
 function HomeMouth({ color }: { color: PlayerColorId }) {
   const cell = HOME_MOUTH[color];
   const { x, z } = cellToWorld(cell.col, cell.row);
+  const starGeom = useMemo(() => new THREE.ShapeGeometry(makeStarShape(0.2, 0.08)), [color]);
+  useEffect(
+    () => () => {
+      starGeom.dispose();
+    },
+    [starGeom],
+  );
   return (
     <group position={[x, MOUTH_Y, z]}>
       <mesh receiveShadow>
@@ -223,6 +235,20 @@ function HomeMouth({ color }: { color: PlayerColorId }) {
       <mesh position={[0, 0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.36, 0.035, 8, 36]} />
         <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.4} />
+      </mesh>
+      <mesh
+        geometry={starGeom}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.026, 0]}
+        renderOrder={2}
+      >
+        <meshStandardMaterial
+          color={MATERIAL.gold}
+          metalness={0.6}
+          roughness={0.32}
+          emissive={MATERIAL.gold}
+          emissiveIntensity={0.22}
+        />
       </mesh>
     </group>
   );
@@ -261,6 +287,77 @@ function BaseCorner({ color }: { color: PlayerColorId }) {
         );
       })}
     </group>
+  );
+}
+
+/**
+ * The golden feed arrow on each arm TIP: the ARROW GATEWAY cell — the loop
+ * position directly opposite a color row where a pawn's full circuit ends —
+ * pointing straight into that row. kids-v6: this cell is a MANDATORY STOP
+ * (the engine caps every move at it); the arrow promises the only way home:
+ * stop here first, then roll the own color to step inside.
+ */
+function TipFeeds() {
+  // Tip world cell + the direction pointing into the fed home row.
+  const tips = useMemo(() => {
+    const dirs: Record<PlayerColorId, [number, number]> = {
+      blue: [1, 0], // west tip → row extends east
+      yellow: [0, 1], // north tip → row extends south
+      red: [-1, 0], // east tip → row extends west
+      green: [0, -1], // south tip → row extends north
+    };
+    return PLAYER_COLORS.map((color) => {
+      const cell = LOOP[FINISH_TIP_INDEX[color]]!;
+      const { x, z } = cellToWorld(cell.col, cell.row);
+      return { color, x, z, dir: dirs[color] };
+    });
+  }, []);
+  const geometries = useMemo(
+    () =>
+      tips.map((tip) => {
+        const [dx, dz] = tip.dir;
+        const px = -dz;
+        const pz = dx;
+        const L = 0.3;
+        const W = 0.26;
+        const verts = new Float32Array([
+          dx * L, 0, dz * L,
+          -dx * L * 0.45 + (px * W) / 2, 0, -dz * L * 0.45 + (pz * W) / 2,
+          -dx * L * 0.45 - (px * W) / 2, 0, -dz * L * 0.45 - (pz * W) / 2,
+        ]);
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+        g.computeVertexNormals();
+        return g;
+      }),
+    [tips],
+  );
+  useEffect(
+    () => () => {
+      for (const g of geometries) g.dispose();
+    },
+    [geometries],
+  );
+  return (
+    <>
+      {tips.map((tip, i) => (
+        <mesh
+          key={tip.color}
+          geometry={geometries[i]!}
+          position={[tip.x, FIELD_TOP + 0.02, tip.z]}
+          renderOrder={2}
+        >
+          <meshStandardMaterial
+            color={MATERIAL.gold}
+            metalness={0.65}
+            roughness={0.3}
+            emissive={MATERIAL.gold}
+            emissiveIntensity={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+    </>
   );
 }
 
@@ -401,13 +498,14 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         </group>
       ))}
 
-      {/* home rows + mouths */}
+      {/* home stretches + goal mouths + the golden tip feed arrows */}
       {PLAYER_COLORS.map((color) => (
         <group key={color}>
           <HomeSlots color={color} />
           <HomeMouth color={color} />
         </group>
       ))}
+      <TipFeeds />
 
       {/* corner bases */}
       {PLAYER_COLORS.map((color) => (
