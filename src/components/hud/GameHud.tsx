@@ -300,20 +300,20 @@ export function GameHud() {
           </HudIconButton>
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={status.text}
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            role="status"
-            aria-live="polite"
-            className={`pointer-events-none max-w-[58%] rounded-2xl px-4 py-2 text-center text-sm font-semibold shadow-lg backdrop-blur-md ${TONE_STYLES[status.tone]}`}
-          >
-            {status.text}
-          </motion.div>
-        </AnimatePresence>
+        {/* Status pill — keyed remount per text (a plain animate-in avoids the
+            AnimatePresence mode="wait" exit queue, which can stall a fast
+            sequence of AI turns and leave a stale message on screen). */}
+        <motion.div
+          key={status.text}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          role="status"
+          aria-live="polite"
+          className={`pointer-events-none max-w-[46%] rounded-2xl px-3 py-1.5 text-center text-[13px] font-semibold leading-snug shadow-lg backdrop-blur-md sm:max-w-[58%] sm:px-4 sm:py-2 sm:text-sm ${TONE_STYLES[status.tone]}`}
+        >
+          {status.text}
+        </motion.div>
 
         <div className="pointer-events-auto">
           <HudIconButton
@@ -329,7 +329,7 @@ export function GameHud() {
       </div>
 
       {/* ---- player chips ------------------------------------------------ */}
-      <div className="pointer-events-auto flex gap-2 overflow-x-auto px-3 pb-1 no-scrollbar">
+      <div className="pointer-events-auto flex gap-1.5 overflow-x-auto px-2 pb-1 no-scrollbar sm:gap-2 sm:px-3">
         {players.map((p) => (
           <PlayerChip
             key={p.id}
@@ -346,7 +346,7 @@ export function GameHud() {
       {/* ---- notice toast (mid-screen, non-blocking) ---------------------- */}
       <div className="relative flex-1">
         <div className="sticky top-4 z-10">
-          <NoticeToast />
+          <NoticeToast suppressText={status.text} />
         </div>
         {/* star picker — a star roll is resolved by picking a color */}
         <div className="pointer-events-none absolute inset-x-0 top-[38%] z-20 flex justify-center px-3">
@@ -355,9 +355,9 @@ export function GameHud() {
       </div>
 
       {/* ---- bottom bar (sticky footer of the game) ---------------------- */}
-      <div className="mt-auto p-3">
-        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl bg-[#241B14]/75 px-4 py-2.5 text-[#F6EBD9] shadow-2xl backdrop-blur-md">
-          <div className="flex items-center gap-3 text-xs font-medium text-[#D9C3A0]">
+      <div className="mt-auto p-2 sm:p-3">
+        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl bg-[#241B14]/75 px-3 py-2 text-[#F6EBD9] shadow-2xl backdrop-blur-md sm:px-4 sm:py-2.5">
+          <div className="flex items-center gap-3 text-[11px] font-medium text-[#D9C3A0] sm:text-xs">
             <button
               type="button"
               onClick={() => {
@@ -384,7 +384,10 @@ export function GameHud() {
             <span title="Captures">{captures} captures</span>
           </div>
 
-          <AnimatePresence mode="wait">
+          {/* No mode="wait" here: the exit queue can stall on a fast sequence
+              of AI turns and leave a stale chip on screen (same lesson as the
+              status pill) — plain cross-fade instead. */}
+          <AnimatePresence>
             {humanAwaitRoll ? (
               <motion.div
                 key="roll"
@@ -440,7 +443,7 @@ export function GameHud() {
                       disabled={!movable}
                       aria-label={`${pawn.id} ${movable ? 'can move' : 'cannot move'}`}
                       onClick={() => tapPawn(pawn.id)}
-                      className={`flex size-9 items-center justify-center rounded-xl transition ${
+                      className={`flex size-10 items-center justify-center rounded-xl transition sm:size-9 ${
                         movable
                           ? 'bg-white/90 text-[#5B3A24] shadow hover:scale-105 active:scale-95'
                           : 'bg-white/10 text-white/25'
