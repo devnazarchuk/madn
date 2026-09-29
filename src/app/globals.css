@@ -145,3 +145,28 @@
   display: none;
 }
 
+/* ---- Touch-friendly native scrolling ------------------------------------- */
+/* Custom-scrollbar widgets (Radix ScrollArea) are fragile with touch drag on
+   phones. Dialogs and bounded lists use plain overflow regions instead; this
+   gives them a slim, warm-styled scrollbar on desktop while phones keep their
+   native momentum scrolling. */
+.scrollbar-cute {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 107, 74, 0.45) transparent;
+}
+.scrollbar-cute::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.scrollbar-cute::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-cute::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(139, 107, 74, 0.4);
+}
+.scrollbar-cute::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 107, 74, 0.65);
+}
+

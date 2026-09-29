@@ -20,10 +20,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listMatches, type MatchRecord } from '@/services/matchesApi';
-import { COLORS, MATERIAL } from '@/config/theme';
+import { COLORS, MATERIAL, faceLabel } from '@/config/theme';
 import { EDITION_FACTS, describeRules, type RulesConfig } from '@/engine/rulesConfig';
 import { useGameStore } from '@/store/gameStore';
 import type { PlayerColorId } from '@/engine/types';
@@ -62,9 +61,8 @@ export function RulesDialog({
             These rules match the current settings{effective.preset === 'classic' ? ' (Classic).' : ` (${effective.preset} mode).`}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[55vh] pr-3">
-          <div className="space-y-4">
-            {sections.map((section, i) => {
+        <div className="space-y-4">
+          {sections.map((section, i) => {
               const Icon = SECTION_ICONS[i % SECTION_ICONS.length]!;
               return (
                 <div key={section.title}>
@@ -89,7 +87,6 @@ export function RulesDialog({
               );
             })}
           </div>
-        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
@@ -111,9 +108,8 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
             A loving digital adaptation of the Kids edition of the German classic.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-3">
-          <div className="space-y-4 text-sm">
-            <div>
+        <div className="space-y-4 text-sm">
+          <div>
               <p className="mb-1 font-bold text-[#3E2A18]">What we know for sure</p>
               <ul className="space-y-1">
                 {EDITION_FACTS.verified.map((fact) => (
@@ -149,7 +145,6 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
               </p>
             </div>
           </div>
-        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
@@ -178,7 +173,7 @@ function eventLine(e: StoredEvent, names: Record<string, string>): string {
     case 'turn':
       return e.detail?.includes('extra') ? `${who} — ${e.detail}` : `${who}'s turn`;
     case 'roll':
-      return `${who} rolled ${e.face ?? '?'}`;
+      return `${who} rolled ${e.face ? faceLabel(e.face as Parameters<typeof faceLabel>[0]) : '?'}`;
     case 'reroll':
       return `${who} — no legal move, rolling again`;
     case 'move':
@@ -200,21 +195,19 @@ function EventLogView({ events, players }: { events: StoredEvent[]; players: Arr
   const names: Record<string, string> = {};
   for (const p of players) names[p.color] = p.name;
   return (
-    <ScrollArea className="max-h-56 pr-3">
-      <ol className="space-y-1">
-        {events.map((e, i) => (
-          <li key={i} className="flex items-baseline gap-2 text-xs text-[#6B4E35]">
-            <span className="w-9 shrink-0 text-right font-mono text-[10px] text-[#B08A5E]">
-              #{e.turn}
-            </span>
-            <span className="flex items-center gap-1.5">
-              {e.player && <ColorDot color={e.player as PlayerColorId} size={8} />}
-              {eventLine(e, names)}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </ScrollArea>
+    <ol className="scrollbar-cute max-h-56 space-y-1 overflow-y-auto pr-1">
+      {events.map((e, i) => (
+        <li key={i} className="flex items-baseline gap-2 text-xs text-[#6B4E35]">
+          <span className="w-9 shrink-0 text-right font-mono text-[10px] text-[#B08A5E]">
+            #{e.turn}
+          </span>
+          <span className="flex items-center gap-1.5">
+            {e.player && <ColorDot color={e.player as PlayerColorId} size={8} />}
+            {eventLine(e, names)}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -265,8 +258,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
         )}
 
         {!loading && rows !== null && rows.length > 0 && (
-          <ScrollArea className="max-h-[55vh] pr-3">
-            <ul className="space-y-2">
+          <ul className="space-y-2">
               {rows.map((m) => {
                 const winnerColor = m.winnerColor as PlayerColorId;
                 const reviewing = reviewId === m.id;
@@ -327,7 +319,6 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
                 );
               })}
             </ul>
-          </ScrollArea>
         )}
 
         <div className="flex justify-end">

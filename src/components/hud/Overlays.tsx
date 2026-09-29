@@ -22,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGameStore } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
 import { COLORS } from '@/config/theme';
@@ -331,9 +330,11 @@ export function PauseOverlay() {
             <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#8A6B4F]">
               <Swords size={13} /> Settings
             </p>
-            <ScrollArea className="max-h-[34vh] pr-2">
+            {/* Uncapped on phones — the dialog itself scrolls natively; the
+                desktop cap keeps the pause menu compact. */}
+            <div className="scrollbar-cute overflow-y-auto pr-1 sm:max-h-[34vh]">
               <SettingsPanel />
-            </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
