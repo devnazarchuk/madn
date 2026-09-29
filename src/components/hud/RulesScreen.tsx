@@ -25,7 +25,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -40,9 +39,11 @@ import {
 } from '@/engine/persistence';
 import {
   CLASSIC_CONFIG,
+  FAMILY_CONFIG,
   GROUP_META,
   PRESET_META,
   PRESET_ORDER,
+  QUICK_CONFIG,
   RULE_OPTIONS,
   describeRules,
   diffFromClassic,
@@ -77,10 +78,10 @@ function PresetCards() {
       return `${diffs.length} change${diffs.length === 1 ? '' : 's'} vs Classic`;
     }
     if (preset === 'classic') return 'Official-style preset';
-    const cfg =
-      preset === 'quick' ? PRESET_META.quick : PRESET_META.family;
-    void cfg;
-    return preset === 'quick' ? '3 changes vs Classic' : '2 changes vs Classic';
+    const presetDiffs = diffFromClassic(
+      preset === 'quick' ? QUICK_CONFIG : preset === 'family' ? FAMILY_CONFIG : CLASSIC_CONFIG,
+    );
+    return `${presetDiffs.length} change${presetDiffs.length === 1 ? '' : 's'} vs Classic`;
   };
 
   return (
@@ -330,9 +331,9 @@ function PresetManager() {
           <Input
             value={name}
             maxLength={40}
-            placeholder="Name your rules, e.g. Cozy evening"
+            placeholder="Name your rule mix"
             onChange={(e) => setName(e.target.value)}
-            className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70"
+            className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
             aria-label="Preset name"
           />
           <Button
@@ -356,9 +357,8 @@ function PresetManager() {
         )}
 
         {presets.length > 0 && (
-          <ScrollArea className="max-h-44 pr-2">
-            <ul className="space-y-2">
-              {presets.map((preset) => (
+          <ul className="scrollbar-cute max-h-44 space-y-2 overflow-y-auto pr-1">
+            {presets.map((preset) => (
                 <li
                   key={preset.id}
                   className="flex items-center gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 px-3 py-2"
@@ -370,7 +370,7 @@ function PresetManager() {
                         maxLength={40}
                         autoFocus
                         onChange={(e) => setEditName(e.target.value)}
-                        className="h-8 rounded-lg bg-white"
+                        className="h-8 rounded-lg bg-white text-base"
                         aria-label="Rename preset"
                       />
                       <Button
@@ -434,7 +434,6 @@ function PresetManager() {
                 </li>
               ))}
             </ul>
-          </ScrollArea>
         )}
       </CardContent>
     </Card>
@@ -465,9 +464,8 @@ function RulesSummary() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-64 pr-3">
-          <div className="space-y-3">
-            {sections.map((section) => (
+        <div className="scrollbar-cute max-h-64 space-y-3 overflow-y-auto pr-1">
+          {sections.map((section) => (
               <div key={section.title}>
                 <p className="text-xs font-bold uppercase tracking-wide text-[#8A6B4F]">
                   {section.title}
@@ -482,8 +480,7 @@ function RulesSummary() {
                 </ul>
               </div>
             ))}
-          </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );
@@ -505,7 +502,7 @@ export function RulesScreen() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="pointer-events-none absolute inset-0 overflow-y-auto overscroll-contain">
-        <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-5 p-4 pb-8">
+        <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-5 p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
           {/* header */}
           <div className="flex items-center justify-between gap-3">
             <Button
@@ -562,8 +559,9 @@ export function RulesScreen() {
             <PresetManager />
           </motion.div>
 
-          {/* actions */}
-          <div className="sticky bottom-3 z-10 flex gap-3">
+          {/* actions — sticky floating bar with its own panel so scrolling
+              content never shows through between the buttons */}
+          <div className="sticky bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-10 flex gap-3 rounded-[1.4rem] border border-[#5B3A24]/20 bg-[#FBF3E0]/95 p-2 shadow-xl shadow-black/30 backdrop-blur-md">
             {rulesReturnTo === 'setup' ? (
               <>
                 <Button

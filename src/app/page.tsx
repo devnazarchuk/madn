@@ -27,7 +27,7 @@ const useMounted = () =>
 function Splash() {
   return (
     <div
-      className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#241B14]"
+      className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[#241B14]"
       role="status"
       aria-live="polite"
     >
@@ -81,7 +81,7 @@ export default function Home() {
   if (!mounted) return <Splash />;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#241B14]">
+    <div className="flex min-h-dvh flex-col bg-[#241B14]">
       <main className="relative min-h-[420px] flex-1">
         {/* warm 3D scene */}
         <GameCanvas />

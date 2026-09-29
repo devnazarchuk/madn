@@ -22,7 +22,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { RULES_VERSION } from '@/config/gameConfig';
 import { COLORS } from '@/config/theme';
 import type { PlayerColorId } from '@/engine/types';
@@ -62,7 +61,7 @@ export function MenuScreen() {
   const savedPlayers = autosave?.game.players ?? [];
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex justify-center overflow-y-auto overscroll-contain p-4">
+    <div className="pointer-events-none absolute inset-0 flex justify-center overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
       <motion.div
         initial={{ opacity: 0, y: 28, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -229,9 +228,7 @@ export function MenuScreen() {
             </DialogTitle>
             <DialogDescription>Sound, graphics and little helpers.</DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-3">
-            <SettingsPanel />
-          </ScrollArea>
+          <SettingsPanel />
         </DialogContent>
       </Dialog>
     </div>

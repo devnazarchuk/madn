@@ -10,7 +10,7 @@ import { playSfx } from '@/services/audio';
 import { COLORS, COLORS_DEEP } from '@/config/theme';
 import { CHARACTERS } from '@/engine/game';
 import { pawnCounts } from '@/engine/rules';
-import type { DiceFaceId, PlayerColorId } from '@/engine/types';
+import type { DiceFaceId, PlayerColorId, TrackColorId } from '@/engine/types';
 import { AnimalIcon, CHAR_ICON, ColorDot, PawnDots } from './shared';
 import { HudIconButton } from './SettingsPanel';
 import { RulesDialog } from './Dialogs';
@@ -43,12 +43,22 @@ function faceLabel(face: DiceFaceId): string {
 }
 
 /**
- * Star picker — shown after a human rolls the golden star wild. Offers only
- * the productive colors (each yields at least one legal move for the roll).
+ * Star picker — shown after a human rolls a golden star (Star Mode). Offers
+ * only the productive colors (each yields at least one legal move for the
+ * roll) — any of the six track colors: the four player colors plus white and
+ * black (a long platform stride).
  */
-function StarPicker({ options, activeColor }: { options: PlayerColorId[]; activeColor: PlayerColorId | null }) {
+function StarPicker({
+  options,
+  activeColor,
+}: {
+  options: TrackColorId[];
+  activeColor: PlayerColorId | null;
+}) {
   const chooseStarColor = useGameStore((s) => s.chooseStarColor);
   if (options.length === 0) return null;
+  const isPlayerColor = (c: TrackColorId): c is PlayerColorId =>
+    c === 'red' || c === 'blue' || c === 'green' || c === 'yellow';
   return (
     <motion.div
       initial={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -57,15 +67,16 @@ function StarPicker({ options, activeColor }: { options: PlayerColorId[]; active
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       role="dialog"
       aria-label="Pick a color for your star"
-      className="pointer-events-auto mx-auto w-full max-w-md rounded-3xl border-2 border-[#D9A441]/60 bg-[#FBF3E0]/97 p-4 shadow-2xl shadow-black/40 backdrop-blur-md"
+      className="pointer-events-auto mx-auto w-full max-w-[calc(100vw-1.5rem)] rounded-3xl border-2 border-[#D9A441]/60 bg-[#FBF3E0]/97 p-3 shadow-2xl shadow-black/40 backdrop-blur-md sm:max-w-md sm:p-4"
     >
       <p className="mb-3 flex items-center justify-center gap-2 text-center text-base font-extrabold text-[#3E2A18]">
         <Sparkles size={19} className="text-[#B6842B]" aria-hidden />
         You rolled a STAR — pick any color!
       </p>
-      <div className="flex flex-wrap items-center justify-center gap-2.5">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
         {options.map((color) => {
           const own = color === activeColor;
+          const light = color === 'white';
           return (
             <button
               key={color}
@@ -75,10 +86,23 @@ function StarPicker({ options, activeColor }: { options: PlayerColorId[]; active
                 playSfx('uiClick');
                 chooseStarColor(color);
               }}
-              className="flex min-h-11 flex-col items-center gap-1 rounded-2xl px-4 py-2.5 font-bold text-white shadow-lg transition hover:scale-105 active:scale-95"
+              className={`flex min-h-11 flex-col items-center gap-1 rounded-2xl px-3 py-2 font-bold shadow-lg transition hover:scale-105 active:scale-95 sm:px-4 sm:py-2.5 ${
+                light ? 'text-[#3E2A18]' : 'text-white'
+              }`}
               style={{ backgroundColor: COLORS[color] }}
             >
-              <AnimalIcon color={color} size={22} />
+              {isPlayerColor(color) ? (
+                <AnimalIcon color={color} size={22} />
+              ) : (
+                <span
+                  aria-hidden
+                  className="inline-block size-[22px] rounded-full"
+                  style={{
+                    backgroundColor: color === 'white' ? '#FFFFFF' : '#37332D',
+                    boxShadow: `0 0 0 2px ${color === 'white' ? '#97917F' : '#B9B4A8'}`,
+                  }}
+                />
+              )}
               <span className="text-xs">
                 {own ? `${faceLabel(color)} · yours!` : faceLabel(color)}
               </span>
@@ -113,18 +137,18 @@ function PlayerChip({
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-xl bg-white/90 px-3 py-1.5 backdrop-blur-md transition-all ${
+      className={`flex shrink-0 items-center gap-2 rounded-xl bg-white/90 px-2.5 py-1 backdrop-blur-md transition-all sm:px-3 sm:py-1.5 ${
         active ? 'scale-105 shadow-lg' : 'opacity-75 shadow-sm'
       }`}
       style={active ? { boxShadow: `0 0 0 2.5px ${COLORS[color]}, 0 6px 18px rgba(0,0,0,0.28)` } : undefined}
     >
       <span
-        className="flex size-7 items-center justify-center rounded-lg text-white"
+        className="flex size-6 items-center justify-center rounded-lg text-white sm:size-7"
         style={{ backgroundColor: COLORS[color] }}
       >
         {isWinner ? <Crown size={14} /> : <AnimalIcon color={color} size={15} />}
       </span>
-      <span className="max-w-28 truncate text-xs font-semibold text-[#3E2A18]">{name}</span>
+      <span className="max-w-20 truncate text-xs font-semibold text-[#3E2A18] sm:max-w-28">{name}</span>
       <PawnDots color={color} home={counts.home} track={counts.track} total={totalPawns} />
       {kind === 'ai' && <Bot size={12} className="text-[#8A6B4F]" />}
     </div>
@@ -132,7 +156,7 @@ function PlayerChip({
 }
 
 /** Transient feedback notice (invalid moves, extra rolls, etc.). */
-function NoticeToast() {
+function NoticeToast({ suppressText }: { suppressText?: string }) {
   const notice = useGameStore((s) => s.notice);
   const [dismissedToken, setDismissedToken] = useState(0);
 
@@ -142,7 +166,10 @@ function NoticeToast() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  const visible = !!notice && notice.token !== dismissedToken;
+  // When the notice repeats the status pill word-for-word (e.g. a skipped
+  // turn), showing both would stack the same sentence twice — keep the pill.
+  const visible =
+    !!notice && notice.token !== dismissedToken && notice.text !== suppressText;
 
   return (
     <AnimatePresence>
@@ -191,6 +218,7 @@ export function GameHud() {
   const activeKind = useGameStore((s) => s.game?.players[s.game.activeIndex]?.kind ?? 'ai');
   const activeColor = useGameStore((s) => s.game?.players[s.game.activeIndex]?.color ?? null);
   const activePlayer = useGameStore((s) => s.game?.players[s.game.activeIndex] ?? null);
+  const ownColorToMove = useGameStore((s) => s.game?.rulesConfig.ownColorToMove ?? false);
   const players = useGameStore((s) => s.game?.players) ?? EMPTY_PLAYERS;
   const turn = useGameStore((s) => s.game?.turn ?? 0);
   const totalMoves = useGameStore((s) => s.totalMoves);
@@ -229,7 +257,10 @@ export function GameHud() {
           : { text: 'A golden star! Pick any color you like.', tone: 'action' };
       case 'no-moves':
         return {
-          text: `${activeName} rolled ${faceLabel(diceFace ?? 'red')} — no pawn can use it.`,
+          text:
+            ownColorToMove && diceFace && diceFace !== 'star' && diceFace !== activeColor
+            ? `${activeName} rolled ${faceLabel(diceFace)} — not their color. Turn skipped!`
+            : `${activeName} rolled ${faceLabel(diceFace ?? 'red')} — no pawn can use it. Turn skipped.`,
           tone: 'alert',
         };
       case 'choose-pawn':
@@ -250,7 +281,7 @@ export function GameHud() {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col">
       {/* ---- top bar ---------------------------------------------------- */}
-      <div className="flex items-start justify-between gap-2 p-3">
+      <div className="flex items-start justify-between gap-2 p-2 sm:p-3">
         <div className="pointer-events-auto flex gap-2">
           <HudIconButton label="Pause" onClick={() => togglePause()}>
             <Pause size={18} />

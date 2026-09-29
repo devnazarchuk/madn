@@ -21,6 +21,8 @@ const baloo = Baloo_2({
 
 export const viewport: Viewport = {
   themeColor: "#241B14",
+  // cover — safe-area insets (notches/home bars) become usable on phones.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {

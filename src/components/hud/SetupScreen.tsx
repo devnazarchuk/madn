@@ -169,7 +169,7 @@ function SeatCard({
                 maxLength={24}
                 placeholder="Player name"
                 onChange={(e) => updateSeat(index, { name: e.target.value })}
-                className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70"
+                className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
               />
               {isDefaultName && (
                 <span className="whitespace-nowrap text-[10px] uppercase tracking-wide text-[#B08A5E]">
@@ -225,7 +225,7 @@ export function SetupScreen() {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-y-auto overscroll-contain">
-      <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-5 p-4 pb-8">
+      <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-5 p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
         {/* header */}
         <div className="flex items-center justify-between gap-3">
           <Button

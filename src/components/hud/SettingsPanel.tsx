@@ -154,8 +154,8 @@ export function HudIconButton({
       onClick={onClick}
       className={
         tone === 'dark'
-          ? 'size-10 rounded-xl bg-[#241B14]/70 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B] hover:text-white'
-          : 'size-10 rounded-xl'
+          ? 'size-9 rounded-xl bg-[#241B14]/70 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B] hover:text-white sm:size-10'
+          : 'size-9 rounded-xl sm:size-10'
       }
     >
       {children}
