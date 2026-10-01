@@ -1,16 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import {
-  RULES,
-  TIMING,
-  type PlayerColorId,
-} from '@/config/gameConfig';
+import { RULES, TIMING, type PlayerColorId, type TrackColorId } from '@/config/gameConfig';
+import { faceLabel } from '@/config/theme';
 import {
   advanceTurn,
   createGame,
   defaultName,
-  noteReroll,
   passTurn,
   resolveStarFace,
   rollForTurn,
@@ -115,7 +111,7 @@ interface GameStore {
   legalMoves: LegalMove[];
   selectedPawnId: string | null;
   /** Productive colors for a pending star roll (empty when none). */
-  starOptions: PlayerColorId[];
+  starOptions: TrackColorId[];
   diceRolling: boolean;
   diceAnimToken: number;
   moveAnim: MoveAnim | null;
@@ -149,8 +145,8 @@ interface GameStore {
   finishIntro(): void;
   rollDice(): void;
   confirmDiceAnimation(token: number): void;
-  /** Resolve a pending star (wild) roll to a concrete color. */
-  chooseStarColor(color: PlayerColorId): void;
+  /** Resolve a pending star (wild) roll to a concrete track color. */
+  chooseStarColor(color: TrackColorId): void;
   tapPawn(pawnId: string): void;
   choosePawn(pawnId: string): void;
   confirmMoveAnimation(token: number): void;
@@ -174,6 +170,9 @@ function rejectionText(reason: MoveRejectionReason, cfg: RulesConfig): string {
     case 'STAR_UNRESOLVED':
       return 'Roll the die first!';
     case 'WRONG_DICE_COLOR':
+      if (cfg.ownColorToMove) {
+        return 'Only your OWN color moves you — any other color skips your turn!';
+      }
       return cfg.entryAssist
         ? 'While all your pawns wait in the base, any color works — now you need your OWN color!'
         : 'You need your OWN color to leave the base!';
@@ -188,10 +187,15 @@ function rejectionText(reason: MoveRejectionReason, cfg: RulesConfig): string {
     case 'PROTECTED_FIELD':
       return 'That pawn is safe on its start field!';
     case 'FINISH_LANE_BLOCKED':
-      return 'The home slot ahead is taken — walk your pawn inside deeper first!';
+      return 'That finish slot is taken — every home cell holds ONE pawn!';
     case 'MOVE_EXCEEDS_FINISH':
+      return cfg.finishRule === 'exact'
+        ? 'That roll would carry past the golden goal — this pawn must land on it EXACTLY!'
+        : 'This pawn cannot move with that roll.';
     case 'PAWN_FINISHED':
-      return 'This pawn is already home!';
+      return 'This pawn is already home on the golden goal!';
+    case 'NO_MATCH_AHEAD':
+      return 'The next field of that color lies past the golden arrow — this pawn must wait for another roll!';
     default:
       return 'That pawn cannot move right now.';
   }
@@ -316,22 +320,23 @@ export const useGameStore = create<GameStore>()((set, get) => {
     }
 
     if (s.game.phase === 'no-moves') {
-      const canReroll = s.game.rollsThisTurn < RULES.stuckRollsPerTurn;
+      // No re-rolling: the turn is simply skipped after a short beat that
+      // shows WHY it was skipped (no legal move / not the player's color).
       later(TIMING.noMovesMs, () => {
         const cur = get();
         if (!cur.game || cur.game.phase !== 'no-moves') return;
-        if (canReroll) {
-          // Roll again automatically (kids don't want to click twice).
-          set({ game: noteReroll(cur.game) });
-          playSfx('reroll');
-          get().rollDice();
-        } else {
-          const next = passTurn(cur.game);
-          set({ game: next, legalMoves: [], selectedPawnId: null });
-          saveAutosave(next, get().totalMoves);
-          playSfx('noMoves');
-          tick();
-        }
+        const next = passTurn(
+          cur.game,
+          cur.game.rulesConfig.ownColorToMove &&
+            cur.game.diceFace !== 'star' &&
+            cur.game.diceFace !== cur.game.players[cur.game.activeIndex]!.color
+            ? 'rolled a foreign color — turn skipped'
+            : 'no legal move this turn',
+        );
+        set({ game: next, legalMoves: [], selectedPawnId: null, diceRolling: false });
+        saveAutosave(next, get().totalMoves);
+        playSfx('noMoves');
+        tick();
       });
       return;
     }
@@ -341,7 +346,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         const cur = get();
         if (!cur.game || cur.game.phase !== 'turn-end') return;
         const next = advanceTurn(cur.game);
-        set({ game: next, legalMoves: [], selectedPawnId: null });
+        set({ game: next, legalMoves: [], selectedPawnId: null, diceRolling: false });
         saveAutosave(next, get().totalMoves);
         playSfx('turnChange');
         tick();
@@ -595,8 +600,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
       initAudio();
       // Normalize the restored phase: transient animation phases cannot be
       // resumed, a pending star re-derives its productive colors.
-      const game = { ...a.game };
-      let starChoices: PlayerColorId[] = [];
+      const game = { ...a.game, diceFromStar: a.game.diceFromStar ?? false };
+      let starChoices: TrackColorId[] = [];
       if (game.phase === 'choose-star') {
         starChoices = computeStarOptions(game);
         if (starChoices.length === 0) {
@@ -605,6 +610,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       } else if (game.phase !== 'await-roll' && game.phase !== 'game-over') {
         game.phase = 'await-roll';
         game.diceFace = null;
+        game.diceFromStar = false;
       }
       set({
         game,
@@ -640,10 +646,15 @@ export const useGameStore = create<GameStore>()((set, get) => {
     // ---------------------------------------------------------------------
     rollDice: () => {
       const s = get();
-      // Accept fresh rolls AND the automatic reroll from the no-moves phase
-      // (noteReroll keeps the phase until a usable face appears).
-      if (!s.game || (s.game.phase !== 'await-roll' && s.game.phase !== 'no-moves')) return;
+      // Fresh rolls only — a turn without a legal move is SKIPPED (never
+      // re-rolled), so the die may only be tapped while awaiting a roll.
+      if (!s.game || s.game.phase !== 'await-roll') return;
       if (s.introPlaying || s.paused) return;
+      // Guard against double-rolls: while the dice animation is still running
+      // the phase stays 'await-roll', so a rapid second tap (HUD button,
+      // Space or the 3D die) would otherwise raise a fresh animation token,
+      // orphan the previous failsafe and desync the presentation layer.
+      if (s.diceRolling) return;
 
       const { state } = rollForTurn(s.game);
       const token = animTokenCounter++;
@@ -684,8 +695,30 @@ export const useGameStore = create<GameStore>()((set, get) => {
         return;
       }
 
+      // Color-match turns: a plain roll of a foreign FACE (foreign color,
+      // white or black) voids the whole turn immediately — skip it (never
+      // re-roll). A golden star is wild and never void (it was resolved above).
+      const activePlayer = game.players[game.activeIndex]!;
+      if (
+        game.rulesConfig.ownColorToMove &&
+        game.diceFace !== activePlayer.color
+      ) {
+        notify(
+          `${activePlayer.name} rolled ${faceLabel(game.diceFace ?? 'red')} — not ${activePlayer.name}'s color. Turn skipped!`,
+          'info',
+        );
+        set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
+        playSfx('noMoves');
+        tick();
+        return;
+      }
+
       const moves = getLegalMoves(game);
       if (moves.length === 0) {
+        notify(
+          `${activePlayer.name} rolled ${faceLabel(game.diceFace ?? 'red')} — no pawn can use it. Turn skipped.`,
+          'info',
+        );
         set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
         playSfx('noMoves');
         tick();
@@ -859,7 +892,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       const player = s.game.players[s.game.activeIndex]!;
       if (player.kind !== 'human') return;
       const next = passTurn(s.game, 'skipped the move voluntarily');
-      set({ game: next, legalMoves: [], selectedPawnId: null });
+      set({ game: next, legalMoves: [], selectedPawnId: null, diceRolling: false });
       saveAutosave(next, get().totalMoves);
       playSfx('noMoves');
       notify(`${player.name} skips this move.`, 'info');
