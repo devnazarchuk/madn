@@ -52,10 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
-# local sandbox artifacts
-db/
+# Runtime artifacts & session junk
+tool-results/
+.zscripts/dev.pid
+db/custom.db
 download/
 upload/
-tool-results/
-.zscripts/
-*.pid
+tests/*.sh
