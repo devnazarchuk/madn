@@ -154,7 +154,11 @@ interface RulesConfig {
 
 Invalid combinations are normalized automatically (e.g. extra turns after
 capture are dropped when capturing is disabled; start protection is dropped
-when capturing is disabled).
+when capturing is disabled; kids-v6: the own-color-only variant is dropped
+when Star Mode is off — see A10). Version-1 saves migrate by filling the new
+options with their Classic defaults; version-2 (kids-v4, star-era) custom
+presets migrate to `starMode: true` — they were created when the two wild
+faces were stars.
 
 ### 4.1 Presets
 
@@ -163,7 +167,7 @@ when capturing is disabled).
 | **Classic** | The documented strict reconstruction (§3 defaults). Locked — cannot be edited. | — |
 | **Custom** | Full control over every option; changes are flagged against Classic. | user-defined |
 | **Quick Game** | Shorter matches. | any-color entry · extra roll after captures · 2 pawns per player |
-| **Family Mode** | Easier for younger players. | free passing · protected start fields · voluntary skip |
+| **Family Mode** | Easier for younger players. | free passing · protected start fields · **flexible finish** · voluntary skip |
 
 ### 4.2 Semantics (authoritative)
 
@@ -173,63 +177,151 @@ when capturing is disabled).
   with `WRONG_DICE_COLOR` — the engine, not the UI, enforces this. Entering
   lands on the player's own start field and may capture opponents standing
   there.
-- **Movement** — the rolled color moves one pawn *forward to the next track
-  field of that color* (1–5 fields on the woven track). Only the first matching
-  field counts.
+- **Movement** — the rolled face (a player color, white or black) moves one
+  pawn *forward to the next field showing that face*, measured along the
+  pawn's 43-position **journey**: 40 track fields followed by the 3 home
+  slots — with the **golden arrow gateway cap** (kids-v6): a pawn on the
+  track may only land up to and INCLUDING its own gateway (journey 39, the
+  arm tip — a white or black platform). No move may skip over the arrow into
+  the home stretch or stride past the goal from the track side; a roll whose
+  next match would lie beyond the gateway yields **no move at all** for that
+  pawn (`NO_MATCH_AHEAD` — even the player's OWN color cannot jump the
+  arrow). Only the first matching field counts. Rolling WHITE or BLACK
+  walks to the next white/black platform — a long stride of up to 8 fields
+  (and landing exactly ON the arrow gateway is precisely how Step 1 of the
+  home entry is satisfied).
 - **Strict blocking** — with `passingRule: 'strict-blocking'` (the Classic
-  default), EVERY intermediate field between the pawn and its destination must
-  be empty of pawns (own or opponent); a pawn may never jump over another
-  pawn. Free passing ignores intermediates. Blocking is never confused with
-  capturing: an opponent on an intermediate field blocks the move but is never
-  captured.
+  default), EVERY intermediate position between the pawn and its destination
+  must be empty of pawns (own or opponent) — track fields AND home slots
+  alike; a pawn may never jump over another pawn. Free passing ignores
+  intermediates. Blocking is never confused with capturing: an opponent on an
+  intermediate field blocks the move but is never captured.
 - **Capture** — landing on an opponent (destination only!) sends it (or, when
   stacking is on, *all* pawns of that color on the field) back to its base.
-  With capturing disabled, landing on an opponent is simply illegal.
+  Landing on a white/black platform captures like any other field. With
+  capturing disabled, landing on an opponent is simply illegal.
 - **Protected starts** — with `protectedStarts`, only pawns standing on THEIR
   OWN start field are safe; a pawn squatting on a foreign start field enjoys
   no protection.
-- **Home** — a pawn whose rolled color has no matching field ahead on its
-  remaining track steps into its home row **at the mouth slot (slot 0)**;
-  further rolls walk it one slot deeper (home matches every color); the last
-  slot completes the pawn and it never moves again. The mouth must be free —
-  walking home pawns deeper is what makes room for the queue behind them.
-- **Star** — a star face resolves to one of the four colors, chosen freely
-  from the *productive* colors (those that yield at least one legal move).
-  One productive color auto-resolves; several offer the in-game picker. The AI
-  enumerates every legal color × move pair, exactly like a human could.
+- **Home stretch** — a pawn's circuit ends at the **golden arrow gateway**
+  (its own arm tip, directly opposite its color row — a white or black
+  platform, marked with a golden arrow inlay), which is a **mandatory stop**:
+  - *Step 1* — standing anywhere before the gateway, rolling the arrow cell's
+    **exact platform color** (black for blue & red, white for yellow &
+    green) moves the pawn ONTO it (subject to strict blocking and the
+    destination rules like any track landing);
+  - *Step 2* — on a subsequent turn, standing ON the gateway, rolling the
+    player's **OWN color** (or a resolved star) steps onto the first cell of
+    the row (slot 0, the outer cell);
+  - *No looping* — a pawn on its own gateway may never continue around the
+    main board loop; foreign faces find no field at all (`NO_MATCH_AHEAD`).
+  The row is painted in the **player's own color** — three matching cells
+  leading into the winning area marked with a star — and the movement model
+  follows the paint: own-color rolls walk the row slot by slot toward the
+  golden winning cell. A foreign color never matches inside the row — from
+  a home slot such a roll's next match lies on the virtual lap past the goal
+  (finish-rule territory).
+- **Exclusive finish slots** — inside the home stretch strictly **ONE pawn
+  per cell**, always (even when `friendlyStacking` is enabled for the main
+  track): landing on any slot occupied by a teammate is rejected with
+  `FINISH_LANE_BLOCKED`. The **golden winning cell** keeps its FIRST
+  finisher forever; later pawns park behind it, and the row fills
+  sequentially: the first finisher onto the golden cell (slot 2), the next
+  onto the middle slot, the last onto the outer slot.
+- **Finish rule** — a roll whose next matching field lies BEYOND the winning
+  cell would carry the pawn past the goal (this can only arise INSIDE the
+  row — the gateway cap voids every track-side stride):
+  - `finishRule: 'exact'` (Classic) — that pawn cannot use the roll
+    (`MOVE_EXCEEDS_FINISH`); it stays put and waits for an own-color roll.
+  - `finishRule: 'flexible'` — the pawn completes: any roll carrying it onto
+    or past the winning cell finishes it (clamped onto the golden cell,
+    which must be free — one pawn per finish cell).
+- **Star Mode (`starMode`, OFF by default)** — the optional wild-die variant.
+  When ON, the die's white and black faces are replaced by two golden STAR
+  wilds. A star resolves to one of the **six track colors** (the four player
+  colors, white or black), chosen freely from the *productive* colors (those
+  that yield at least one legal move). One productive color auto-resolves;
+  several offer the in-game picker. The AI enumerates every legal color × move
+  pair, exactly like a human could. While the standard die (Star Mode OFF)
+  never rolls stars — its two extra faces are the white and black platform
+  faces.
+- **Color-match turns** — with `ownColorToMove` (requires Star Mode), a
+  plain roll of a foreign face (foreign color, white or black) voids the
+  entire turn immediately (skipped, never re-rolled); stars are exempt and
+  may become any color. With the standard die the variant is dropped by
+  normalization — the arrow gateway's platform color could never be rolled
+  and pawns would strand before their home stretch.
 - **Extra rolls** — optionally granted after a capture and/or after rolling the
   player's own color, capped at 5 rolls per turn.
-- **Victory** — the first player whose pawns are ALL home wins; the match ends
-  immediately.
+- **Stuck turns** — no legal move → the turn is skipped immediately; the die is
+  never re-rolled automatically. (With the gateway cap this is a common,
+  healthy state: pawns waiting before their arrow for a usable face.)
+- **Victory** — the first player whose pawns ALL stand inside their home
+  stretch — strictly one pawn per finish cell — **packed against the golden
+  winning cell** (the occupied slots form the gapless block {2, 1, 0}; the
+  check is `homeRowPacked`); the match ends immediately.
 
 ## 5. Board topology & track pattern (engine-true)
 
 - 40-field shared loop on the classic 11×11 cross layout, clockwise.
-- Player segments of 10 fields; each segment begins with the player's colored
-  start field (blue 0, yellow 10, red 20, green 30).
-- The track pattern is **designed, deterministic data** (`engine/boardTrackConfig.ts`,
-  `SEGMENT_TEMPLATES`): every arm repeats its own 4-color template
-  `[owner, c1, c2, c3]` so the owner color stands at slots 0, 4 and 8:
+- **Start fields sit directly beside each player's base corner**: blue 35,
+  yellow 5, red 15, green 25. Each player's 10-field color window begins at
+  their start field; every window follows its own full 10-slot template
+  `[owner, c1, SPEC_A, c3, owner, c2, SPEC_B, c1, owner, SPEC_C]` — the three
+  SPEC slots carry the white/black platforms, alternating W-heavy and
+  K-heavy windows around the board:
 
-  | Arm (loop) | Template | Resulting slots |
+  | Window (loop) | 10-slot template (W/K = platforms) | Resulting slots |
   | --- | --- | --- |
-  | blue (0–9) | blue, red, green, yellow | blue, red, green, yellow, blue, red, green, yellow, blue, red |
-  | yellow (10–19) | yellow, green, red, blue | yellow, green, red, blue, yellow, green, red, blue, yellow, green |
-  | red (20–29) | red, blue, green, yellow | red, blue, green, yellow, red, blue, green, yellow, red, blue |
-  | green (30–39) | green, yellow, red, blue | green, yellow, red, blue, green, yellow, red, blue, green, yellow |
+  | blue (35–4) | blue, red, W, yellow, blue, green, K, red, blue, W | blue, red, white, yellow, blue, green, black, red, blue, white |
+  | yellow (5–14) | yellow, green, K, blue, yellow, red, W, green, yellow, K | yellow, green, black, blue, yellow, red, white, green, yellow, black |
+  | red (15–24) | red, blue, W, yellow, red, green, K, blue, red, W | red, blue, white, yellow, red, green, black, blue, red, white |
+  | green (25–34) | green, yellow, K, blue, green, red, W, yellow, green, K | green, yellow, black, blue, green, red, white, yellow, green, black |
 
-  Guarantees (exhaustively searched — this exact assignment minimizes the
-  longest possible move): each color exactly **10 fields**; **no two adjacent
-  fields share a color**; the position-1 colors of the four arms form a
-  permutation of all four colors; every next-field-of-color is **1–5 fields**
-  ahead. Only the four player colors appear — no black or unrelated colors.
-- Each player: 3 base slots (corner), 3 home slots (arm center column, mouth
-  slot first), a decorative home mouth, one start field.
-- Turn order: blue → yellow → red → green (clockwise, matching the segment order).
+  Platform positions: **white at loops 4, 11, 17, 24, 31, 37; black at loops
+  1, 7, 14, 21, 27, 34** — perfectly alternating W, K, W, K … every 3–4 fields
+  around the whole loop.
+
+  Guarantees (verified by the automated tests): each player color exactly
+  **7 fields**; white and black exactly **6 fields** each (matching their 1/6
+  share of the die faces); **no two adjacent fields share a color**
+  (including across window seams and the loop wrap); every start field
+  carries its owner's color (window slots 0, 4, 8); every
+  next-field-of-a-face is **1–8 fields** ahead on the shared track. Only the
+  six track colors appear — nothing else.
+- **Every player's 40-field circuit ends at the arm tip directly opposite
+  their color row** — the closest straight-line cell colinear with the row:
+  the **golden arrow gateway**, a MANDATORY STOP (kids-v6): blue ends at the
+  west tip {0,5} (feeding east into row 5), yellow at the north tip {5,0}
+  (feeding south into column 5), red at the east tip {10,5}, green at the
+  south tip {5,10}. A golden arrow inlay marks each gateway — every tip is a
+  white or black platform (black at loops 14 & 34, white at loops 4 & 24), so
+  Step 1 of the home entry is always a plain platform roll.
+- **Home rows** point inward: slot 0 is the outer cell beside the tip, slot 2
+  (beside the decorative goal mouth with its golden star) is the winning cell.
+  Opposite rows face each other across the central dice plaza (blue ↔ red on
+  row 5, yellow ↔ green on column 5).
+- **Home rows are painted in the player's own color** — three matching cells
+  per player leading into the winning area marked with a star (the classic
+  look), styled as **clearly smaller, semi-transparent finish platforms**
+  (socket 0.38 / inlay 0.30) so they read as home cells, not regular track
+  fields — one private parking slot per pawn. The engine follows the paint
+  exactly: journey positions 40–42 show the player's own color
+  (`journeyColor`), so the own color walks a pawn in and along the row; past
+  the winning cell the woven pattern resumes on the „virtual next lap", which
+  is how a roll is recognized as carrying a pawn past the goal — but ONLY
+  for pawns already inside the row: the **gateway cap** in
+  `matchingFieldAhead` cuts every track-side search at the arrow (journey
+  39), so no pawn can ever skip over the gateway or loop past it (a
+  foreign face before the arrow simply yields `NO_MATCH_AHEAD`).
+- Each player: 3 base slots arranged in a **triangle** (apex toward the board
+  center, two slots tucked toward the corner), one start field, 3 home slots,
+  one decorative goal mouth.
+- Turn order: blue → yellow → red → green (clockwise, matching the corner order).
 - The engine and the 3D layer share one board configuration
   (`boardTrackConfig.ts`: ids, loop indices, grid cells, world coordinates,
-  colors, start/finish metadata). The visual color of a field never changes
-  the color of a pawn standing on it.
+  colors, start/finish metadata, home colors, feeding tips). The visual color
+  of a field never changes the color of a pawn standing on it.
 
 ## 6. Engine guarantees
 
@@ -238,26 +330,38 @@ when capturing is disabled).
   — see `tests/ai.test.ts`).
 - Dice results are computed by a seeded, deterministic RNG **before** any
   animation starts; animations are presentation only and never decide results.
-- All pawn animations follow the exact field-by-field path produced by the engine
-  (`calculateMovementPath`); illegal moves never animate.
+- All pawn animations follow the exact field-by-field journey path produced by
+  the engine (track fields, the arm tip and the home slots alike); illegal
+  moves never animate.
 - Every action passes the single authoritative validation pipeline
-  (`engine/rules/`): ownership → dice result → star resolution → entry color →
-  intermediate path → destination → home-lane boundary. It returns structured
-  rejection codes (`WRONG_DICE_COLOR`, `PATH_BLOCKED`, `DESTINATION_OCCUPIED`,
-  `CAPTURE_DISABLED`, `PROTECTED_FIELD`, `FINISH_LANE_BLOCKED`,
-  `MOVE_EXCEEDS_FINISH`, `PAWN_NOT_OWNED_BY_ACTIVE_PLAYER`, `NO_DICE_RESULT`,
-  `STAR_UNRESOLVED`, `PAWN_FINISHED`) which the UI translates into
-  child-friendly messages. A rejected action mutates nothing.
+  (`engine/rules/`): ownership → dice result → star resolution → color-match
+  turns → entry color → gateway-capped match search → intermediate path
+  (track + home slots) → destination → finish boundary. It returns
+  structured rejection codes (`WRONG_DICE_COLOR`, `PATH_BLOCKED`,
+  `DESTINATION_OCCUPIED`, `CAPTURE_DISABLED`, `PROTECTED_FIELD`,
+  `FINISH_LANE_BLOCKED`, `MOVE_EXCEEDS_FINISH`, `NO_MATCH_AHEAD`,
+  `PAWN_NOT_OWNED_BY_ACTIVE_PLAYER`, `NO_DICE_RESULT`, `STAR_UNRESOLVED`,
+  `PAWN_FINISHED`) which the UI translates into child-friendly messages. A
+  rejected action mutates nothing.
 - The full event log (rolls, star resolutions, moves, captures, passes, turns,
   rule config, seed) is recorded per match and persisted with the match record,
   enabling deterministic reproduction of a completed match.
-- The full automated suite (`bun test tests/`) covers the entry color table,
-  every blocking scenario, home-lane queue semantics, turn logic, star
-  resolution and a complete head-less AI match.
+- The full automated suite (`bun test tests/`) covers the entry color table
+  (including the white/black platform faces), every blocking scenario, the
+  golden arrow gateway mechanics (mandatory stop, the Step 1 / Step 2 dance,
+  no skipping, no looping, `NO_MATCH_AHEAD`), the home-stretch mechanics
+  (own-colored rows, exclusive finish slots, exact vs flexible finish inside
+  the row, the packed-row victory), turn logic, the standard die faces vs
+  Star Mode, star resolution (incl. platform colors), the own-color toggle
+  (Star Mode normalization) and complete head-less AI matches under all
+  three presets AND in Star Mode — always ending in the packed home row.
 
 ## 7. AI opponents
 
 Three levels (easy / medium / hard) use exactly the same legal-move API as human
 players — they can never bypass the rules engine, including star resolution
-(their choice is always one of the engine's productive colors). Hard additionally
-weighs capture risk, victim progress and denial value.
+(their choice is always one of the engine's productive colors), the golden
+arrow gateway (a mandatory stop for them too: foreign faces from the arrow
+yield nothing) and the finish boundary (no past-the-goal moves under the exact
+rule). Hard additionally weighs capture risk, victim progress and denial
+value.
