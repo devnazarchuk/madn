@@ -15,55 +15,131 @@ import { easeInOut } from './geometry';
  * auto-rotation on the menu/setup/rules screens and a celebratory orbit for
  * the winner. The player can freely orbit (but not pan) during the game and
  * always restore the default view via the HUD camera button.
+ *
+ * Two default framings, picked purely from the viewport aspect ratio:
+ *  - landscape / desktop keeps the classic axis-aligned three-quarter view
+ *    (fov widening + pull-back below a ≈1.63 aspect so nothing clips);
+ *  - portrait / mobile gets a DIAGONAL DIAMOND view: the camera slides to a
+ *    45° azimuth at a slightly flatter elevation, so one corner of the board
+ *    points straight down toward the bottom of the screen — the classic
+ *    kids' ludo-app framing that fills a tall canvas naturally.
  */
 
 const ORBIT_TARGET = new THREE.Vector3(0, 0.5, 0);
 const DEFAULT_POSITION = new THREE.Vector3(...CAMERA_DEFAULTS.position);
-const VIEW_DIRECTION = DEFAULT_POSITION.clone().sub(ORBIT_TARGET).normalize();
-const BASE_DISTANCE = DEFAULT_POSITION.distanceTo(ORBIT_TARGET);
 /** Top surface height of the board (y). */
 const SURFACE_Y = 0.6;
 
-/**
- * Depth (along the view axis) that the NEAR board edge sits in front of the
- * orbit target. Perspective widens near geometry, so the near corners — not
- * the board centre row — are the binding constraint for the horizontal fit:
- * a corner at (±half, surface, +half) must satisfy
- *   half / (distance − NEAR_DEPTH_OFFSET) ≤ tan(hFov/2).
- */
-const NEAR_DEPTH_OFFSET =
-  (BOARD.size / 2) * VIEW_DIRECTION.z + (SURFACE_Y - ORBIT_TARGET.y) * VIEW_DIRECTION.y;
+interface ViewSpec {
+  /** Unit vector from the orbit target toward the default camera. */
+  direction: THREE.Vector3;
+  /** Authored default distance — used whenever the aspect needs no widening. */
+  baseDistance: number;
+  /** Vertical fov at the reference aspect. */
+  fov: number;
+  /** Widest horizontal half-extent of the board incl. margin (world units). */
+  halfWidth: number;
+  /** View-axis depth of the corners that carry that extent. */
+  nearDepth: number;
+  /** Below this aspect ratio the fov widens and the camera pulls back. */
+  fitAspect: number;
+  /** Extra degrees of fov per unit of aspect shortfall. */
+  fovGain: number;
+  fovMax: number;
+  distanceMax: number;
+}
 
 /**
- * Aspect fit — the default 42° view keeps the whole 14.2-unit board in frame
- * only for wide aspects (≈1.63 and up, i.e. 16:9+). On portrait phones (and
- * even tablets) the near board corners would clip at the left/right screen
- * edges, so below that ratio the view is widened (fov) and the camera pulled
- * back along the same view axis just far enough for the full playing surface
- * to stay visible; the three-quarter viewing angle itself never changes.
+ * Derives the horizontal fit constraint from the actual board corners for a
+ * given view direction. Perspective widens near geometry, so among the
+ * corners carrying the widest screen extent (max |screen-right|) the deepest
+ * one binds:
+ *   halfWidth / (distance − nearDepth) ≤ tan(hFov/2).
  */
-const FIT = {
-  /** Below this aspect the default framing clips the near board corners. */
-  aspect: 1.63,
-  /** Half of the board (7.1) plus a safety margin, in world units. */
-  halfWidth: BOARD.size / 2 + 0.5,
-  fovMax: 62,
-  fovGain: 8,
-  distanceMax: 32,
-} as const;
-
-function cameraFitFor(aspect: number): { fov: number; distance: number } {
-  if (!Number.isFinite(aspect) || aspect >= FIT.aspect) {
-    return { fov: CAMERA_DEFAULTS.fov, distance: BASE_DISTANCE };
+function cornerFit(direction: THREE.Vector3, margin: number) {
+  const horiz = new THREE.Vector3(direction.x, 0, direction.z).normalize();
+  const right = new THREE.Vector3(horiz.z, 0, -horiz.x);
+  const corner = new THREE.Vector3();
+  let halfWidth = 0;
+  let nearDepth = -Infinity;
+  for (const sx of [-1, 1] as const) {
+    for (const sz of [-1, 1] as const) {
+      corner.set((sx * BOARD.size) / 2, SURFACE_Y - ORBIT_TARGET.y, (sz * BOARD.size) / 2);
+      const r = Math.abs(corner.dot(right));
+      const d = corner.dot(direction);
+      if (r > halfWidth + 1e-6) {
+        halfWidth = r;
+        nearDepth = d;
+      } else if (r > halfWidth - 1e-6) {
+        nearDepth = Math.max(nearDepth, d);
+      }
+    }
   }
-  const fov = Math.min(FIT.fovMax, CAMERA_DEFAULTS.fov + (FIT.aspect / aspect - 1) * FIT.fovGain);
+  return { halfWidth: halfWidth + margin, nearDepth };
+}
+
+/** Landscape / desktop view: the authored axis-aligned three-quarter angle. */
+const LANDSCAPE: ViewSpec = (() => {
+  const direction = DEFAULT_POSITION.clone().sub(ORBIT_TARGET).normalize();
+  return {
+    direction,
+    baseDistance: DEFAULT_POSITION.distanceTo(ORBIT_TARGET),
+    fov: CAMERA_DEFAULTS.fov,
+    ...cornerFit(direction, 0.5),
+    fitAspect: 1.63,
+    fovGain: 8,
+    fovMax: 62,
+    distanceMax: 32,
+  };
+})();
+
+/** Portrait / mobile view: 45° azimuth × 40° elevation diamond angle. */
+const DIAMOND: ViewSpec = (() => {
+  const elevation = THREE.MathUtils.degToRad(40);
+  const horizontal = Math.SQRT1_2; // cos/sin of 45° azimuth
+  const direction = new THREE.Vector3(
+    Math.cos(elevation) * horizontal,
+    Math.sin(elevation),
+    Math.cos(elevation) * horizontal,
+  );
+  const { halfWidth, nearDepth } = cornerFit(direction, 0.3);
+  return {
+    direction,
+    // The fit the diamond has at a square aspect with the base fov.
+    baseDistance: nearDepth + halfWidth / Math.tan(THREE.MathUtils.degToRad(CAMERA_DEFAULTS.fov / 2)),
+    fov: CAMERA_DEFAULTS.fov,
+    halfWidth,
+    nearDepth,
+    fitAspect: 1,
+    fovGain: 12,
+    fovMax: 64,
+    distanceMax: 48,
+  };
+})();
+
+/** Taller-than-wide viewports (phones in portrait) get the diamond framing. */
+const DIAMOND_MAX_ASPECT = 1;
+
+/**
+ * Aspect fit — keeps the whole board (frame included) in frame for any
+ * viewport: wide screens sit at the authored fov/distance, narrow ones widen
+ * the fov and pull the camera back along the view axis just enough. The
+ * viewing angle itself never changes within a branch; crossing the
+ * landscape↔portrait boundary swaps to the matching default framing.
+ */
+function cameraFitFor(aspect: number): { fov: number; distance: number; direction: THREE.Vector3 } {
+  const view = aspect < DIAMOND_MAX_ASPECT ? DIAMOND : LANDSCAPE;
+  if (!Number.isFinite(aspect) || aspect >= view.fitAspect) {
+    return { fov: view.fov, distance: view.baseDistance, direction: view.direction };
+  }
+  const fov = Math.min(view.fovMax, view.fov + (view.fitAspect / aspect - 1) * view.fovGain);
   const tanHalf = Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect;
   const distance = THREE.MathUtils.clamp(
-    NEAR_DEPTH_OFFSET + FIT.halfWidth / tanHalf,
-    BASE_DISTANCE,
-    FIT.distanceMax,
+    view.nearDepth + view.halfWidth / tanHalf,
+    view.baseDistance,
+    view.distanceMax,
   );
-  return { fov, distance };
+  return { fov, distance, direction: view.direction };
 }
 
 /**
@@ -92,14 +168,15 @@ export function CameraRig() {
   const fit = useMemo(() => cameraFitFor(size.width / Math.max(1, size.height)), [size.width, size.height]);
   /** Fitted camera position: same direction and elevation, adapted distance. */
   const fitPosition = useMemo(
-    () => VIEW_DIRECTION.clone().multiplyScalar(fit.distance).add(ORBIT_TARGET),
-    [fit.distance],
+    () => fit.direction.clone().multiplyScalar(fit.distance).add(ORBIT_TARGET),
+    [fit],
   );
 
   // Aspect fit — applied before the first paint (so portrait phones never
-  // flash a cropped board) and re-applied whenever the orientation changes.
-  // The numeric deps keep this stable for same-value aspect resizes, so an
-  // ordinary desktop window resize does not reset a player's camera.
+  // flash a cropped or wrongly angled board) and re-applied whenever the
+  // orientation changes. The numeric deps keep this stable for same-value
+  // aspect resizes, so an ordinary desktop window resize does not reset a
+  // player's camera.
   useLayoutEffect(() => {
     applyCameraFit(camera, fitPosition, fit.fov);
   }, [fit.fov, fitPosition, camera]);
@@ -111,7 +188,8 @@ export function CameraRig() {
     }
   }, [introPlaying, camera]);
 
-  // Restore the fitted three-quarter view whenever the HUD asks for it.
+  // Restore the fitted default view (diamond on portrait, three-quarter on
+  // landscape) whenever the HUD asks for it.
   useEffect(() => {
     if (cameraResetToken === 0) return;
     const c = controls.current;
