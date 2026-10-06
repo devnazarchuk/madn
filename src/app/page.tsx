@@ -8,7 +8,6 @@ import { SetupScreen } from '@/components/hud/SetupScreen';
 import { RulesScreen } from '@/components/hud/RulesScreen';
 import { GameHud } from '@/components/hud/GameHud';
 import { Overlays } from '@/components/hud/Overlays';
-import { Footer } from '@/components/hud/Footer';
 
 const GameCanvas = dynamic(() => import('@/components/game/GameCanvas'), {
   ssr: false,
@@ -99,7 +98,6 @@ export default function Home() {
         {screen === 'game' && <GameHud />}
         <Overlays />
       </main>
-      <Footer />
     </div>
   );
 }

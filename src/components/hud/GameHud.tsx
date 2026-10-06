@@ -137,20 +137,34 @@ function PlayerChip({
 
   return (
     <div
-      className={`flex shrink-0 items-center gap-2 rounded-xl bg-white/90 px-2.5 py-1 backdrop-blur-md transition-all sm:px-3 sm:py-1.5 ${
+      className={`flex flex-1 items-center justify-center gap-1 rounded-xl bg-white/90 px-1.5 py-1.5 backdrop-blur-md transition-all sm:flex-none sm:justify-start sm:gap-2 sm:px-3 ${
         active ? 'scale-105 shadow-lg' : 'opacity-75 shadow-sm'
       }`}
       style={active ? { boxShadow: `0 0 0 2.5px ${COLORS[color]}, 0 6px 18px rgba(0,0,0,0.28)` } : undefined}
     >
       <span
-        className="flex size-6 items-center justify-center rounded-lg text-white sm:size-7"
+        className="relative flex size-6 items-center justify-center rounded-lg text-white sm:size-7"
         style={{ backgroundColor: COLORS[color] }}
       >
         {isWinner ? <Crown size={14} /> : <AnimalIcon color={color} size={15} />}
+        {/* compact bot badge pinned to the avatar corner (mobile-only) */}
+        {kind === 'ai' && (
+          <span
+            aria-hidden
+            title="Bot"
+            className="absolute -right-1 -top-1 flex size-[13px] items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/10 sm:hidden"
+          >
+            <Bot size={9} className="text-[#8A6B4F]" />
+          </span>
+        )}
       </span>
-      <span className="max-w-20 truncate text-xs font-semibold text-[#3E2A18] sm:max-w-28">{name}</span>
+      {/* On phones the name text is dropped (kept for screen readers) so all
+          four badges fit a single row; sm+ restores the full labelled pill. */}
+      <span className="sr-only text-xs font-semibold text-[#3E2A18] sm:not-sr-only sm:max-w-28 sm:truncate">
+        {name}
+      </span>
       <PawnDots color={color} home={counts.home} track={counts.track} total={totalPawns} />
-      {kind === 'ai' && <Bot size={12} className="text-[#8A6B4F]" />}
+      {kind === 'ai' && <Bot size={12} className="hidden text-[#8A6B4F] sm:block" />}
     </div>
   );
 }
@@ -329,7 +343,10 @@ export function GameHud() {
       </div>
 
       {/* ---- player chips ------------------------------------------------ */}
-      <div className="pointer-events-auto flex gap-1.5 overflow-x-auto px-2 pb-1 no-scrollbar sm:gap-2 sm:px-3">
+      {/* flex-1 chips share the row equally on phones (no name text, no
+          clipping); sm+ keeps the natural-width labelled pills. overflow-x-auto
+          remains as a graceful fallback for narrow desktop windows. */}
+      <div className="pointer-events-auto flex gap-1 overflow-x-auto px-1.5 pb-1 no-scrollbar sm:gap-2 sm:px-3">
         {players.map((p) => (
           <PlayerChip
             key={p.id}
@@ -354,9 +371,9 @@ export function GameHud() {
         </div>
       </div>
 
-      {/* ---- bottom bar (sticky footer of the game) ---------------------- */}
-      <div className="mt-auto p-2 sm:p-3">
-        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl bg-[#241B14]/75 px-3 py-2 text-[#F6EBD9] shadow-2xl backdrop-blur-md sm:px-4 sm:py-2.5">
+      {/* ---- bottom bar (docked flush to the screen edge on phones) ------- */}
+      <div className="mt-auto sm:p-3">
+        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-t-2xl bg-[#241B14]/90 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[#F6EBD9] shadow-2xl backdrop-blur-md sm:rounded-2xl sm:bg-[#241B14]/75 sm:px-4 sm:py-2.5">
           <div className="flex items-center gap-3 text-[11px] font-medium text-[#D9C3A0] sm:text-xs">
             <button
               type="button"
