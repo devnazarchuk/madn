@@ -1,17 +1,28 @@
 'use client';
 
 import * as THREE from 'three';
-import { MATERIAL } from '@/config/theme';
+import { MATERIAL, COLORS, COLORS_DEEP, type PawnAccessoryId, type PawnSkinId } from '@/config/theme';
 import type { PlayerColorId } from '@/engine/types';
 
 /**
  * ============================================================================
- * THE FOUR ANIMAL FRIENDS — Fox (red), Bear (blue), Frog (green), Chick (yellow)
+ * PAWN FIGURES — four skin families, always in each player's OWN color.
  * ============================================================================
- * Stylized toy figures built from soft primitives: rounded proportions,
- * friendly faces, glossy toy plastic. Shared geometries + materials keep the
- * scene light; each pawn owns its body material so highlights (selectable /
- * hovered / selected) never leak across pawns.
+ *  classic : the four animal friends (Fox, Bear, Frog, Chick) — toy figures
+ *            built from soft primitives with friendly faces.
+ *  gem     : a faceted gemstone on a pedestal base (flat-shaded sparkle).
+ *  chess   : a lathe-turned chessman silhouette with a golden collar.
+ *  egg     : a striped Easter egg with a golden foot ring.
+ *
+ * COLOR-PRESERVATION: every skin & every accessory renders in the player's
+ * designated base color (plus neutral cream/white/gold trims) — ownership
+ * and identification stay instantly clear on the board.
+ *
+ * Accessories (beanie, santa hat, scarf, sun cap, crown) sit on an anchor
+ * point derived from the active skin so hats never swallow ears or eyes.
+ * Shared geometries + module-level materials keep the scene light; each pawn
+ * owns its body material so highlights (selectable / hovered / selected)
+ * never leak across pawns.
  *
  * The figures stand on y = 0 (feet) and face +z.
  */
@@ -21,8 +32,31 @@ import type { PlayerColorId } from '@/engine/types';
 // ---------------------------------------------------------------------------
 
 const GEO = {
-  sphere: new THREE.SphereGeometry(1, 20, 16),
-  cone: new THREE.ConeGeometry(1, 1, 16),
+  sphere: new THREE.SphereGeometry(1, 24, 18),
+  cone: new THREE.ConeGeometry(1, 1, 18),
+  /** Gem body — flat-shaded icosahedron. */
+  gem: new THREE.IcosahedronGeometry(1, 0),
+  /** Chessman silhouette (lathe profile, radii in world units). */
+  chess: new THREE.LatheGeometry(
+    [
+      [0.22, 0],
+      [0.21, 0.02],
+      [0.19, 0.05],
+      [0.09, 0.09],
+      [0.075, 0.26],
+      [0.13, 0.32],
+      [0.13, 0.35],
+      [0.08, 0.44],
+      [0.15, 0.5],
+      [0.1, 0.56],
+      [0.12, 0.6],
+      [0.1, 0.64],
+      [0.06, 0.68],
+    ].map(([x, y]) => new THREE.Vector2(x, y)),
+    32,
+  ),
+  /** Cylinder for bands & brims. */
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 20),
 } as const;
 
 const ACCENT = {
@@ -31,6 +65,22 @@ const ACCENT = {
   white: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.38 }),
   gold: new THREE.MeshStandardMaterial({ color: MATERIAL.gold, roughness: 0.42 }),
 } as const;
+
+/** Deep player-color materials for hats/scarves (static — color never changes). */
+const DEEP_MAT: Record<PlayerColorId, THREE.MeshStandardMaterial> = {
+  red: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.red, roughness: 0.5 }),
+  blue: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.blue, roughness: 0.5 }),
+  green: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.green, roughness: 0.5 }),
+  yellow: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.yellow, roughness: 0.5 }),
+};
+
+/** Bright player-color materials for accessory accents (static). */
+const BRIGHT_MAT: Record<PlayerColorId, THREE.MeshStandardMaterial> = {
+  red: new THREE.MeshStandardMaterial({ color: COLORS.red, roughness: 0.5 }),
+  blue: new THREE.MeshStandardMaterial({ color: COLORS.blue, roughness: 0.5 }),
+  green: new THREE.MeshStandardMaterial({ color: COLORS.green, roughness: 0.5 }),
+  yellow: new THREE.MeshStandardMaterial({ color: COLORS.yellow, roughness: 0.5 }),
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -185,33 +235,232 @@ function ChickBody({ bodyMat }: { bodyMat: THREE.Material }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Alternative pawn skins — always in the player's own color
+// ---------------------------------------------------------------------------
+
+/** Faceted gemstone on a small base (flat-shaded via the owned bodyMat). */
+function GemBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
+  return (
+    <>
+      {/* pedestal base in the deep player tone */}
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, 0.1, 0]} scale={[0.19, 0.2, 0.19]} castShadow />
+      {/* golden collar */}
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.21, 0]} scale={[0.16, 0.025, 0.16]} castShadow />
+      {/* the gem itself — the player's color, sparkling facets */}
+      <mesh geometry={GEO.gem} material={bodyMat} position={[0, 0.52, 0]} scale={[0.31, 0.36, 0.31]} castShadow />
+    </>
+  );
+}
+
+/** Lathe-turned chessman with a golden collar ring. */
+function ChessBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
+  return (
+    <>
+      <mesh geometry={GEO.chess} material={bodyMat} castShadow />
+      {/* top knob in the deep player tone */}
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[0, 0.7, 0]} scale={[0.07, 0.07, 0.07]} castShadow />
+      {/* golden collar on the stem */}
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.335, 0]} scale={[0.145, 0.025, 0.145]} castShadow />
+    </>
+  );
+}
+
+/** Striped Easter egg with a golden foot ring. */
+function EggBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
+  return (
+    <>
+      {/* golden foot ring */}
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.02, 0]} scale={[0.17, 0.03, 0.17]} castShadow />
+      {/* the egg — player color */}
+      <mesh geometry={GEO.sphere} material={bodyMat} position={[0, 0.31, 0]} scale={[0.23, 0.31, 0.23]} castShadow />
+      {/* cream stripe rings following the egg silhouette */}
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.17, 0]} scale={[0.206, 0.028, 0.206]} castShadow />
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0, 0.3, 0]} scale={[0.232, 0.028, 0.232]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.44, 0]} scale={[0.2, 0.028, 0.2]} castShadow />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Accessories — hats/scarf/crown in each player's color
+// ---------------------------------------------------------------------------
+
+/** Where a hat sits: derived per skin (and per animal for the classic skin). */
+interface Anchor {
+  y: number;
+  r: number;
+  /** Backward offset so hats sit behind bulgy eyes. */
+  z?: number;
+  /** Slight playful tilt (radians around x). */
+  tilt?: number;
+}
+
+const CLASSIC_ANCHOR: Record<PlayerColorId, Anchor> = {
+  red: { y: 0.78, r: 0.16, z: -0.02 }, // fox — ears poke through the sides
+  blue: { y: 0.85, r: 0.17, z: -0.02 }, // bear
+  green: { y: 0.5, r: 0.17, z: -0.07, tilt: -0.25 }, // frog — pushed back behind the eyes
+  yellow: { y: 0.76, r: 0.15, z: -0.01 }, // chick
+};
+
+const SKIN_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, Anchor> = {
+  gem: { y: 0.66, r: 0.17 },
+  chess: { y: 0.72, r: 0.13 },
+  egg: { y: 0.6, r: 0.16, tilt: -0.1 },
+};
+
+/** Neck anchors for the scarf — the band must sit OUTSIDE the body
+ *  silhouette (animal bodies are chunky spheres) to stay visible. */
+const SCARF_ANCHOR: Record<PlayerColorId, { y: number; r: number }> = {
+  red: { y: 0.5, r: 0.27 }, // fox — chunky chest
+  blue: { y: 0.5, r: 0.27 }, // bear
+  green: { y: 0.26, r: 0.3 }, // frog — above the squat belly, behind the eyes
+  yellow: { y: 0.44, r: 0.21 }, // chick — slim neck
+};
+
+const SKIN_SCARF_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, { y: number; r: number }> = {
+  gem: { y: 0.3, r: 0.2 },
+  chess: { y: 0.45, r: 0.12 },
+  egg: { y: 0.3, r: 0.25 },
+};
+
+function anchorFor(skin: PawnSkinId, color: PlayerColorId): Anchor {
+  return skin === 'classic' ? CLASSIC_ANCHOR[color]! : SKIN_ANCHOR[skin]!;
+}
+
+/** Cozy beanie in the player's deep color with a cream pompom. */
+function Beanie({ color, a }: { color: PlayerColorId; a: Anchor }) {
+  return (
+    <group position={[0, a.y, a.z ?? 0]} rotation={[a.tilt ?? 0, 0, 0.1]}>
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[0, 0.02, 0]} scale={[a.r * 1.06, a.r * 0.8, a.r * 1.06]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, -a.r * 0.22, 0]} scale={[a.r * 1.02, 0.05, a.r * 1.02]} castShadow />
+      {ball('pom', 0, a.r * 0.82, 0, 0.06, ACCENT.cream)}
+    </group>
+  );
+}
+
+/** Santa hat in the player's deep color with cream band & tip. */
+function SantaHat({ color, a }: { color: PlayerColorId; a: Anchor }) {
+  return (
+    <group position={[0, a.y, a.z ?? 0]} rotation={[a.tilt ?? 0, 0, -0.16]}>
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, a.r * 0.75, 0]} scale={[a.r * 1.02, 0.34, a.r * 1.02]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, -0.01, 0]} scale={[a.r * 1.04, 0.05, a.r * 1.04]} castShadow />
+      {ball('tip', 0, a.r * 1.55, 0, 0.055, ACCENT.cream)}
+    </group>
+  );
+}
+
+/** Neck scarf: chunky knit collar (deep + cream stripe + bright rings)
+ *  with a hanging tail — unmistakably knitwear in the player's colors. */
+function Scarf({ color, a }: { color: PlayerColorId; a: { y: number; r: number } }) {
+  return (
+    <group>
+      {/* the knit collar — deep band + cream stripe + bright top ring */}
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0, a.y, 0]} scale={[a.r + 0.035, 0.11, a.r + 0.035]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, a.y + 0.11, 0]} scale={[a.r + 0.02, 0.04, a.r + 0.02]} castShadow />
+      <mesh geometry={GEO.cyl} material={BRIGHT_MAT[color]} position={[0, a.y + 0.16, 0]} scale={[a.r + 0.01, 0.045, a.r + 0.01]} castShadow />
+      {/* hanging tail down the chest, with a cream fringe tip */}
+      <mesh geometry={GEO.cyl} material={BRIGHT_MAT[color]} position={[0, a.y - 0.17, a.r * 0.85]} scale={[0.07, 0.3, 0.05]} rotation={[0.28, 0, 0]} castShadow />
+      {ball('fringe', 0, a.y - 0.32, a.r * 0.95, 0.06, ACCENT.cream)}
+    </group>
+  );
+}
+
+/** Summer sun cap: bright player-color crown + big cream brim — the crown
+ *  rides above the head silhouette so the cap reads clearly at any zoom. */
+function SunCap({ color, a }: { color: PlayerColorId; a: Anchor }) {
+  return (
+    <group position={[0, a.y, a.z ?? 0]} rotation={[a.tilt ?? 0, 0, 0.08]}>
+      <mesh geometry={GEO.sphere} material={BRIGHT_MAT[color]} position={[0, 0.12, 0]} scale={[a.r * 1.35, a.r * 1.0, a.r * 1.35]} castShadow />
+      {/* brim — flattened disc shading the face */}
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, -0.06, a.r * 0.8]} scale={[a.r * 1.05, 0.05, a.r * 0.65]} castShadow />
+      {ball('button', 0, a.r * 1.28, 0, 0.05, ACCENT.gold)}
+    </group>
+  );
+}
+
+/** Golden crown with the player's gems. */
+function Crown({ color, a }: { color: PlayerColorId; a: Anchor }) {
+  const spikes = [0, 1, 2, 3, 4];
+  return (
+    <group position={[0, a.y + 0.06, a.z ?? 0]}>
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} scale={[a.r * 1.02, 0.1, a.r * 1.02]} castShadow />
+      {spikes.map((i) => {
+        const ang = (i / 5) * Math.PI * 2;
+        return (
+          <mesh
+            key={i}
+            geometry={GEO.cone}
+            material={ACCENT.gold}
+            position={[Math.sin(ang) * a.r * 0.85, 0.09, Math.cos(ang) * a.r * 0.85]}
+            scale={[0.035, 0.09, 0.035]}
+            castShadow
+          />
+        );
+      })}
+      {/* the player's gems around the band */}
+      {[0, 1, 2, 3].map((i) => {
+        const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        return (
+          <mesh
+            key={`gem-${i}`}
+            geometry={GEO.sphere}
+            material={DEEP_MAT[color]}
+            position={[Math.sin(ang) * a.r * 0.98, 0, Math.cos(ang) * a.r * 0.98]}
+            scale={[0.035, 0.035, 0.035]}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
 /**
- * The animal figure for a pawn color. `bodyMat` is owned by the caller so
- * per-pawn highlights (glow) stay private.
+ * The pawn figure for a color + skin, wearing the chosen accessory.
+ * `bodyMat` is owned by the caller so per-pawn highlights (glow) stay
+ * private. Gem skin relies on the bodyMat being flat-shaded.
  */
 export function PawnCharacter({
   color,
   bodyMat,
+  skin = 'classic',
+  accessory = 'none',
 }: {
   color: PlayerColorId;
   bodyMat: THREE.Material;
+  skin?: PawnSkinId;
+  accessory?: PawnAccessoryId;
 }) {
-  switch (color) {
-    case 'red':
-      return <FoxBody bodyMat={bodyMat} />;
-    case 'blue':
-      return <BearBody bodyMat={bodyMat} />;
-    case 'green':
-      return <FrogBody bodyMat={bodyMat} />;
-    case 'yellow':
-      return <ChickBody bodyMat={bodyMat} />;
-  }
+  const a = anchorFor(skin, color);
+  const scarfA = skin === 'classic' ? SCARF_ANCHOR[color]! : SKIN_SCARF_ANCHOR[skin]!;
+  return (
+    <group>
+      {skin === 'classic' && (
+        <>
+          {color === 'red' && <FoxBody bodyMat={bodyMat} />}
+          {color === 'blue' && <BearBody bodyMat={bodyMat} />}
+          {color === 'green' && <FrogBody bodyMat={bodyMat} />}
+          {color === 'yellow' && <ChickBody bodyMat={bodyMat} />}
+        </>
+      )}
+      {skin === 'gem' && <GemBody color={color} bodyMat={bodyMat} />}
+      {skin === 'chess' && <ChessBody color={color} bodyMat={bodyMat} />}
+      {skin === 'egg' && <EggBody color={color} bodyMat={bodyMat} />}
+
+      {/* color-matched accessory — hats anchor at the figure's crown */}
+      {accessory === 'beanie' && <Beanie color={color} a={a} />}
+      {accessory === 'santa' && <SantaHat color={color} a={a} />}
+      {accessory === 'scarf' && <Scarf color={color} a={scarfA} />}
+      {accessory === 'cap' && <SunCap color={color} a={a} />}
+      {accessory === 'crown' && <Crown color={color} a={a} />}
+    </group>
+  );
 }
 
-/**
- * Per-character idle animation parameters — each animal feels different.
- * Used by PawnLayer's useFrame: t is seconds.
- */
+// ---------------------------------------------------------------------------
+// Idle animation parameters
+// ---------------------------------------------------------------------------
+
 export interface IdleStyle {
   bobAmplitude: number;
   bobSpeed: number;

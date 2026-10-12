@@ -6,13 +6,13 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { LOOP, journeyIndex, loopIndexFromPath } from '@/engine/board';
 import { RULES, TIMING } from '@/config/gameConfig';
-import { COLORS, MATERIAL } from '@/config/theme';
+import { COLORS, MATERIAL, THEMES } from '@/config/theme';
 import { isPawnFinished, stackIndex } from '@/engine/rules';
 import { useGameStore, type MoveAnim } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { PlayerColorId, Position } from '@/engine/types';
 import { cellTopY, worldOf } from './geometry';
-import { IDLE_STYLE, PawnCharacter } from './PawnCharacter';
+import { idleStyleFor, PawnCharacter } from './PawnCharacter';
 
 /**
  * All pawns + the animation "director".
@@ -170,16 +170,30 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
   const [hovered, setHovered] = useState(false);
   const phaseOffset = useMemo(() => Math.random() * Math.PI * 2, []);
 
-  // Per-pawn body material (a pawn's color never changes).
+  // Appearance from the settings store — pawn skin & color-matched
+  // accessory ('auto' follows whatever the seasonal theme suggests).
+  const pawnSkin = useSettingsStore((s) => s.pawnSkin);
+  const accessoryChoice = useSettingsStore((s) => s.pawnAccessory);
+  const themeId = useSettingsStore((s) => s.theme);
+  const accessory =
+    accessoryChoice === 'auto' ? THEMES[themeId].accessory : accessoryChoice;
+
+  // Per-pawn body material held in a ref (a pawn's color never changes; the
+  // gem skin wants glossy flat-shaded facets, so the material is rebuilt
+  // when the skin changes). A ref — not a memo — so useFrame may animate
+  // emissive highlights without tripping hook immutability rules.
   const matRef = useRef<THREE.MeshStandardMaterial | null>(null);
-  if (matRef.current === null) {
+  if (matRef.current === null || matRef.current.userData.skin !== pawnSkin) {
+    matRef.current?.dispose();
     matRef.current = new THREE.MeshStandardMaterial({
       color: COLORS[pawn.color],
-      roughness: 0.36,
-      metalness: 0.05,
+      roughness: pawnSkin === 'gem' ? 0.18 : 0.36,
+      metalness: pawnSkin === 'gem' ? 0.28 : 0.05,
+      flatShading: pawnSkin === 'gem',
       emissive: new THREE.Color(COLORS[pawn.color]),
       emissiveIntensity: 0,
     });
+    matRef.current.userData.skin = pawnSkin;
   }
   const mat = matRef.current;
   useEffect(
@@ -219,7 +233,8 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
 
   useFrame((state) => {
     const g = group.current;
-    if (!g || !matRef.current) return;
+    const matNow = matRef.current;
+    if (!g || !matNow) return;
     const st = useGameStore.getState();
     const reduced = useSettingsStore.getState().reducedMotion;
     const now = Date.now();
@@ -260,7 +275,7 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
           yaw.current = (yaw.current ?? 0) + 0.14;
           g.rotation.y = yaw.current;
         }
-        matRef.current.emissiveIntensity = 0.22;
+        matNow.emissiveIntensity = 0.22;
         if (ring.current) ring.current.visible = false;
         return;
       }
@@ -284,7 +299,7 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
       }
     }
 
-    const style = IDLE_STYLE[pawn.color];
+    const style = idleStyleFor(pawn.color, pawnSkin);
     let scale = 1;
 
     if (isHome && !reduced) {
@@ -297,11 +312,11 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
       }
     } else if (movable && !reduced) {
       base.y += 0.12 + 0.06 * Math.sin(t * 3.4 + phaseOffset);
-      matRef.current.emissiveIntensity = 0.4 + 0.3 * Math.sin(t * 4 + phaseOffset);
+      matNow.emissiveIntensity = 0.4 + 0.3 * Math.sin(t * 4 + phaseOffset);
     } else {
       // Gentle idle with per-character personality.
       base.y += style.bobAmplitude * Math.sin(t * style.bobSpeed * Math.PI + phaseOffset);
-      matRef.current.emissiveIntensity = hovered && movable ? 0.25 : 0;
+      matNow.emissiveIntensity = hovered && movable ? 0.25 : 0;
     }
 
     if (hovered && movable) {
@@ -360,9 +375,9 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
         />
       </mesh>
 
-      {/* the animal friend — pointer events bubble up from every part */}
+      {/* the pawn figure — pointer events bubble up from every part */}
       <group onClick={onPawnClick} onPointerOver={onPawnOver} onPointerOut={onPawnOut}>
-        <PawnCharacter color={pawn.color} bodyMat={mat} />
+        <PawnCharacter color={pawn.color} bodyMat={mat} skin={pawnSkin} accessory={accessory} />
       </group>
     </group>
   );
