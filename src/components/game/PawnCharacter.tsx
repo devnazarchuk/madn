@@ -470,6 +470,7 @@ export interface IdleStyle {
   swaySpeed: number;
 }
 
+/** Per-animal personality for the classic skin. */
 export const IDLE_STYLE: Record<PlayerColorId, IdleStyle> = {
   // fox: alert, quick little sway
   red: { bobAmplitude: 0.015, bobSpeed: 2.6, squash: 0, squashSpeed: 0, sway: 0.06, swaySpeed: 1.7 },
@@ -480,3 +481,18 @@ export const IDLE_STYLE: Record<PlayerColorId, IdleStyle> = {
   // chick: quick excited pecking
   yellow: { bobAmplitude: 0.022, bobSpeed: 3.4, squash: 0, squashSpeed: 0, sway: 0.03, swaySpeed: 2.6 },
 };
+
+/** Gentle generic idle for the alternative skins. */
+const GENERIC_IDLE: IdleStyle = {
+  bobAmplitude: 0.016,
+  bobSpeed: 1.9,
+  squash: 0.02,
+  squashSpeed: 1.5,
+  sway: 0.03,
+  swaySpeed: 1.1,
+};
+
+/** Idle style for the active skin (animals keep their personality). */
+export function idleStyleFor(color: PlayerColorId, skin: PawnSkinId): IdleStyle {
+  return skin === 'classic' ? IDLE_STYLE[color] : GENERIC_IDLE;
+}
