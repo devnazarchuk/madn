@@ -14,25 +14,29 @@ import {
 } from '@/engine/board';
 import { TRACK_FIELDS } from '@/engine/boardTrackConfig';
 import { BOARD, cellToWorld } from '@/engine/layout';
-import { COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL } from '@/config/theme';
+import { BOARD_SKINS, COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL, type BoardSkin } from '@/config/theme';
 import { PLAYER_COLORS } from '@/config/gameConfig';
 import type { PlayerColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
-import type { QualityLevel } from '@/store/settingsStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { woodTexture, linenTexture } from './textures';
 import { BASE_PANEL_TOP, FIELD_TOP, makeStarShape, SURFACE_TOP } from './geometry';
 
 /**
- * The classic 11×11 cross board: walnut foundation, cream playing surface,
- * 40 colored inlay track fields woven from the four player colors and the
+ * The classic 11×11 cross board: a wood foundation with procedural high-
+ * resolution grain (map + bump), a fine linen-weave playing surface, 40
+ * colored inlay track fields woven from the four player colors and the
  * white & black PLATFORMS (colors from engine/boardTrackConfig — the single
  * authoritative track layout), home stretches painted in each player's OWN
  * color as clearly smaller, semi-transparent finish platforms (one pawn per
  * slot) leading to the star-marked winning area (the last one ringed in
  * gold), golden feed arrows on the arm tips — the MANDATORY STOP gateways
- * where a full circuit must halt before stepping into its color row —
- * 4 corner bases with triangle slot formations, and the central dice plaza
- * with the pedestal the die rests on. Fully static (memoized) except the
- * active-base glow.
+ * where a full circuit must halt before stepping into its color row — 4
+ * corner bases with triangle slot formations, and the central dice plaza
+ * with the pedestal the die rests on. The wood/cream palette follows the
+ * selected BOARD SKIN; track field colors and gameplay-critical colors are
+ * never affected by skins or themes. Fully static (memoized) except the
+ * active-base glow. Lights, floor and seasonal scenery live in Environment.
  */
 
 const FOUNDATION_H = 0.44; // top at 0.44 (valid RoundedBox radius 0.2 < 0.22)
@@ -42,49 +46,6 @@ const FIELD_Y = SURFACE_TOP + BOARD.tileHeight / 2; // 0.6375
 const HOME_Y = FIELD_Y;
 const MOUTH_Y = SURFACE_TOP + 0.016;
 const GOLD_FRAME_Y = FOUNDATION_TOP + 0.015;
-
-// ---------------------------------------------------------------------------
-// Lights & table
-// ---------------------------------------------------------------------------
-
-function Lights({ quality }: { quality: QualityLevel }) {
-  const shadowSize: [number, number] = quality === 'high' ? [2048, 2048] : [1024, 1024];
-  return (
-    <>
-      <ambientLight intensity={0.52} color="#FFF2DC" />
-      <hemisphereLight args={['#FFEFD2', '#3A2B1E', 0.4]} />
-      <directionalLight
-        position={[7, 14, 5]}
-        intensity={1.3}
-        color="#FFF6E6"
-        castShadow
-        shadow-mapSize={shadowSize}
-        shadow-camera-left={-9.5}
-        shadow-camera-right={9.5}
-        shadow-camera-top={9.5}
-        shadow-camera-bottom={-9.5}
-        shadow-camera-near={2}
-        shadow-camera-far={32}
-        shadow-bias={-0.0004}
-      />
-      <directionalLight position={[-8, 9, -6]} intensity={0.34} color="#F2E9DC" />
-    </>
-  );
-}
-
-function Table() {
-  return (
-    <RoundedBox
-      args={[46, 1.2, 46]}
-      radius={0.55}
-      smoothness={3}
-      position={[0, -0.6, 0]}
-      receiveShadow
-    >
-      <meshStandardMaterial color={MATERIAL.table} roughness={0.85} metalness={0.02} />
-    </RoundedBox>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Track / home / base geometry
@@ -100,11 +61,13 @@ function Table() {
 function TrackField({
   color,
   deepColor,
+  socketColor,
   isStart,
   protectedStart,
 }: {
   color: string;
   deepColor: string;
+  socketColor: string;
   isStart: boolean;
   protectedStart: boolean;
 }) {
@@ -113,7 +76,7 @@ function TrackField({
       {/* cream socket — clear separation between adjacent spaces */}
       <mesh castShadow receiveShadow>
         <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, 28]} />
-        <meshStandardMaterial color={MATERIAL.creamDeep} roughness={0.6} metalness={0.02} />
+        <meshStandardMaterial color={socketColor} roughness={0.6} metalness={0.02} />
       </mesh>
       {/* the colored inlay — slightly proud of the socket */}
       <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
@@ -165,7 +128,7 @@ function TrackField({
  * golden arrow gateway feeds the row — own-color rolls step a pawn in and
  * slot by slot onto the golden cell (see engine/rules/validatePath.ts).
  */
-function HomeSlots({ color }: { color: PlayerColorId }) {
+function HomeSlots({ color, skin }: { color: PlayerColorId; skin: BoardSkin }) {
   const goalIdx = HOME_ROW[color].length - 1;
   return (
     <group>
@@ -176,7 +139,7 @@ function HomeSlots({ color }: { color: PlayerColorId }) {
             {/* cream socket — noticeably tighter than a track cell */}
             <mesh castShadow receiveShadow>
               <cylinderGeometry args={[0.38, 0.38, BOARD.tileHeight, 28]} />
-              <meshStandardMaterial color={MATERIAL.creamDeep} roughness={0.6} metalness={0.02} />
+              <meshStandardMaterial color={skin.surfaceDeep} roughness={0.6} metalness={0.02} />
             </mesh>
             {/* the player-color finish platform — smaller & semi-transparent,
                 clearly distinct from the saturated track inlays */}
@@ -254,7 +217,7 @@ function HomeMouth({ color }: { color: PlayerColorId }) {
   );
 }
 
-function BaseCorner({ color }: { color: PlayerColorId }) {
+function BaseCorner({ color, skin }: { color: PlayerColorId; skin: BoardSkin }) {
   const block = BASE_BLOCK[color];
   const { x, z } = cellToWorld(block.col + 1.5, block.row + 1.5);
   return (
@@ -277,7 +240,7 @@ function BaseCorner({ color }: { color: PlayerColorId }) {
           <group key={i} position={[p.x - x, BASE_PANEL_TOP + 0.0375, p.z - z]}>
             <mesh receiveShadow>
               <cylinderGeometry args={[0.44, 0.44, 0.075, 28]} />
-              <meshStandardMaterial color={MATERIAL.cream} roughness={0.48} />
+              <meshStandardMaterial color={skin.surface} roughness={0.48} />
             </mesh>
             <mesh position={[0, 0.042, 0]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[0.42, 0.045, 8, 36]} />
@@ -366,7 +329,7 @@ function TipFeeds() {
  * THE place the die lives. Sized to stay clear of the four home mouths and
  * all track fields.
  */
-function DicePlaza() {
+function DicePlaza({ skin }: { skin: BoardSkin }) {
   const hubR = BOARD.diceHubRadius;
   const ped = BOARD.dicePedestal;
   const pedY = SURFACE_TOP + ped.height / 2;
@@ -375,7 +338,7 @@ function DicePlaza() {
       {/* hub inlay on the surface */}
       <mesh receiveShadow position={[0, SURFACE_TOP + 0.008, 0]}>
         <cylinderGeometry args={[hubR, hubR, 0.016, 40]} />
-        <meshStandardMaterial color={MATERIAL.medallion} roughness={0.55} metalness={0.06} />
+        <meshStandardMaterial color={skin.foundationDeep} roughness={0.55} metalness={0.06} />
       </mesh>
       <mesh position={[0, SURFACE_TOP + 0.022, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[hubR - 0.02, 0.03, 8, 48]} />
@@ -384,7 +347,7 @@ function DicePlaza() {
       {/* the raised pedestal the die rests on */}
       <mesh castShadow receiveShadow position={[0, pedY, 0]}>
         <cylinderGeometry args={[ped.radius, ped.radius + 0.02, ped.height, 44]} />
-        <meshStandardMaterial color={MATERIAL.walnut} roughness={0.62} metalness={0.05} />
+        <meshStandardMaterial color={skin.foundation} roughness={0.62} metalness={0.05} />
       </mesh>
       {/* golden trim on the pedestal rim */}
       <mesh position={[0, SURFACE_TOP + ped.height - 0.012, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -437,7 +400,15 @@ function ActiveBaseGlow() {
 // Assembled board
 // ---------------------------------------------------------------------------
 
-export function BoardModel({ quality }: { quality: QualityLevel }) {
+export function BoardModel() {
+  const boardSkin = useSettingsStore((s) => s.boardSkin);
+  const sharpTextures = useSettingsStore((s) => s.sharpTextures);
+  const skin = BOARD_SKINS[boardSkin];
+  // Procedural high-res wood grain & linen weave (cached by skin+quality;
+  // double as bump maps so the board keeps a tactile, premium feel).
+  const wood = useMemo(() => woodTexture(boardSkin, sharpTextures), [boardSkin, sharpTextures]);
+  const linen = useMemo(() => linenTexture(boardSkin, sharpTextures), [boardSkin, sharpTextures]);
+
   const trackFields = useMemo(
     () =>
       TRACK_FIELDS.map((f) => ({
@@ -457,10 +428,7 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
 
   return (
     <group>
-      <Lights quality={quality} />
-      <Table />
-
-      {/* walnut foundation + gold frame + cream surface (radii must stay
+      {/* skinned foundation + gold frame + linen surface (radii must stay
           below half of the smallest box dimension — see geometry note) */}
       <RoundedBox
         args={[BOARD.size, FOUNDATION_H, BOARD.size]}
@@ -470,7 +438,14 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial color={MATERIAL.walnut} roughness={0.72} metalness={0.04} />
+        <meshStandardMaterial
+          color="#FFFFFF"
+          map={wood}
+          bumpMap={wood}
+          bumpScale={0.035}
+          roughness={0.68}
+          metalness={0.04}
+        />
       </RoundedBox>
       <mesh position={[0, GOLD_FRAME_Y, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[6.92, 0.075, 10, 96]} />
@@ -483,7 +458,13 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
         position={[0, FOUNDATION_TOP + SURFACE_H / 2, 0]}
         receiveShadow
       >
-        <meshStandardMaterial color={MATERIAL.cream} roughness={0.78} />
+        <meshStandardMaterial
+          color="#FFFFFF"
+          map={linen}
+          bumpMap={linen}
+          bumpScale={0.02}
+          roughness={0.8}
+        />
       </RoundedBox>
 
       {/* 40 loop fields — colored inlays from the authoritative track config */}
@@ -492,6 +473,7 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
           <TrackField
             color={COLORS[f.color]}
             deepColor={f.deepColor}
+            socketColor={skin.surfaceDeep}
             isStart={f.isStart}
             protectedStart={protectedStarts}
           />
@@ -501,7 +483,7 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
       {/* home stretches + goal mouths + the golden tip feed arrows */}
       {PLAYER_COLORS.map((color) => (
         <group key={color}>
-          <HomeSlots color={color} />
+          <HomeSlots color={color} skin={skin} />
           <HomeMouth color={color} />
         </group>
       ))}
@@ -509,10 +491,10 @@ export function BoardModel({ quality }: { quality: QualityLevel }) {
 
       {/* corner bases */}
       {PLAYER_COLORS.map((color) => (
-        <BaseCorner key={color} color={color} />
+        <BaseCorner key={color} color={color} skin={skin} />
       ))}
 
-      <DicePlaza />
+      <DicePlaza skin={skin} />
       <ActiveBaseGlow />
     </group>
   );
