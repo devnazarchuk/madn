@@ -1,12 +1,37 @@
 'use client';
 
-import { Bot, MonitorPlay, Volume2, VolumeX } from 'lucide-react';
+import {
+  Bot,
+  Layers,
+  MonitorPlay,
+  Shapes,
+  Shirt,
+  Snowflake,
+  Sparkles,
+  TreePine,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import {
+  ACCESSORY_LABELS,
+  ACCESSORY_ORDER,
+  BOARD_SKINS,
+  BOARD_SKIN_ORDER,
+  PAWN_SKIN_LABELS,
+  PAWN_SKIN_ORDER,
+  THEMES,
+  THEME_ORDER,
+  type AccessoryChoice,
+  type BoardSkinId,
+  type PawnSkinId,
+  type ThemeId,
+} from '@/config/theme';
 import { playSfx } from '@/services/audio';
 import { useSettingsStore } from '@/store/settingsStore';
 
@@ -26,6 +51,24 @@ export function SettingsPanel() {
   const setShowMoveHints = useSettingsStore((s) => s.setShowMoveHints);
   const autoSingleMove = useSettingsStore((s) => s.autoSingleMove);
   const setAutoSingleMove = useSettingsStore((s) => s.setAutoSingleMove);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+  const boardSkin = useSettingsStore((s) => s.boardSkin);
+  const setBoardSkin = useSettingsStore((s) => s.setBoardSkin);
+  const pawnSkin = useSettingsStore((s) => s.pawnSkin);
+  const setPawnSkin = useSettingsStore((s) => s.setPawnSkin);
+  const pawnAccessory = useSettingsStore((s) => s.pawnAccessory);
+  const setPawnAccessory = useSettingsStore((s) => s.setPawnAccessory);
+  const shadows = useSettingsStore((s) => s.shadows);
+  const setShadows = useSettingsStore((s) => s.setShadows);
+  const weather = useSettingsStore((s) => s.weather);
+  const setWeather = useSettingsStore((s) => s.setWeather);
+  const scenery = useSettingsStore((s) => s.scenery);
+  const setScenery = useSettingsStore((s) => s.setScenery);
+  const sharpTextures = useSettingsStore((s) => s.sharpTextures);
+  const setSharpTextures = useSettingsStore((s) => s.setSharpTextures);
+  const antialias = useSettingsStore((s) => s.antialias);
+  const setAntialias = useSettingsStore((s) => s.setAntialias);
 
   return (
     <div className="space-y-4">
@@ -67,6 +110,105 @@ export function SettingsPanel() {
 
       <Separator />
 
+      {/* --- Appearance ----------------------------------------------------- */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Sparkles size={15} /> Season
+        </div>
+        <Select
+          value={theme}
+          onValueChange={(v) => {
+            setTheme(v as ThemeId);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Season">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {THEME_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {THEMES[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Layers size={15} /> Board skin
+        </div>
+        <Select
+          value={boardSkin}
+          onValueChange={(v) => {
+            setBoardSkin(v as BoardSkinId);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Board skin">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {BOARD_SKIN_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {BOARD_SKINS[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Shapes size={15} /> Pawn skin
+        </div>
+        <Select
+          value={pawnSkin}
+          onValueChange={(v) => {
+            setPawnSkin(v as PawnSkinId);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Pawn skin">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAWN_SKIN_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {PAWN_SKIN_LABELS[id]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Shirt size={15} /> Accessories
+        </div>
+        <Select
+          value={pawnAccessory}
+          onValueChange={(v) => {
+            setPawnAccessory(v as AccessoryChoice);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Accessories">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACCESSORY_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {ACCESSORY_LABELS[id]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Separator />
+
       {/* --- Visual --------------------------------------------------------- */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
@@ -99,6 +241,70 @@ export function SettingsPanel() {
             playSfx('uiClick');
           }}
           aria-label="Reduced motion"
+        />
+      </label>
+
+      {/* --- Performance ---------------------------------------------------- */}
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium">Shadows</span>
+        <Switch
+          checked={shadows}
+          onCheckedChange={(v) => {
+            setShadows(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Shadows"
+        />
+      </label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2 font-medium">
+          <Snowflake size={15} /> Weather & sparkles
+        </span>
+        <Switch
+          checked={weather}
+          onCheckedChange={(v) => {
+            setWeather(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Weather & sparkles"
+        />
+      </label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2 font-medium">
+          <TreePine size={15} /> Scenery
+        </span>
+        <Switch
+          checked={scenery}
+          onCheckedChange={(v) => {
+            setScenery(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Scenery"
+        />
+      </label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium">Sharp textures</span>
+        <Switch
+          checked={sharpTextures}
+          onCheckedChange={(v) => {
+            setSharpTextures(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Sharp textures"
+        />
+      </label>
+      <label
+        className="flex items-center justify-between gap-3 text-sm"
+        title="Applies after the next page reload"
+      >
+        <span className="font-medium">Anti-aliasing</span>
+        <Switch
+          checked={antialias}
+          onCheckedChange={(v) => {
+            setAntialias(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Anti-aliasing"
         />
       </label>
 
