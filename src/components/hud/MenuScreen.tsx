@@ -21,7 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RULES_VERSION } from '@/config/gameConfig';
 import { COLORS } from '@/config/theme';
 import type { PlayerColorId } from '@/engine/types';
@@ -30,7 +29,7 @@ import { clearAutosave } from '@/engine/persistence';
 import { playSfx } from '@/services/audio';
 import { AboutDialog, HistoryDialog, RulesDialog } from './Dialogs';
 import { AnimalIcon } from './shared';
-import { SettingsPanel } from './SettingsPanel';
+import { SettingsDialog } from './SettingsPanel';
 
 /** Colorful KIDS lettering under the title. */
 const KIDS_LETTERS: Array<{ ch: string; color: string }> = [
@@ -220,17 +219,7 @@ export function MenuScreen() {
       <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <Dialog open={settingsOpen} onOpenChange={(v) => !v && setSettingsOpen(false)}>
-        <DialogContent className="max-w-sm rounded-3xl border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
-              Settings
-            </DialogTitle>
-            <DialogDescription>Sound, graphics and little helpers.</DialogDescription>
-          </DialogHeader>
-          <SettingsPanel />
-        </DialogContent>
-      </Dialog>
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

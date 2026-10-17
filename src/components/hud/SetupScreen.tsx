@@ -1,34 +1,22 @@
 'use client';
 
-import { ArrowLeft, Bot, Check, Dices, Sparkles, User } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Bot, Check, Dices, Settings, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PLAYER_COLORS } from '@/config/gameConfig';
 import { COLORS, COLORS_DEEP } from '@/config/theme';
-import { CHARACTERS, defaultName } from '@/engine/game';
-import { rulesHeadline } from '@/engine/rulesConfig';
+import { defaultName } from '@/engine/game';
 import type { AiLevel, PlayerColorId, PlayerKind } from '@/engine/types';
 import { useGameStore, type SeatDraft } from '@/store/gameStore';
 import { playSfx } from '@/services/audio';
 import { CHAR_ICON } from './shared';
-import { SettingsPanel } from './SettingsPanel';
+import { SettingsDialog } from './SettingsPanel';
 
-const AI_LEVEL_LABEL: Record<AiLevel, string> = {
-  easy: 'Easy · playful random',
-  medium: 'Medium · clever tactician',
-  hard: 'Hard · cunning strategist',
-};
+const AI_LEVELS: AiLevel[] = ['easy', 'medium', 'hard'];
 
 function ColorPicker({
   seatColor,
@@ -40,7 +28,7 @@ function ColorPicker({
   onPick: (c: PlayerColorId) => void;
 }) {
   return (
-    <div className="flex gap-2.5" role="radiogroup" aria-label="Seat color">
+    <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Seat color">
       {PLAYER_COLORS.map((c) => {
         const Icon = CHAR_ICON[c];
         const selected = seatColor === c;
@@ -58,7 +46,7 @@ function ColorPicker({
                 onPick(c);
               }
             }}
-            className={`relative flex size-12 items-center justify-center rounded-full text-white transition-transform ${
+            className={`relative flex size-10 items-center justify-center rounded-full text-white transition-transform ${
               selected ? 'scale-105' : 'hover:scale-105 active:scale-95'
             }`}
             style={{
@@ -68,7 +56,7 @@ function ColorPicker({
                 : 'inset 0 -3px 6px rgba(0,0,0,0.25)',
             }}
           >
-            <Icon size={20} />
+            <Icon size={17} />
             {taken && !selected && (
               <span className="absolute -bottom-1 rounded-full bg-[#3E2A18] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[#F6EBD9]">
                 swap
@@ -98,113 +86,95 @@ function SeatCard({
   const updateSeat = useGameStore((s) => s.updateSeat);
   const swapSeatColor = useGameStore((s) => s.swapSeatColor);
   const Icon = CHAR_ICON[seat.color];
-  const character = CHARACTERS[seat.color];
-  const isDefaultName = seat.name === defaultName(seat.color);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.06 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
     >
-      <Card className="rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-xl shadow-black/30 backdrop-blur-md">
-        <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-          <div className="flex items-center gap-3">
+      <Card className="h-full rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+        <CardContent className="space-y-2.5 p-3">
+          {/* row 1 — avatar + name */}
+          <div className="flex items-center gap-2.5">
             <span
-              className="flex size-11 items-center justify-center rounded-2xl text-white"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
               style={{ backgroundColor: COLORS[seat.color] }}
+              aria-hidden
             >
-              <Icon size={22} />
+              <Icon size={19} />
             </span>
-            <div>
-              <CardTitle className="text-base text-[#3E2A18]">Player {index + 1}</CardTitle>
-              <CardDescription className="text-xs text-[#8A6B4F]">
-                {character.name} the {character.animal} · {character.blurb}
-              </CardDescription>
-            </div>
+            <Input
+              value={seat.name}
+              maxLength={24}
+              placeholder={defaultName(seat.color)}
+              aria-label={`Player ${index + 1} name`}
+              onChange={(e) => updateSeat(index, { name: e.target.value })}
+              className="h-10 min-w-0 flex-1 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
+            />
           </div>
-          <ToggleGroup
-            type="single"
-            value={seat.kind}
-            onValueChange={(v) => {
-              if (v) {
-                playSfx('uiClick');
-                updateSeat(index, { kind: v as PlayerKind });
-              }
-            }}
-            className="gap-1 rounded-xl bg-[#E8D6B4] p-1"
-            variant="default"
-            aria-label="Human or robot"
-          >
-            <ToggleGroupItem
-              value="human"
-              aria-label="Human player"
-              className="h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+
+          {/* row 2 — color + kind */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ColorPicker
+              seatColor={seat.color}
+              takenColors={takenColors}
+              onPick={(c) => swapSeatColor(index, c)}
+            />
+            <ToggleGroup
+              type="single"
+              value={seat.kind}
+              onValueChange={(v) => {
+                if (v) {
+                  playSfx('uiClick');
+                  updateSeat(index, { kind: v as PlayerKind });
+                }
+              }}
+              className="gap-1 rounded-xl bg-[#E8D6B4] p-1"
+              variant="default"
+              aria-label={`Player ${index + 1} human or robot`}
             >
-              <User size={14} /> Human
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="ai"
-              aria-label="Robot player"
-              className="h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
-            >
-              <Bot size={14} /> Robot
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </CardHeader>
-        <CardContent className="space-y-3.5">
-          <ColorPicker
-            seatColor={seat.color}
-            takenColors={takenColors}
-            onPick={(c) => swapSeatColor(index, c)}
-          />
-          <div className="space-y-1.5">
-            <Label htmlFor={`seat-name-${index}`} className="text-xs font-medium text-[#6B4E35]">
-              Name
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id={`seat-name-${index}`}
-                value={seat.name}
-                maxLength={24}
-                placeholder="Player name"
-                onChange={(e) => updateSeat(index, { name: e.target.value })}
-                className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
-              />
-              {isDefaultName && (
-                <span className="whitespace-nowrap text-[10px] uppercase tracking-wide text-[#B08A5E]">
-                  default
-                </span>
-              )}
-            </div>
+              <ToggleGroupItem
+                value="human"
+                aria-label="Human player"
+                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+              >
+                <User size={13} /> Human
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="ai"
+                aria-label="Robot player"
+                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+              >
+                <Bot size={13} /> Robot
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
+
+          {/* row 3 — robot level */}
           {seat.kind === 'ai' && (
-            <div className="space-y-1.5">
-              <Label htmlFor={`seat-level-${index}`} className="text-xs font-medium text-[#6B4E35]">
-                Robot level
-              </Label>
-              <Select
-                value={seat.aiLevel}
-                onValueChange={(v) => {
+            <ToggleGroup
+              type="single"
+              value={seat.aiLevel}
+              onValueChange={(v) => {
+                if (v) {
                   playSfx('uiClick');
                   updateSeat(index, { aiLevel: v as AiLevel });
-                }}
-              >
-                <SelectTrigger
-                  id={`seat-level-${index}`}
-                  className="h-10 rounded-xl border-[#5B3A24]/25 bg-white/70"
+                }
+              }}
+              className="grid w-full grid-cols-3 gap-1 rounded-xl bg-[#E8D6B4] p-1"
+              aria-label={`Robot level for player ${index + 1}`}
+            >
+              {AI_LEVELS.map((lvl) => (
+                <ToggleGroupItem
+                  key={lvl}
+                  value={lvl}
+                  className="h-8 rounded-lg text-xs font-semibold capitalize text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(AI_LEVEL_LABEL) as AiLevel[]).map((lvl) => (
-                    <SelectItem key={lvl} value={lvl}>
-                      {AI_LEVEL_LABEL[lvl]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  {lvl}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           )}
         </CardContent>
       </Card>
