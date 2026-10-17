@@ -18,7 +18,7 @@ import type { PlayerColorId } from '@/engine/types';
  * designated base color (plus neutral cream/white/gold trims) — ownership
  * and identification stay instantly clear on the board.
  *
- * Accessories (beanie, santa hat, scarf, sun cap, crown) sit on an anchor
+ * Accessories (beanie, santa hat, sun cap, crown) sit on an anchor
  * point derived from the active skin so hats never swallow ears or eyes.
  * Shared geometries + module-level materials keep the scene light; each pawn
  * owns its body material so highlights (selectable / hovered / selected)
@@ -283,7 +283,7 @@ function EggBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Mate
 }
 
 // ---------------------------------------------------------------------------
-// Accessories — hats/scarf/crown in each player's color
+// Accessories — hats/crown in each player's color
 // ---------------------------------------------------------------------------
 
 /** Where a hat sits: derived per skin (and per animal for the classic skin). */
@@ -309,21 +309,6 @@ const SKIN_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, Anchor> = {
   egg: { y: 0.6, r: 0.16, tilt: -0.1 },
 };
 
-/** Neck anchors for the scarf — the band must sit OUTSIDE the body
- *  silhouette (animal bodies are chunky spheres) to stay visible. */
-const SCARF_ANCHOR: Record<PlayerColorId, { y: number; r: number }> = {
-  red: { y: 0.5, r: 0.27 }, // fox — chunky chest
-  blue: { y: 0.5, r: 0.27 }, // bear
-  green: { y: 0.26, r: 0.3 }, // frog — above the squat belly, behind the eyes
-  yellow: { y: 0.44, r: 0.21 }, // chick — slim neck
-};
-
-const SKIN_SCARF_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, { y: number; r: number }> = {
-  gem: { y: 0.3, r: 0.2 },
-  chess: { y: 0.45, r: 0.12 },
-  egg: { y: 0.3, r: 0.25 },
-};
-
 function anchorFor(skin: PawnSkinId, color: PlayerColorId): Anchor {
   return skin === 'classic' ? CLASSIC_ANCHOR[color]! : SKIN_ANCHOR[skin]!;
 }
@@ -346,22 +331,6 @@ function SantaHat({ color, a }: { color: PlayerColorId; a: Anchor }) {
       <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, a.r * 0.75, 0]} scale={[a.r * 1.02, 0.34, a.r * 1.02]} castShadow />
       <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, -0.01, 0]} scale={[a.r * 1.04, 0.05, a.r * 1.04]} castShadow />
       {ball('tip', 0, a.r * 1.55, 0, 0.055, ACCENT.cream)}
-    </group>
-  );
-}
-
-/** Neck scarf: chunky knit collar (deep + cream stripe + bright rings)
- *  with a hanging tail — unmistakably knitwear in the player's colors. */
-function Scarf({ color, a }: { color: PlayerColorId; a: { y: number; r: number } }) {
-  return (
-    <group>
-      {/* the knit collar — deep band + cream stripe + bright top ring */}
-      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0, a.y, 0]} scale={[a.r + 0.035, 0.11, a.r + 0.035]} castShadow />
-      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, a.y + 0.11, 0]} scale={[a.r + 0.02, 0.04, a.r + 0.02]} castShadow />
-      <mesh geometry={GEO.cyl} material={BRIGHT_MAT[color]} position={[0, a.y + 0.16, 0]} scale={[a.r + 0.01, 0.045, a.r + 0.01]} castShadow />
-      {/* hanging tail down the chest, with a cream fringe tip */}
-      <mesh geometry={GEO.cyl} material={BRIGHT_MAT[color]} position={[0, a.y - 0.17, a.r * 0.85]} scale={[0.07, 0.3, 0.05]} rotation={[0.28, 0, 0]} castShadow />
-      {ball('fringe', 0, a.y - 0.32, a.r * 0.95, 0.06, ACCENT.cream)}
     </group>
   );
 }
@@ -432,7 +401,6 @@ export function PawnCharacter({
   accessory?: PawnAccessoryId;
 }) {
   const a = anchorFor(skin, color);
-  const scarfA = skin === 'classic' ? SCARF_ANCHOR[color]! : SKIN_SCARF_ANCHOR[skin]!;
   return (
     <group>
       {skin === 'classic' && (
@@ -450,7 +418,6 @@ export function PawnCharacter({
       {/* color-matched accessory — hats anchor at the figure's crown */}
       {accessory === 'beanie' && <Beanie color={color} a={a} />}
       {accessory === 'santa' && <SantaHat color={color} a={a} />}
-      {accessory === 'scarf' && <Scarf color={color} a={scarfA} />}
       {accessory === 'cap' && <SunCap color={color} a={a} />}
       {accessory === 'crown' && <Crown color={color} a={a} />}
     </group>
