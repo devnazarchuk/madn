@@ -188,21 +188,21 @@ export function SetupScreen() {
   const playerCount = useGameStore((s) => s.playerCount);
   const seats = useGameStore((s) => s.seats);
   const setPlayerCount = useGameStore((s) => s.setPlayerCount);
-  const rulesConfig = useGameStore((s) => s.rulesConfig);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const activeSeats = seats.slice(0, playerCount);
   const takenColors = activeSeats.map((s) => s.color);
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-y-auto overscroll-contain">
-      <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-5 p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-3 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {/* header */}
         <div className="flex items-center justify-between gap-3">
           <Button
             variant="secondary"
             size="icon"
             aria-label="Back to menu"
-            className="size-11 rounded-2xl bg-[#241B14]/75 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B]"
+            className="size-10 rounded-2xl bg-[#241B14]/75 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B]"
             onClick={() => {
               playSfx('uiClick');
               goScreen('menu');
@@ -210,20 +210,28 @@ export function SetupScreen() {
           >
             <ArrowLeft size={18} />
           </Button>
-          <div className="flex-1 text-center">
-            <h1 className="font-[family-name:var(--font-baloo)] text-3xl font-extrabold text-[#F6EBD9] drop-shadow-md">
-              Set up the match
-            </h1>
-          </div>
-          <span className="w-11" aria-hidden />
+          <h1 className="flex-1 text-center font-[family-name:var(--font-baloo)] text-2xl font-extrabold text-[#F6EBD9] drop-shadow-md">
+            Set up the match
+          </h1>
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label="Open settings"
+            title="Settings — sound, graphics quality and more"
+            className="size-10 rounded-2xl bg-[#241B14]/75 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B]"
+            onClick={() => {
+              playSfx('modal');
+              setSettingsOpen(true);
+            }}
+          >
+            <Settings size={18} />
+          </Button>
         </div>
 
-        {/* player count */}
-        <Card className="rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-xl shadow-black/30 backdrop-blur-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-[#3E2A18]">Players at the table</CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* player count — slim single row */}
+        <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+          <CardContent className="flex items-center gap-3 p-2.5">
+            <span className="pl-1 text-sm font-semibold text-[#3E2A18]">Players</span>
             <ToggleGroup
               type="single"
               value={String(playerCount)}
@@ -233,49 +241,28 @@ export function SetupScreen() {
                   setPlayerCount(Number(v));
                 }
               }}
-              className="grid w-full grid-cols-3 gap-2 rounded-2xl bg-[#E8D6B4] p-1.5"
+              className="grid flex-1 grid-cols-3 gap-1.5 rounded-xl bg-[#E8D6B4] p-1"
               aria-label="Player count"
             >
               {[2, 3, 4].map((n) => (
                 <ToggleGroupItem
                   key={n}
                   value={String(n)}
-                  className="h-12 rounded-xl text-sm font-bold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow-md"
+                  className="h-9 rounded-lg text-sm font-bold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow-md"
                 >
-                  {n} players
+                  {n}
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
           </CardContent>
         </Card>
 
-        {/* seats */}
-        {activeSeats.map((seat, i) => (
-          <SeatCard key={i} seat={seat} index={i} takenColors={takenColors} />
-        ))}
-
-        {/* settings */}
-        <Card className="rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-xl shadow-black/30 backdrop-blur-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-[#3E2A18]">Comfort &amp; settings</CardTitle>
-            <CardDescription className="text-xs text-[#8A6B4F]">
-              Sound, graphics and little helpers.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SettingsPanel />
-          </CardContent>
-        </Card>
-
-        {/* rules teaser — the full rules screen follows this one */}
-        <Card className="rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-xl shadow-black/30 backdrop-blur-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-[#3E2A18]">Rules for this match</CardTitle>
-            <CardDescription className="text-xs text-[#8A6B4F]">
-              {rulesHeadline(rulesConfig)}
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {/* seats — two per row where space allows */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {activeSeats.map((seat, i) => (
+            <SeatCard key={i} seat={seat} index={i} takenColors={takenColors} />
+          ))}
+        </div>
 
         {/* start */}
         <Button
@@ -283,12 +270,17 @@ export function SetupScreen() {
             playSfx('star');
             goRules('setup');
           }}
-          className="h-14 w-full rounded-2xl bg-[#E8503A] text-lg font-bold text-white shadow-xl shadow-[#E8503A]/30 hover:bg-[#C23A28]"
+          className="h-12 w-full rounded-2xl bg-[#E8503A] text-base font-bold text-white shadow-xl shadow-[#E8503A]/30 hover:bg-[#C23A28]"
         >
-          <Dices size={22} /> Choose rules &amp; play
-          <Sparkles size={16} className="opacity-70" />
+          <Dices size={20} /> Choose rules &amp; play
         </Button>
+
+        <p className="text-center text-[11px] font-medium text-[#EAD9BC]">
+          Sound &amp; graphics quality live in Settings — open it with the gear above.
+        </p>
       </div>
+
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
