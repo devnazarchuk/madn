@@ -13,6 +13,13 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -336,6 +343,25 @@ export function SettingsPanel() {
         />
       </label>
     </div>
+  );
+}
+
+/** The single settings surface — opened from the menu, the setup header
+ *  gear and the pause menu. Sound & graphics quality live HERE, never
+ *  inline in the match setup flow. */
+export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm rounded-3xl border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
+            Settings
+          </DialogTitle>
+          <DialogDescription>Sound, graphics and little helpers.</DialogDescription>
+        </DialogHeader>
+        <SettingsPanel />
+      </DialogContent>
+    </Dialog>
   );
 }
 

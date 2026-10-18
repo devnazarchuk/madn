@@ -95,6 +95,16 @@ export const useSettingsStore = create<SettingsState>()(
       setSharpTextures: (v) => set({ sharpTextures: v }),
       setAntialias: (v) => set({ antialias: v }),
     }),
-    { name: 'colorhop-settings-v1' },
+    {
+      name: 'colorhop-settings-v1',
+      version: 1,
+      // v0 allowed the removed 'scarf' accessory — map it to 'none'.
+      migrate: (state) => {
+        if (state && (state as Partial<SettingsState>).pawnAccessory === 'scarf') {
+          (state as Partial<SettingsState>).pawnAccessory = 'none';
+        }
+        return state as SettingsState;
+      },
+    },
   ),
 );

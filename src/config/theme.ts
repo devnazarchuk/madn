@@ -79,7 +79,7 @@ export const CHARACTER_ICON: Record<PlayerColorId, string> = {
 export type ThemeId = 'classic' | 'christmas' | 'winter' | 'easter' | 'summer';
 export type BoardSkinId = 'walnut' | 'maple' | 'chocolate' | 'ivory';
 export type PawnSkinId = 'classic' | 'gem' | 'chess' | 'egg';
-export type PawnAccessoryId = 'none' | 'beanie' | 'santa' | 'scarf' | 'cap' | 'crown';
+export type PawnAccessoryId = 'none' | 'beanie' | 'santa' | 'cap' | 'crown';
 /** 'auto' = follow whatever the active seasonal theme suggests. */
 export type AccessoryChoice = PawnAccessoryId | 'auto';
 
@@ -151,7 +151,8 @@ export const THEMES: Record<ThemeId, SeasonalTheme> = {
     sun: { position: [9, 15, 4], intensity: 1.35, color: '#FFF3D9' },
     environment: 'meadow',
     weather: 'petals',
-    accessory: 'scarf',
+    // No accessory in spring — the striped egg skin stays fully visible.
+    accessory: 'none',
   },
   summer: {
     label: 'Summer',
@@ -236,7 +237,6 @@ export const ACCESSORY_LABELS: Record<AccessoryChoice, string> = {
   none: 'None',
   beanie: 'Beanie',
   santa: 'Santa hat',
-  scarf: 'Scarf',
   cap: 'Sun cap',
   crown: 'Crown',
 };
@@ -246,7 +246,6 @@ export const ACCESSORY_ORDER: AccessoryChoice[] = [
   'none',
   'beanie',
   'santa',
-  'scarf',
   'cap',
   'crown',
 ];
