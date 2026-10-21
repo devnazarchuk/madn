@@ -85,16 +85,51 @@ export function createGame(
 /** Rolls the die for the current turn. Pure — returns cloned state.
  * The face list comes from the match's Star Mode toggle: the standard die
  * carries the four colors + WHITE + BLACK; the Star Mode die carries two
- * golden STAR wilds instead. */
-export function rollForTurn(input: GameState): { state: GameState; face: DiceFaceId } {
+ * golden STAR wilds instead. With the CERAMIC DICE rule ON the same seeded
+ * RNG draws through the smart-luck weight layer (final-win boost, base-exit
+ * pity ladder, blocked-state nudge — see dice.ts) while normal play stays
+ * completely unbiased. Returns `pityBadLuck` when a 99%-tier pity roll
+ * failed — the presentation layer turns that into a playful toast.
+ */
+export function rollForTurn(input: GameState): {
+  state: GameState;
+  face: DiceFaceId;
+  pityBadLuck: boolean;
+} {
   const state = cloneState(input);
-  const { face, next } = rollDieFace(state.rngState, state.rulesConfig.starMode);
+  const player = state.players[state.activeIndex]!;
+  let face: DiceFaceId;
+  let next: number;
+  let pityBadLuck = false;
+
+  if (state.rulesConfig.ceramicDice) {
+    const faces = diceFacesFor(state.rulesConfig.starMode);
+    // Draw the win-boost amount and the roll itself from the SAME rng chain
+    // (deterministic and replayable alongside the rest of the match).
+    const boostDraw = nextRandom(state.rngState);
+    const rollDraw = nextRandom(boostDraw.next);
+    const plan = planCeramicRoll(state, () => boostDraw.value);
+    face = pickFromProbs(faces, plan.probs, rollDraw.value);
+    next = rollDraw.next;
+    if (plan.pityActive) {
+      if (face === player.color) {
+        player.exitFailStreak = 0; // the exit color finally showed up
+      } else {
+        player.exitFailStreak = (player.exitFailStreak ?? 0) + 1;
+        pityBadLuck = plan.pityTopTier;
+      }
+    }
+  } else {
+    const roll = rollDieFace(state.rngState, state.rulesConfig.starMode);
+    face = roll.face;
+    next = roll.next;
+  }
+
   state.rngState = next;
   state.diceFace = face;
   state.diceFromStar = face === 'star';
   state.rollsThisTurn += 1;
   state.extraRoll = null;
-  const player = state.players[state.activeIndex]!;
   const event: GameEvent = {
     seq: state.events.length,
     turn: state.turn,
@@ -103,7 +138,7 @@ export function rollForTurn(input: GameState): { state: GameState; face: DiceFac
     face,
   };
   state.events.push(event);
-  return { state, face };
+  return { state, face, pityBadLuck };
 }
 
 /**
