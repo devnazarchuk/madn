@@ -1,4 +1,4 @@
-import type { PlayerColorId, TrackColorId } from '@/config/gameConfig';
+import { PLAYER_COLORS, RULES, TRACK_COLORS, type PlayerColorId, type TrackColorId } from '@/config/gameConfig';
 import { FINISH_TIP_INDEX, LOOP, START_INDEX, TURN_ORDER } from './board';
 import { BOARD, cellToWorld, type WorldPoint } from './layout';
 
@@ -175,4 +175,125 @@ export function distanceToNextColor(fromLoop: number, color: TrackColorId): numb
     if (FIELD_COLORS[(fromLoop + ahead) % FIELD_COLORS.length] === color) return ahead;
   }
   return -1; // unreachable with the woven pattern
+}
+
+// ---------------------------------------------------------------------------
+// BOARD LAYOUTS — classic (official) pattern vs. the Full Random map
+// ---------------------------------------------------------------------------
+
+const PLAYER_COLORS_ALL: readonly PlayerColorId[] = PLAYER_COLORS;
+
+/**
+ * The color layout a match is played on: the 40 track colors (loop order)
+ * and the 3 home-row colors of every player. The CLASSIC layout is the
+ * documented Kids edition weave (above). The RANDOM layout paints every
+ * field — INCLUDING the three home-stretch cells — with random colors, so
+ * even the way home demands the matching rolls (see generateRandomLayout).
+ */
+export interface BoardLayout {
+  /** Track colors in loop order — exactly 40 entries. */
+  trackColors: TrackColorId[];
+  /** Home-row colors per player — exactly 3 entries each. */
+  homeColors: Record<PlayerColorId, TrackColorId[]>;
+}
+
+/** The official Kids-edition color pattern (the default board). */
+export const CLASSIC_LAYOUT: BoardLayout = {
+  trackColors: FIELD_COLORS,
+  homeColors: HOME_COLORS,
+};
+
+const ALL_TRACK_COLORS: readonly TrackColorId[] = TRACK_COLORS;
+
+/**
+ * Builds the FULL RANDOM map (seeded, deterministic — the same seed always
+ * paints the same board, so autosaved matches and replays stay reproducible):
+ *   • every start field keeps its owner's color (entries stay readable),
+ *   • every other track cell is a random track color (four player colors +
+ *     the white/black platforms) with NO two neighbors sharing a color —
+ *     including the wrap-around seam between fields 39 and 0,
+ *   • every home-stretch cell (all 12) is random as well — the row is no
+ *     longer painted in the owner's color, so pawns must roll each cell's
+ *     own random color to walk home (the golden-arrow gateway still feeds
+ *     slot 0 by that cell's paint, and one-pawn-per-slot still holds).
+ */
+export function generateRandomLayout(seed: number): BoardLayout {
+  // Mulberry32 — the same family of RNG the engine uses for dice.
+  let a = seed >>> 0;
+  const rand = () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pick = (exclude: TrackColorId[]): TrackColorId => {
+    for (let attempt = 0; attempt < 64; attempt++) {
+      const color = ALL_TRACK_COLORS[Math.floor(rand() * ALL_TRACK_COLORS.length)]!;
+      if (!exclude.includes(color)) return color;
+    }
+    // Exhaustive exclusion is impossible with 6 colors — fall back safely.
+    return ALL_TRACK_COLORS.find((c) => !exclude.includes(c)) ?? 'red';
+  };
+
+  const trackColors: TrackColorId[] = new Array(LOOP.length);
+  for (const color of PLAYER_COLORS_ALL) trackColors[START_INDEX[color]] = color;
+
+  for (let i = 0; i < LOOP.length; i++) {
+    if (trackColors[i]) continue;
+    const prev = trackColors[(i - 1 + LOOP.length) % LOOP.length];
+    const excluded: TrackColorId[] = prev ? [prev] : [];
+    // The final cell must also differ from field 0 (the loop seam).
+    if (i === LOOP.length - 1 && trackColors[0]) excluded.push(trackColors[0]!);
+    trackColors[i] = pick(excluded);
+  }
+
+  const homeColors = {} as Record<PlayerColorId, TrackColorId[]>;
+  for (const color of PLAYER_COLORS_ALL) {
+    const row: TrackColorId[] = [];
+    for (let slot = 0; slot < RULES.homeSlots; slot++) {
+      row.push(pick(row.length > 0 ? [row[row.length - 1]!] : []));
+    }
+    homeColors[color] = row;
+  }
+
+  return { trackColors, homeColors };
+}
+
+/**
+ * Validates unknown data (autosaves) into a BoardLayout, falling back to the
+ * classic pattern. Accepts only well-shaped 40+12 color tables.
+ */
+export function normalizeLayout(value: unknown): BoardLayout {
+  const isColor = (c: unknown): c is TrackColorId =>
+    typeof c === 'string' && (ALL_TRACK_COLORS as readonly string[]).includes(c);
+  try {
+    const raw = value as Partial<BoardLayout> | null;
+    if (
+      raw &&
+      Array.isArray(raw.trackColors) &&
+      raw.trackColors.length === LOOP.length &&
+      raw.trackColors.every(isColor) &&
+      raw.homeColors &&
+      PLAYER_COLORS_ALL.every(
+        (p) =>
+          Array.isArray(raw.homeColors![p]) &&
+          raw.homeColors![p]!.length === RULES.homeSlots &&
+          raw.homeColors![p]!.every(isColor),
+      )
+    ) {
+      return {
+        trackColors: [...raw.trackColors],
+        homeColors: {
+          red: [...raw.homeColors.red!],
+          blue: [...raw.homeColors.blue!],
+          green: [...raw.homeColors.green!],
+          yellow: [...raw.homeColors.yellow!],
+        },
+      };
+    }
+  } catch {
+    // fall through to the classic layout
+  }
+  return CLASSIC_LAYOUT;
 }

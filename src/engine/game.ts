@@ -1,7 +1,8 @@
-import { RULES, type DiceFaceId, type PlayerColorId, type TrackColorId } from '@/config/gameConfig';
+import { RULES, diceFacesFor, type DiceFaceId, type PlayerColorId, type TrackColorId } from '@/config/gameConfig';
 import { DEFAULT_COLORS, TURN_ORDER } from './board';
+import { CLASSIC_LAYOUT, generateRandomLayout } from './boardTrackConfig';
 import { cloneState } from './rules';
-import { randomSeed, rollDieFace, nextRandom } from './dice';
+import { nextRandom, pickFromProbs, planCeramicRoll, randomSeed, rollDieFace } from './dice';
 import { CLASSIC_CONFIG, type RulesConfig } from './rulesConfig';
 import type { GameEvent, GameState, PlayerSetup } from './types';
 /**
@@ -34,6 +35,7 @@ export function createGame(
 ): GameState {
   const players = setups.map((setup) => ({
     ...setup,
+    exitFailStreak: 0,
     pawns: Array.from({ length: rulesConfig.pawnsPerPlayer }, (_, i) => ({
       id: `${setup.color}-${i}`,
       color: setup.color,
@@ -42,6 +44,10 @@ export function createGame(
   }));
 
   const firstIndex = Math.floor(nextRandom(seed).value * players.length);
+  // The color map this match is played on: the official weave, or a freshly
+  // generated FULL RANDOM map (seeded — the same seed repaints the same
+  // board, so autosaves and replays stay faithful).
+  const layout = rulesConfig.boardLayout === 'random' ? generateRandomLayout(seed) : CLASSIC_LAYOUT;
 
   const state: GameState = {
     players,
@@ -53,6 +59,7 @@ export function createGame(
     rollsThisTurn: 0,
     extraRoll: null,
     rulesConfig,
+    layout,
     winner: null,
     rngState: seed,
     events: [],
