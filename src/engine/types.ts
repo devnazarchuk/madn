@@ -1,8 +1,9 @@
 import type { DiceFaceId, PlayerColorId, TrackColorId } from '@/config/gameConfig';
+import type { BoardLayout } from './boardTrackConfig';
 import type { RulesConfig } from './rulesConfig';
 
 export type { DiceFaceId, PlayerColorId, TrackColorId };
-export type { RulesConfig };
+export type { RulesConfig, BoardLayout };
 
 export type PlayerKind = 'human' | 'ai';
 export type AiLevel = 'easy' | 'medium' | 'hard';
@@ -33,6 +34,9 @@ export interface PawnState {
 
 export interface PlayerRuntime extends PlayerSetup {
   pawns: PawnState[];
+  /** Consecutive base-exit attempts that failed to roll the exit color
+   * (Ceramic Dice pity ladder — always 0 when the rule is OFF). */
+  exitFailStreak: number;
 }
 
 export type GamePhase =
@@ -141,6 +145,8 @@ export interface GameState {
   extraRoll: 'capture' | 'own-color' | null;
   /** Rules used for THIS match — replayed matches keep their own config. */
   rulesConfig: RulesConfig;
+  /** The color layout this match is played on (classic weave or random map). */
+  layout: BoardLayout;
   winner: PlayerColorId | null;
   /** Seeded RNG state. */
   rngState: number;
