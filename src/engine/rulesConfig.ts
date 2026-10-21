@@ -20,10 +20,12 @@ export type EntryRuleId = 'own-color' | 'any-color';
 export type PassingRuleId = 'free' | 'strict-blocking';
 /** A6 — how the golden winning cell may be reached. */
 export type FinishRuleId = 'exact' | 'flexible';
+/** Board paint — the official weave or a fully randomized map. */
+export type BoardLayoutId = 'classic' | 'random';
 
 export interface RulesConfig {
   /** Schema version — bump when options change. */
-  version: 3;
+  version: 4;
   preset: RulesPresetId;
   /** A3 — required color to leave the base. */
   entryRule: EntryRuleId;
@@ -73,6 +75,23 @@ export interface RulesConfig {
   maySkipMove: boolean;
   /** V2 — 3 for the edition, 2 for shorter matches. */
   pawnsPerPlayer: 2 | 3;
+  /**
+   * Ceramic Dice (kids-v7, default OFF) — the optional smart-luck die. A
+   * purely cosmetic weight layer on the SAME seeded RNG: in normal play the
+   * roll is completely standard; when the active player is fully stuck it
+   * gently favors faces that let a pawn move; when ALL pawns wait in the base
+   * a pity ladder raises the exit color to 50% → 75% → 99% on consecutive
+   * failed attempts; and a roll that would immediately WIN the match gets a
+   * random 15–25% boost. Never changes WHAT the faces are — only their odds.
+   */
+  ceramicDice: boolean;
+  /**
+   * Board layout (kids-v7) — 'classic' keeps the official color weave (and
+   * the own-colored home rows); 'random' repaints every track field AND all
+   * three cells of every home stretch with random colors (start fields keep
+   * their owner's color), so even the way home demands matching rolls.
+   */
+  boardLayout: BoardLayoutId;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +100,7 @@ export interface RulesConfig {
 
 /** The documented Kids-edition reconstruction (RULES.md §3) — strict edition. */
 export const CLASSIC_CONFIG: RulesConfig = {
-  version: 3,
+  version: 4,
   preset: 'classic',
   entryRule: 'own-color',
   entryAssist: false,
@@ -96,6 +115,8 @@ export const CLASSIC_CONFIG: RulesConfig = {
   ownColorToMove: false,
   maySkipMove: false,
   pawnsPerPlayer: 3,
+  ceramicDice: false,
+  boardLayout: 'classic',
 };
 
 /** Shorter matches: any-color entry, extra roll after captures, 2 pawns. */
@@ -122,7 +143,7 @@ export const PRESET_ORDER: RulesPresetId[] = ['classic', 'quick', 'family', 'cus
 
 export const rulesConfigSchema = z
   .object({
-    version: z.literal(3),
+    version: z.literal(4),
     preset: z.enum(['classic', 'custom', 'quick', 'family']),
     entryRule: z.enum(['own-color', 'any-color']),
     entryAssist: z.boolean(),
@@ -137,6 +158,8 @@ export const rulesConfigSchema = z
     ownColorToMove: z.boolean(),
     maySkipMove: z.boolean(),
     pawnsPerPlayer: z.union([z.literal(2), z.literal(3)]),
+    ceramicDice: z.boolean(),
+    boardLayout: z.enum(['classic', 'random']),
   })
   .superRefine((cfg, ctx) => {
     // A classic preset must be identical to the documented reconstruction.
@@ -200,11 +223,15 @@ export function normalizeRulesConfig(input: unknown): RulesConfig {
   const raw = input as Record<string, unknown>;
   // kids-v4 (v2) configs predate Star Mode: their die carried two golden
   // star wilds. Migrate them to starMode ON so saved custom presets keep
-  // playing exactly as they were created. (Preset configs resolve to the
-  // v3 preset definitions below, which use the standard die.)
-  const legacyStarEra = raw.version !== 3 || raw.starMode === undefined;
+  // playing exactly as they were created — they are recognizable by the
+  // missing starMode field (v3+ saves always carry it). (Preset configs
+  // resolve to the preset definitions below, which use the standard die.)
+  const legacyStarEra = raw.starMode === undefined;
   const merged = { ...base, ...(raw as Partial<RulesConfig>) } as RulesConfig;
-  merged.version = 3;
+  merged.version = 4;
+  // kids-v7 fields: older saves simply lack them — Classic defaults apply.
+  merged.ceramicDice = raw.ceramicDice === true;
+  merged.boardLayout = raw.boardLayout === 'random' && merged.preset === 'custom' ? 'random' : 'classic';
   if (legacyStarEra && merged.preset === 'custom') merged.starMode = true;
   // Drop nonsensical combinations:
   if (!merged.captureEnabled) {
@@ -253,7 +280,7 @@ export function diffFromClassic(config: RulesConfig): DiffKey[] {
 // Editor metadata (drives the Additional Rules UI)
 // ---------------------------------------------------------------------------
 
-export type RuleGroup = 'start' | 'movement' | 'capture' | 'turn' | 'finish';
+export type RuleGroup = 'start' | 'movement' | 'capture' | 'turn' | 'finish' | 'board';
 
 export interface RuleOptionChoice {
   value: string;
@@ -279,6 +306,7 @@ export const GROUP_META: Record<RuleGroup, { title: string; icon: string }> = {
   capture: { title: 'Bumping others', icon: 'swords' },
   turn: { title: 'Taking turns', icon: 'hourglass' },
   finish: { title: 'Winning', icon: 'flag' },
+  board: { title: 'The board & dice', icon: 'map' },
 };
 
 export const RULE_OPTIONS: RuleOptionMeta[] = [
@@ -427,6 +455,36 @@ export const RULE_OPTIONS: RuleOptionMeta[] = [
     ],
   },
   {
+    key: 'boardLayout',
+    group: 'board',
+    kind: 'select',
+    title: 'Board color pattern',
+    explanation:
+      'Which colors the track fields — and the three home cells — are painted with.',
+    choices: [
+      {
+        value: 'classic',
+        label: 'Classic official pattern',
+        description:
+          'The documented edition weave: every home row is painted in the owner\'s color.',
+      },
+      {
+        value: 'random',
+        label: 'Full random map',
+        description:
+          'Every field — INCLUDING all three home-stretch cells — gets a random color each match. Even walking home demands the matching rolls! Start fields keep their owner\'s color.',
+      },
+    ],
+  },
+  {
+    key: 'ceramicDice',
+    group: 'board',
+    kind: 'toggle',
+    title: 'Ceramic dice (smart luck)',
+    explanation:
+      'A friendly hand from fate, OFF in fair play. Normal rolls stay perfectly honest — but when you are fully blocked it gently favors colors that let a pawn move; while ALL your pawns wait in the base, your exit color becomes 50% on the 1st failed try, 75% on the 2nd, 99% afterwards; and a roll that would win you the match gets a random 15–25% boost. Miss the 99% chance and the dice will tease you about it.',
+  },
+  {
     key: 'pawnsPerPlayer',
     group: 'finish',
     kind: 'select',
@@ -480,11 +538,16 @@ export function describeRules(config: RulesConfig): RulesSection[] {
   }
   rolling.push(
     config.passingRule === 'free'
-      ? 'You may hop right over pawns standing in your way — only your landing field matters.'
+      ? 'You may hop right over pawns standing in your way — only your landing field matters. But inside a home stretch nobody may EVER be passed — every finish slot holds one pawn, and no pawn jumps over another there.'
       : 'Pawns may NOT jump over anybody: if a pawn stands between you and your next matching field, you must wait.',
-    'The golden ARROW at each arm tip is a mandatory stop: you can never jump over it into your home stretch — you must first land ON the arrow cell by rolling its exact color, and then roll your OWN color to step inside.',
+    'The golden ARROW at each arm tip is a mandatory stop: you can never jump over it into your home stretch — you must first land ON the arrow cell by rolling its exact color, and then roll the color painted on the first home cell to step inside.',
     'No legal move? Your turn is skipped — the die is never re-rolled automatically.',
   );
+  if (config.ceramicDice) {
+    rolling.push(
+      'Ceramic dice: normal rolls are perfectly honest — but the die quietly leans in your favor when you are fully blocked, raises your exit color to 50% → 75% → 99% while all your pawns wait in the base, and boosts a match-winning roll by a random 15–25%.',
+    );
+  }
   sections.push({ title: 'Rolling & moving', points: rolling });
 
   const entry: string[] = [];
@@ -550,6 +613,11 @@ export function describeRules(config: RulesConfig): RulesSection[] {
       'Flexible finish inside the row: ANY roll that carries a pawn onto or past the golden winning cell completes it — nobody waits at the door.',
     );
   }
+  if (config.boardLayout === 'random') {
+    finish.push(
+      'FULL RANDOM MAP: the whole board — including the three home-stretch cells — is painted with random colors this match. Walking home demands rolling each cell\'s exact random color! (Start fields keep their owner\'s color.)',
+    );
+  }
   finish.push('A finished pawn stands on the winning cell forever: it never moves again and cannot be bumped.');
   sections.push({ title: 'Going home', points: finish });
 
@@ -569,6 +637,8 @@ export function rulesHeadline(config: RulesConfig): string {
   parts.push(config.starMode ? 'star wilds' : 'white & black platforms');
   parts.push(config.finishRule === 'exact' ? 'exact goal landing' : 'goal on any reach');
   if (config.pawnsPerPlayer === 2) parts.push('2 pawns');
+  if (config.boardLayout === 'random') parts.push('full random board');
+  if (config.ceramicDice) parts.push('ceramic dice');
   return parts.join(' · ');
 }
 

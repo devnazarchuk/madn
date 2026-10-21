@@ -1,4 +1,5 @@
 import { normalizeRulesConfig, type RulesConfig } from './rulesConfig';
+import { normalizeLayout } from './boardTrackConfig';
 import type { GameState } from './types';
 
 /**
@@ -100,6 +101,12 @@ export function loadAutosave(): AutosavePayload | null {
     const game = p.game as GameState;
     // Validate + normalize the embedded rules config.
     game.rulesConfig = normalizeRulesConfig(game.rulesConfig);
+    // The match's color layout (kids-v7): restore it, or fall back to the
+    // classic weave for saves created before layouts existed.
+    game.layout = normalizeLayout(game.layout);
+    for (const player of game.players) {
+      player.exitFailStreak = typeof player.exitFailStreak === 'number' ? player.exitFailStreak : 0;
+    }
     if (game.phase === 'game-over') return null;
     return { savedAt: typeof p.savedAt === 'number' ? p.savedAt : Date.now(), game, totalMoves: Number(p.totalMoves) || 0 };
   } catch {
