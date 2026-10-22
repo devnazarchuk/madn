@@ -1,6 +1,5 @@
 import { RULES, type TrackColorId } from '@/config/gameConfig';
 import { loopIndexFromPath, pathIndex, START_INDEX } from './board';
-import { FIELD_COLORS } from './boardTrackConfig';
 import { pawnsOnTrack } from './rules';
 import { getLegalMoves, starOptions } from './rules/legalMoves';
 import type { AiLevel, GameState, LegalMove } from './types';
@@ -53,7 +52,7 @@ function threatOn(state: GameState, loopIdx: number, myColor: string): number {
       for (let ahead = 1; ahead <= 8 && fromIdx + ahead < RULES.trackFields; ahead++) {
         const target = loopIndexFromPath(player.color, fromIdx + ahead);
         if (target === loopIdx) {
-          capturingFaces.add(FIELD_COLORS[target]!);
+          capturingFaces.add(state.layout.trackColors[target]!);
           break; // a given target is exactly one distance from this pawn
         }
       }

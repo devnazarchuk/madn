@@ -1,6 +1,6 @@
 import { RULES } from '@/config/gameConfig';
 import { START_INDEX, loopIndexFromPath } from '../board';
-import { FIELD_COLORS } from '../boardTrackConfig';
+import { CLASSIC_LAYOUT, type BoardLayout } from '../boardTrackConfig';
 import type { GameState, PlayerColorId, TrackColorId } from '../types';
 import { pawnsOnTrack } from './occupancy';
 
@@ -68,14 +68,19 @@ export const GATEWAY_POSITION = RULES.trackFields - 1; // 39
  * next lap" pattern past the winning cell — how a roll is recognized as
  * carrying a pawn past the goal.
  */
-export function journeyColor(color: PlayerColorId, journey: number): TrackColorId {
+export function journeyColor(
+  color: PlayerColorId,
+  journey: number,
+  layout: BoardLayout = CLASSIC_LAYOUT,
+): TrackColorId {
   if (journey >= RULES.trackFields && journey <= WINNING_POSITION) {
-    // Inside the home stretch — the row is painted in the player's own color.
-    return color;
+    // Inside the home stretch — the paint of THAT player's private row
+    // (own-colored in the classic layout; random in the Full Random map).
+    return layout.homeColors[color]![journey - RULES.trackFields]!;
   }
   const start = START_INDEX[color];
   const wrapped = ((journey % RULES.trackFields) + RULES.trackFields) % RULES.trackFields;
-  return FIELD_COLORS[(start + wrapped) % FIELD_COLORS.length]!;
+  return layout.trackColors[(start + wrapped) % layout.trackColors.length]!;
 }
 
 /**
@@ -108,6 +113,7 @@ export function matchingFieldAhead(
   color: PlayerColorId,
   fromJourney: number,
   face: TrackColorId,
+  layout: BoardLayout = CLASSIC_LAYOUT,
 ): number {
   // The golden arrow gateway cap — the mandatory stop before the home row.
   let cap = MATCH_SEARCH_AHEAD;
@@ -116,11 +122,12 @@ export function matchingFieldAhead(
     cap = GATEWAY_POSITION - fromJourney;
   } else if (fromJourney === GATEWAY_POSITION) {
     // Standing ON the gateway: only the first home cell is reachable —
-    // and only with the player's own color (its paint). No looping.
+    // it matches the color painted on that cell (the own color in the
+    // classic layout, that cell's random paint in the Full Random map).
     cap = 1;
   }
   for (let ahead = 1; ahead <= cap; ahead++) {
-    if (journeyColor(color, fromJourney + ahead) === face) return ahead;
+    if (journeyColor(color, fromJourney + ahead, layout) === face) return ahead;
   }
   return -1; // no matching field within the pawn's legal reach this roll
 }

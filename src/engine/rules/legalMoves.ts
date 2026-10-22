@@ -98,22 +98,76 @@ function evaluatePawn(state: GameState, pawn: PawnState): PawnEvaluation {
   if (!face) return { reason: 'NO_DICE_RESULT' };
   if (face === 'star') return { reason: 'STAR_UNRESOLVED' };
 
-  // --- Home pawns: walk one slot deeper (home matches every color) ----------
+  // --- Stage 3b: color-match turns -------------------------------------------
+  // A PLAIN roll of a foreign color voids the whole turn — but a golden star
+  // is wild and may become any color, stars are exempt even here.
+  if (cfg.ownColorToMove && !state.diceFromStar && face !== color) {
+    return { reason: 'WRONG_DICE_COLOR' };
+  }
+
+  const strictBlocking = cfg.passingRule === 'strict-blocking';
+  const flexibleFinish = cfg.finishRule === 'flexible';
+  const lastSlot = RULES.homeSlots - 1;
+
+  // --- Home pawns: walk the home stretch by the same rule. NOTE: inside the
+  //     finishing zone NOBODY may ever be passed — the intermediate check is
+  //     UNCONDITIONAL here (it never depends on the strict-blocking rule):
+  //     every finish slot holds one pawn and no pawn jumps over another,
+  //     not even with free passing on the main track or a flexible finish. --
   if (pawn.pos.area === 'home') {
-    const lastSlot = RULES.homeSlots - 1;
-    if (pawn.pos.index >= lastSlot) return { reason: 'MOVE_EXCEEDS_FINISH' };
-    const next = pawn.pos.index + 1;
-    if (homeSlotOccupied(player, next)) return { reason: 'FINISH_LANE_BLOCKED' };
+    if (pawn.pos.index >= lastSlot) return { reason: 'PAWN_FINISHED' };
+    const fromJourney = RULES.trackFields + pawn.pos.index;
+    const d = matchingFieldAhead(color, fromJourney, face, state.layout);
+    if (d === -1) return { reason: 'PATH_BLOCKED' }; // unreachable (tests verify)
+    const target = fromJourney + d;
+    if (target > WINNING_POSITION) {
+      // The roll carries the pawn PAST the golden winning cell.
+      if (!flexibleFinish) return { reason: 'MOVE_EXCEEDS_FINISH' };
+      // Flexible finish: the pawn completes — clamped onto the winning cell.
+      // Home-stretch blocking is ABSOLUTE: a teammate between the pawn and
+      // the golden cell is never jumped over (under ANY passing rule).
+      if (!intermediatePathClear(state, color, fromJourney, WINNING_POSITION)) {
+        return { reason: 'PATH_BLOCKED' };
+      }
+      // One pawn per finish cell: the golden winning cell must be FREE —
+      // its first finisher stands on it forever.
+      if (homeSlotOccupied(player, lastSlot)) {
+        return { reason: 'FINISH_LANE_BLOCKED' };
+      }
+      return {
+        move: {
+          pawnId: pawn.id,
+          from: { ...pawn.pos },
+          to: { area: 'home', index: lastSlot },
+          isEntry: false,
+          isFinish: true,
+          isHomeAdvance: false,
+          capturedPawnIds: [],
+          distance: WINNING_POSITION - fromJourney,
+        },
+      };
+    }
+    const destSlot = target - RULES.trackFields;
+    // ABSOLUTE home-stretch no-passing: every slot between the pawn and its
+    // destination must be empty regardless of the active passing rule.
+    if (!intermediatePathClear(state, color, fromJourney, target)) {
+      return { reason: 'PATH_BLOCKED' };
+    }
+    // STRICT one pawn per finish cell — the golden winning cell included
+    // (no "finish shelf": later pawns park behind the first finisher).
+    if (homeSlotOccupied(player, destSlot)) {
+      return { reason: 'FINISH_LANE_BLOCKED' };
+    }
     return {
       move: {
         pawnId: pawn.id,
         from: { ...pawn.pos },
-        to: { area: 'home', index: next },
+        to: { area: 'home', index: destSlot },
         isEntry: false,
-        isFinish: false,
-        isHomeAdvance: true,
+        isFinish: destSlot === lastSlot,
+        isHomeAdvance: destSlot < lastSlot,
         capturedPawnIds: [],
-        distance: 1,
+        distance: d,
       },
     };
   }
@@ -150,68 +204,77 @@ function evaluatePawn(state: GameState, pawn: PawnState): PawnEvaluation {
     };
   }
 
-  // --- Moving on the track ---------------------------------------------------
-  const fromIdx = pathIndex(color, pawn.pos);
-  const matched = matchingFieldAhead(color, fromIdx, face);
+  // --- Moving on the track: the next matching field within the gateway cap ----
+  const fromJourney = pathIndex(color, pawn.pos); // 0..39
+  const d = matchingFieldAhead(color, fromJourney, face, state.layout);
+  if (d === -1) {
+    // The golden arrow gateway is a MANDATORY STOP: the next field showing
+    // this face lies beyond the pawn's legal reach — past the arrow cell
+    // (inside the home stretch or on the virtual lap). Even the player's
+    // OWN color cannot jump over the gateway into the row; the pawn must
+    // wait for a roll it can use (Step 1: the arrow cell's exact color).
+    return { reason: 'NO_MATCH_AHEAD' };
+  }
+  const target = fromJourney + d; // ≤ 40: a track field or the first home cell
 
-  // --- Going home: no matching color remains ahead (assumption A8) ---------
-  if (matched === -1) {
-    if (!RULES.homeMatchesAnyColor) return { reason: 'PATH_BLOCKED' };
-    // Stage 5 (strict): the remaining track fields must be clear on the way in.
-    if (
-      cfg.passingRule === 'strict-blocking' &&
-      pathRangeOccupied(state, color, fromIdx + 1, RULES.trackFields - 1)
-    ) {
+  // --- A landing still on the shared track (the arrow gateway included) ------
+  if (target <= GATEWAY_POSITION) {
+    const destLoop = loopIndexFromPath(color, target);
+    // Stage 5 (strict blocking): every intermediate field must be EMPTY.
+    if (strictBlocking && !intermediatePathClear(state, color, fromJourney, target)) {
       return { reason: 'PATH_BLOCKED' };
     }
-    // Stage 7: the mouth slot (home slot 0) must be free.
-    if (homeSlotOccupied(player, 0)) return { reason: 'FINISH_LANE_BLOCKED' };
+    // Stage 6: destination occupancy.
+    const dest = validateTrackDestination(state, destLoop, color, {
+      captureEnabled: cfg.captureEnabled,
+      protectedStarts: cfg.protectedStarts,
+      friendlyStacking: cfg.friendlyStacking,
+      startIndexOf: (c) => START_INDEX[c as PlayerColorId],
+    });
+    if (dest.check === 'DESTINATION_OCCUPIED') return { reason: 'DESTINATION_OCCUPIED' };
+    if (dest.check === 'CAPTURE_DISABLED') return { reason: 'CAPTURE_DISABLED' };
+    if (dest.check === 'PROTECTED_FIELD') return { reason: 'PROTECTED_FIELD' };
     return {
       move: {
         pawnId: pawn.id,
         from: { ...pawn.pos },
-        to: { area: 'home', index: 0 },
+        to: { area: 'track', index: destLoop },
         isEntry: false,
-        isFinish: true,
+        isFinish: false,
         isHomeAdvance: false,
-        capturedPawnIds: [],
-        distance: RULES.trackFields - fromIdx,
+        capturedPawnIds: dest.enemies.map((e) => e.id),
+        distance: d,
       },
     };
   }
 
-  const destIdx = fromIdx + matched;
-  const destLoop = loopIndexFromPath(color, destIdx);
-
-  // --- Stage 5 (strict blocking): every intermediate field must be EMPTY ---
-  if (
-    cfg.passingRule === 'strict-blocking' &&
-    !intermediatePathClear(state, color, fromIdx, destIdx)
-  ) {
+  // --- The ONLY crossing: standing ON the gateway (J39) and stepping onto the
+  //     first cell of the home stretch (slot 0) — reachable solely with the
+  //     color painted on slot 0 (the own color in the classic layout, that
+  //     cell's random paint in the Full Random map): the gateway cap inside
+  //     matchingFieldAhead guarantees the face matches slot 0's paint, and a
+  //     foreign roll can never loop back onto the track. The stretch is
+  //     entered ONLY onto an EMPTY slot 0 — the absolute one-pawn rule. ------
+  const destSlot = target - RULES.trackFields;
+  // Home-stretch blocking is ABSOLUTE (under any passing rule).
+  if (!intermediatePathClear(state, color, fromJourney, target)) {
     return { reason: 'PATH_BLOCKED' };
   }
-
-  // --- Stage 6: destination occupancy ----------------------------------------
-  const dest = validateTrackDestination(state, destLoop, color, {
-    captureEnabled: cfg.captureEnabled,
-    protectedStarts: cfg.protectedStarts,
-    friendlyStacking: cfg.friendlyStacking,
-    startIndexOf: (c) => START_INDEX[c as PlayerColorId],
-  });
-  if (dest.check === 'DESTINATION_OCCUPIED') return { reason: 'DESTINATION_OCCUPIED' };
-  if (dest.check === 'CAPTURE_DISABLED') return { reason: 'CAPTURE_DISABLED' };
-  if (dest.check === 'PROTECTED_FIELD') return { reason: 'PROTECTED_FIELD' };
-
+  // STRICT one pawn per finish cell (even with friendlyStacking enabled for
+  // the main track) — slot 0 must be free to step in.
+  if (homeSlotOccupied(player, destSlot)) {
+    return { reason: 'FINISH_LANE_BLOCKED' };
+  }
   return {
     move: {
       pawnId: pawn.id,
       from: { ...pawn.pos },
-      to: { area: 'track', index: destLoop },
+      to: { area: 'home', index: destSlot },
       isEntry: false,
       isFinish: false,
-      isHomeAdvance: false,
-      capturedPawnIds: dest.enemies.map((e) => e.id),
-      distance: matched,
+      isHomeAdvance: true,
+      capturedPawnIds: [],
+      distance: d,
     },
   };
 }
@@ -250,18 +313,25 @@ export function validateMove(state: GameState, pawnId: string): MoveValidation {
 // Star (wild) resolution — the enumeration helpers for the picker & the AI
 // ---------------------------------------------------------------------------
 
-/** Which of the four colors the active player may resolve a star to. */
-export function starOptions(state: GameState): PlayerColorId[] {
+/**
+ * Which of the six track colors (four player colors + white + black) the
+ * active player may resolve a star to — only the productive ones. Star Mode
+ * is the only ruleset whose die carries stars; the enumeration is generic
+ * and works in both modes.
+ */
+export function starOptions(state: GameState): TrackColorId[] {
   if (state.diceFace !== 'star') return [];
-  const options: PlayerColorId[] = [];
-  for (const candidate of PLAYER_COLORS) {
+  const options: TrackColorId[] = [];
+  for (const candidate of TRACK_COLORS) {
     if (getLegalMoves({ ...state, diceFace: candidate }).length > 0) options.push(candidate);
   }
   return options;
 }
 
 /** Legal moves for every star resolution (color) that yields any. */
-export function starLegalMoves(state: GameState): Array<{ color: PlayerColorId; moves: LegalMove[] }> {
+export function starLegalMoves(
+  state: GameState,
+): Array<{ color: TrackColorId; moves: LegalMove[] }> {
   return starOptions(state).map((color) => ({
     color,
     moves: getLegalMoves({ ...state, diceFace: color }),

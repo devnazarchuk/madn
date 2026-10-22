@@ -58,6 +58,9 @@ export function applyMove(input: GameState, move: LegalMove): ApplyResult {
   // The pawn itself moves to the validated destination (exact slot).
   pawn.pos = { ...move.to };
 
+  // A successful base exit ends the Ceramic-Dice pity streak of its owner.
+  if (move.isEntry) player.exitFailStreak = 0;
+
   events.push({
     seq: seq++,
     turn: state.turn,
