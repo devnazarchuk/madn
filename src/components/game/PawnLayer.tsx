@@ -384,45 +384,96 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
 }
 
 // ---------------------------------------------------------------------------
-// Target rings — glowing markers on every legal destination
+// Destination targets — click-to-move on the highlighted destination CELL
 // ---------------------------------------------------------------------------
 
+/**
+ * Every legal destination renders as a golden ring PLUS a clickable cell
+ * disc: tapping the pawn itself OR its highlighted target cell both make
+ * the move. Hovering a target brightens the ring, tints the cell and shows
+ * the pointer cursor. When two moves share one destination the cell click
+ * plays the first of them (the per-pawn rings stay precise for the rest).
+ */
 function TargetRings() {
   const legalMoves = useGameStore((s) => s.legalMoves);
   const showHints = useSettingsStore((s) => s.showMoveHints);
   const phase = useGameStore((s) => s.game?.phase ?? null);
   const activeKind = useGameStore((s) => s.game?.players[s.game.activeIndex ?? 0]?.kind ?? null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const visible = phase === 'choose-pawn' && activeKind === 'human' && showHints;
 
-  const onRingClick = (e: ThreeEvent<MouseEvent>, pawnId: string) => {
+  const onTargetClick = (e: ThreeEvent<MouseEvent>, pawnId: string) => {
     e.stopPropagation();
     useGameStore.getState().tapPawn(pawnId);
   };
 
   if (!visible) return null;
+
+  // Group moves by destination cell — one ring + one clickable disc each.
+  const byDestination = new Map<string, { pawnId: string; color: PlayerColorId; move: (typeof legalMoves)[number] }>();
+  for (const m of legalMoves) {
+    const key = `${m.to.area}-${m.to.index}`;
+    if (!byDestination.has(key)) {
+      byDestination.set(key, { pawnId: m.pawnId, color: m.pawnId.split('-')[0] as PlayerColorId, move: m });
+    }
+  }
+
   return (
     <>
-      {legalMoves.map((m) => {
-        const color = m.pawnId.split('-')[0] as PlayerColorId;
-        const target = worldOf(color, m.to);
+      {[...byDestination.entries()].map(([key, entry]) => {
+        const target = worldOf(entry.color, entry.move.to);
+        const hovered = hoveredKey === key;
         return (
-          <mesh
-            key={m.pawnId}
-            position={[target.x, cellTopY(m.to.area) + 0.03, target.z]}
-            rotation={[Math.PI / 2, 0, 0]}
-            onClick={(e) => onRingClick(e, m.pawnId)}
-          >
-            <torusGeometry args={[0.36, 0.08, 10, 36]} />
-            <meshStandardMaterial
-              color={MATERIAL.gold}
-              emissive={MATERIAL.gold}
-              emissiveIntensity={0.9}
-              transparent
-              opacity={0.92}
-              roughness={0.3}
-            />
-          </mesh>
+          <group key={key} position={[target.x, cellTopY(entry.move.to.area), target.z]}>
+            {/* the glowing destination ring */}
+            <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.36, 0.08, 10, 36]} />
+              <meshStandardMaterial
+                color={MATERIAL.gold}
+                emissive={MATERIAL.gold}
+                emissiveIntensity={hovered ? 1.5 : 0.9}
+                transparent
+                opacity={0.92}
+                roughness={0.3}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {/* soft cell tint that appears on hover */}
+            <mesh position={[0, 0.028, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.55, 32]} />
+              <meshStandardMaterial
+                color={MATERIAL.gold}
+                emissive={MATERIAL.gold}
+                emissiveIntensity={0.5}
+                transparent
+                opacity={hovered ? 0.4 : 0}
+                depthWrite={false}
+                roughness={0.4}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {/* invisible click disc over the whole cell — the raycast target.
+                NOTE: faces UP (-PI/2 x-rotation) + DoubleSide, or the raycast
+                sees only its back face and never intersects. */}
+            <mesh
+              position={[0, 0.075, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              onClick={(e) => onTargetClick(e, entry.pawnId)}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                setHoveredKey(key);
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                setHoveredKey((cur) => (cur === key ? null : cur));
+                document.body.style.cursor = 'auto';
+              }}
+            >
+              <circleGeometry args={[0.58, 32]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
         );
       })}
     </>

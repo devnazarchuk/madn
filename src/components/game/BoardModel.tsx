@@ -12,11 +12,11 @@ import {
   HOME_ROW,
   LOOP,
 } from '@/engine/board';
-import { TRACK_FIELDS } from '@/engine/boardTrackConfig';
+import { TRACK_FIELDS, CLASSIC_LAYOUT } from '@/engine/boardTrackConfig';
 import { BOARD, cellToWorld } from '@/engine/layout';
 import { BOARD_SKINS, COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL, type BoardSkin } from '@/config/theme';
 import { PLAYER_COLORS } from '@/config/gameConfig';
-import type { PlayerColorId } from '@/engine/types';
+import type { PlayerColorId, TrackColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { woodTexture, linenTexture } from './textures';
@@ -117,23 +117,34 @@ function TrackField({
 }
 
 /**
- * The home stretch: three FINISH PLATFORMS painted in the PLAYER'S OWN COLOR
- * (the classic look — 3 matching cells leading into the winning area marked
- * with a star), deliberately styled apart from the regular track cells:
- * clearly smaller inlays with a semi-transparent tint, so a child instantly
- * reads them as home/finish platforms rather than ordinary track fields —
- * each one a private parking slot for exactly ONE pawn (the golden winning
- * cell keeps the first finisher, later pawns park behind it). The last slot
- * keeps the golden winning-cell ring. The engine follows the paint: the
- * golden arrow gateway feeds the row — own-color rolls step a pawn in and
- * slot by slot onto the golden cell (see engine/rules/validatePath.ts).
+ * The home stretch: three FINISH PLATFORMS painted per the MATCH's board
+ * layout (the classic look: 3 cells in the player's OWN color — or that
+ * row's random colors in the Full Random map), deliberately styled apart
+ * from the regular track cells: clearly smaller inlays with a semi-
+ * transparent tint, so a child instantly reads them as home/finish
+ * platforms rather than ordinary track fields — each one a private parking
+ * slot for exactly ONE pawn (the golden winning cell keeps the first
+ * finisher, later pawns park behind it). The last slot keeps the golden
+ * winning-cell ring. The engine follows the paint: the golden arrow gateway
+ * feeds the row — rolls matching each cell's paint step a pawn in and slot
+ * by slot onto the golden cell (see engine/rules/validatePath.ts).
  */
-function HomeSlots({ color, skin }: { color: PlayerColorId; skin: BoardSkin }) {
+function HomeSlots({
+  color,
+  skin,
+  slotColors,
+}: {
+  color: PlayerColorId;
+  skin: BoardSkin;
+  /** The three finish-platform colors from the match's layout. */
+  slotColors: TrackColorId[];
+}) {
   const goalIdx = HOME_ROW[color].length - 1;
   return (
     <group>
       {HOME_ROW[color].map((cell, i) => {
         const { x, z } = cellToWorld(cell.col, cell.row);
+        const paint = slotColors[i] ?? color;
         return (
           <group key={i} position={[x, HOME_Y, z]}>
             {/* cream socket — noticeably tighter than a track cell */}
@@ -141,24 +152,24 @@ function HomeSlots({ color, skin }: { color: PlayerColorId; skin: BoardSkin }) {
               <cylinderGeometry args={[0.38, 0.38, BOARD.tileHeight, 28]} />
               <meshStandardMaterial color={skin.surfaceDeep} roughness={0.6} metalness={0.02} />
             </mesh>
-            {/* the player-color finish platform — smaller & semi-transparent,
-                clearly distinct from the saturated track inlays */}
+            {/* the finish platform — smaller & semi-transparent, clearly
+                distinct from the saturated track inlays */}
             <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
               <cylinderGeometry args={[0.3, 0.315, BOARD.tileHeight + 0.008, 32]} />
               <meshStandardMaterial
-                color={COLORS[color]}
+                color={COLORS[paint]}
                 roughness={0.38}
                 metalness={0.05}
-                emissive={COLORS[color]}
+                emissive={COLORS[paint]}
                 emissiveIntensity={0.055}
                 transparent
                 opacity={0.78}
               />
             </mesh>
-            {/* the player-color framing rim */}
+            {/* the platform framing rim */}
             <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[0.3, 0.022, 8, 40]} />
-              <meshStandardMaterial color={COLORS_DEEP[color]} roughness={0.5} metalness={0.03} />
+              <meshStandardMaterial color={COLORS_DEEP[paint]} roughness={0.5} metalness={0.03} />
             </mesh>
             {/* the golden winning cell */}
             {i === goalIdx && (
@@ -404,6 +415,11 @@ export function BoardModel() {
   const boardSkin = useSettingsStore((s) => s.boardSkin);
   const sharpTextures = useSettingsStore((s) => s.sharpTextures);
   const skin = BOARD_SKINS[boardSkin];
+  // The match's color layout (classic weave or Full Random map) — outside a
+  // match the board shows the official pattern. Track field colors and
+  // gameplay-critical colors are never affected by skins or themes.
+  const gameLayout = useGameStore((s) => (s.screen === 'game' ? s.game?.layout : null));
+  const layout = gameLayout ?? CLASSIC_LAYOUT;
   // Procedural high-res wood grain & linen weave (cached by skin+quality;
   // double as bump maps so the board keeps a tactile, premium feel).
   const wood = useMemo(() => woodTexture(boardSkin, sharpTextures), [boardSkin, sharpTextures]);
@@ -414,11 +430,12 @@ export function BoardModel() {
       TRACK_FIELDS.map((f) => ({
         x: f.world.x,
         z: f.world.z,
-        color: f.color,
-        deepColor: COLORS_DEEP[f.color],
+        loopIndex: f.loopIndex,
+        color: layout.trackColors[f.loopIndex] ?? f.color,
+        deepColor: COLORS_DEEP[layout.trackColors[f.loopIndex] ?? f.color],
         isStart: f.isStart,
       })),
-    [],
+    [layout],
   );
   // Safe-start halo appears when the active rules protect start fields —
   // during a match the MATCH config is authoritative.
@@ -483,7 +500,7 @@ export function BoardModel() {
       {/* home stretches + goal mouths + the golden tip feed arrows */}
       {PLAYER_COLORS.map((color) => (
         <group key={color}>
-          <HomeSlots color={color} skin={skin} />
+          <HomeSlots color={color} skin={skin} slotColors={layout.homeColors[color] ?? [color, color, color]} />
           <HomeMouth color={color} />
         </group>
       ))}
