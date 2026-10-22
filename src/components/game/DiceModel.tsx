@@ -1,7 +1,7 @@
 'use client';
 
 import * as THREE from 'three';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
@@ -75,6 +75,9 @@ export function DiceModel() {
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const ringMat = useRef<THREE.MeshStandardMaterial>(null);
+  const [hovered, setHovered] = useState(false);
+  /** Smoothly-eased 0..1 hover amount — drives the tilt & spin-up. */
+  const hoverAmt = useRef(0);
 
   const diceRolling = useGameStore((s) => s.diceRolling);
   const animToken = useGameStore((s) => s.diceAnimToken);
@@ -129,9 +132,11 @@ export function DiceModel() {
   };
   const onDieOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+    setHovered(true);
     if (canRollNow()) document.body.style.cursor = 'pointer';
   };
   const onDieOut = () => {
+    setHovered(false);
     document.body.style.cursor = 'auto';
   };
 
@@ -182,9 +187,16 @@ export function DiceModel() {
     const now = Date.now();
     const canRoll = canRollNow();
 
+    // Ease the hover amount toward its target (used by the idle invitation
+    // animation: a gentle spin-up + tilt when the cursor rests on the die).
+    const hoverTarget = hovered && canRoll ? 1 : 0;
+    hoverAmt.current += (hoverTarget - hoverAmt.current) * Math.min(1, dt * 9);
+    const h = hoverAmt.current;
+
     if (st.diceRolling && st.diceAnimToken === roll.current.token) {
       const r = roll.current;
       const t = (now - r.startAt) / TIMING.diceRollDuration;
+      g.scale.setScalar(1);
       if (t < 0.72) {
         // Tumble: constant angular velocity + decaying bounces.
         const elapsed = (now - r.startAt) / 1000;
@@ -223,22 +235,36 @@ export function DiceModel() {
     }
 
     // Idle: rest orientation shows the last rolled face; while waiting for a
-    // human roll the die floats gently and spins to invite a click.
+    // human roll the die floats gently and spins to invite a click — and a
+    // HOVERED die spins up a little faster, tilts playfully and swells so
+    // the cursor visibly "catches" it.
     if (canRoll) {
       const tt = state.clock.elapsedTime;
       g.quaternion.setFromEuler(
-        IDLE_SPIN.set(0.35 * Math.sin(tt * 0.8), tt * 1.15, 0.22 * Math.cos(tt * 0.7)),
+        IDLE_SPIN.set(
+          0.35 * Math.sin(tt * 0.8) + 0.22 * h * Math.sin(tt * 4.1),
+          tt * (1.15 + 1.7 * h),
+          0.22 * Math.cos(tt * 0.7) + 0.16 * h * Math.cos(tt * 3.6),
+        ),
       );
-      g.position.set(DICE_REST[0], DICE_REST[1] + 0.45 + 0.1 * Math.sin(tt * 2.3), DICE_REST[2]);
+      g.position.set(
+        DICE_REST[0],
+        DICE_REST[1] + 0.45 + 0.1 * Math.sin(tt * 2.3) + 0.14 * h,
+        DICE_REST[2],
+      );
+      g.scale.setScalar(1 + 0.08 * h);
       if (ring.current) {
         ring.current.visible = true;
         ring.current.scale.setScalar(1 + 0.09 * Math.sin(tt * 3.1));
-        if (ringMat.current) ringMat.current.emissiveIntensity = 0.9 + 0.4 * Math.sin(tt * 3.1);
+        if (ringMat.current) {
+          ringMat.current.emissiveIntensity = 0.9 + 0.4 * Math.sin(tt * 3.1) + 0.6 * h;
+        }
       }
     } else {
       const target = quatForFace(st.game?.diceFace ?? null);
       g.quaternion.slerp(target, 1 - Math.exp(-dt * 5));
       g.position.set(DICE_REST[0], DICE_REST[1], DICE_REST[2]);
+      g.scale.setScalar(1);
       if (ring.current) ring.current.visible = false;
     }
   });
