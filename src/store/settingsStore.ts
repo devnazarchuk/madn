@@ -24,6 +24,9 @@ interface SettingsState {
   quality: QualityLevel;
   showMoveHints: boolean;
   autoSingleMove: boolean;
+  /** Auto-Roll Dice — the die rolls itself at the start of a human turn
+   * (OFF by default; toggled in the rules screen and the pause menu). */
+  autoRoll: boolean;
   // --- appearance ---
   theme: ThemeId;
   boardSkin: BoardSkinId;
@@ -42,6 +45,7 @@ interface SettingsState {
   setQuality: (q: QualityLevel) => void;
   setShowMoveHints: (v: boolean) => void;
   setAutoSingleMove: (v: boolean) => void;
+  setAutoRoll: (v: boolean) => void;
   setTheme: (t: ThemeId) => void;
   setBoardSkin: (s: BoardSkinId) => void;
   setPawnSkin: (s: PawnSkinId) => void;
@@ -68,6 +72,7 @@ export const useSettingsStore = create<SettingsState>()(
       quality: 'high',
       showMoveHints: true,
       autoSingleMove: true,
+      autoRoll: false,
       theme: 'classic',
       boardSkin: 'walnut',
       pawnSkin: 'classic',
@@ -85,6 +90,7 @@ export const useSettingsStore = create<SettingsState>()(
       setQuality: (q) => set({ quality: q, ...EFFECT_PRESET[q] }),
       setShowMoveHints: (v) => set({ showMoveHints: v }),
       setAutoSingleMove: (v) => set({ autoSingleMove: v }),
+      setAutoRoll: (v) => set({ autoRoll: v }),
       setTheme: (t) => set({ theme: t }),
       setBoardSkin: (s) => set({ boardSkin: s }),
       setPawnSkin: (s) => set({ pawnSkin: s }),
@@ -100,7 +106,7 @@ export const useSettingsStore = create<SettingsState>()(
       version: 1,
       // v0 allowed the removed 'scarf' accessory — map it to 'none'.
       migrate: (state) => {
-        if (state && (state as Partial<SettingsState>).pawnAccessory === 'scarf') {
+        if (state && (state as Partial<SettingsState>).pawnAccessory === ('scarf' as AccessoryChoice)) {
           (state as Partial<SettingsState>).pawnAccessory = 'none';
         }
         return state as SettingsState;

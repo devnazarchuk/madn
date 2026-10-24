@@ -78,7 +78,7 @@ export const CHARACTER_ICON: Record<PlayerColorId, string> = {
 
 export type ThemeId = 'classic' | 'christmas' | 'winter' | 'easter' | 'summer';
 export type BoardSkinId = 'walnut' | 'maple' | 'chocolate' | 'ivory';
-export type PawnSkinId = 'classic' | 'gem' | 'chess' | 'egg';
+export type PawnSkinId = 'classic' | 'elf' | 'gem' | 'chess' | 'egg' | 'gift';
 export type PawnAccessoryId = 'none' | 'beanie' | 'santa' | 'cap' | 'crown';
 /** 'auto' = follow whatever the active seasonal theme suggests. */
 export type AccessoryChoice = PawnAccessoryId | 'auto';
@@ -225,12 +225,14 @@ export const BOARD_SKIN_ORDER: BoardSkinId[] = ['walnut', 'maple', 'chocolate', 
 
 export const PAWN_SKIN_LABELS: Record<PawnSkinId, string> = {
   classic: 'Animal friends',
+  elf: 'Elves',
   gem: 'Gemstones',
   chess: 'Chessmen',
   egg: 'Easter eggs',
+  gift: 'Gift boxes',
 };
 
-export const PAWN_SKIN_ORDER: PawnSkinId[] = ['classic', 'gem', 'chess', 'egg'];
+export const PAWN_SKIN_ORDER: PawnSkinId[] = ['classic', 'elf', 'gem', 'chess', 'egg', 'gift'];
 
 export const ACCESSORY_LABELS: Record<AccessoryChoice, string> = {
   auto: 'Auto (theme)',

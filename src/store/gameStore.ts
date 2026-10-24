@@ -138,6 +138,10 @@ interface GameStore {
   selectRulesPreset(preset: RulesPresetId): void;
   customizeFromPreset(): void;
   updateRulesOption(key: DiffKey, value: boolean | string): void;
+  /** Flip one of the always-available gameplay extras (board layout,
+   * ceramic dice). Copies a locked preset into Custom Rules first, so the
+   * change can never silently alter a documented preset. */
+  setGameplayExtra(key: 'ceramicDice' | 'boardLayout', value: boolean | string): void;
   resetRulesToClassic(): void;
   startGame(): void;
   continueGame(): void;
@@ -208,6 +212,9 @@ function rejectionText(reason: MoveRejectionReason, cfg: RulesConfig): string {
 let timers: ReturnType<typeof setTimeout>[] = [];
 let animTokenCounter = 1;
 let noticeTokenCounter = 1;
+/** Set when a Ceramic-Dice 99%-tier pity roll failed — surfaced as a playful
+ * toast once the dice animation settles (see confirmDiceAnimation). */
+let pendingPityToast: string | null = null;
 
 function clearTimers() {
   for (const t of timers) clearTimeout(t);
@@ -270,6 +277,21 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (player.kind === 'ai') {
         later(TIMING.aiRollDelay, () => {
           if (get().game?.phase === 'await-roll') get().rollDice();
+        });
+      } else if (useSettingsStore.getState().autoRoll && !s.introPlaying) {
+        // Auto-Roll Dice (settings toggle, OFF by default): the die rolls
+        // itself shortly after the turn begins — no tap needed.
+        later(900, () => {
+          const cur = get();
+          if (
+            cur.game?.phase === 'await-roll' &&
+            !cur.diceRolling &&
+            !cur.paused &&
+            !cur.introPlaying &&
+            cur.game.players[cur.game.activeIndex]?.kind === 'human'
+          ) {
+            cur.rollDice();
+          }
         });
       }
       return;
@@ -539,6 +561,14 @@ export const useGameStore = create<GameStore>()((set, get) => {
       set({ rulesConfig: normalizeRulesConfig(next) });
     },
 
+    setGameplayExtra: (key, value) => {
+      playSfx('uiClick');
+      const cfg = get().rulesConfig;
+      const base = cfg.preset !== 'custom' ? { ...cfg, preset: 'custom' as const } : cfg;
+      const next = { ...base, [key]: value } as RulesConfig;
+      set({ rulesConfig: normalizeRulesConfig(next) });
+    },
+
     resetRulesToClassic: () => {
       playSfx('uiClick');
       set({ rulesConfig: CLASSIC_CONFIG });
@@ -656,9 +686,15 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // orphan the previous failsafe and desync the presentation layer.
       if (s.diceRolling) return;
 
-      const { state } = rollForTurn(s.game);
+      const { state, pityBadLuck } = rollForTurn(s.game);
       const token = animTokenCounter++;
       playSfx('dicePickup');
+
+      // The rare 1% miss at the top of the Ceramic-Dice pity ladder gets a
+      // playful toast once the die settles.
+      pendingPityToast = pityBadLuck
+        ? `${state.players[state.activeIndex]!.name}: "Whoa — you just hit the 1% bad luck chance!"`
+        : null;
 
       set({
         game: state,
@@ -680,6 +716,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (s.diceAnimToken !== token || !s.diceRolling) return;
       const game = s.game!;
       set({ diceRolling: false });
+
+      if (pendingPityToast) {
+        notify(pendingPityToast, 'alert');
+        pendingPityToast = null;
+      }
 
       // A star must be resolved to a concrete color before anything moves.
       if (game.diceFace === 'star') {
