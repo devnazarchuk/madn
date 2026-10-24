@@ -6,12 +6,14 @@ import {
   ArrowLeft,
   BookLock,
   Check,
+  Dice3,
   DoorOpen,
   Dices,
   Flag,
   Footprints,
   Hourglass,
   Info,
+  Map as MapIcon,
   Pencil,
   Plus,
   RotateCcw,
@@ -30,6 +32,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { playSfx } from '@/services/audio';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import {
   deletePreset,
   listPresets,
@@ -60,7 +63,132 @@ const GROUP_ICONS: Record<RuleGroup, typeof DoorOpen> = {
   capture: Swords,
   turn: Hourglass,
   finish: Flag,
+  board: MapIcon,
 };
+
+// ---------------------------------------------------------------------------
+// Board & dice extras — available for EVERY preset (they copy the preset
+// into Custom Rules when flipped, so the documented presets stay pure)
+// ---------------------------------------------------------------------------
+
+function ExtrasCard() {
+  const rulesConfig = useGameStore((s) => s.rulesConfig);
+  const setGameplayExtra = useGameStore((s) => s.setGameplayExtra);
+  const autoRoll = useSettingsStore((s) => s.autoRoll);
+  const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
+  const randomBoard = rulesConfig.boardLayout === 'random';
+  const ceramicDice = rulesConfig.ceramicDice;
+
+  return (
+    <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
+          <Dice3 size={15} /> Board &amp; dice extras
+        </CardTitle>
+        <CardDescription className="text-[11px] text-[#8A6B4F]">
+          Work with every preset — switching one on copies your preset into Custom Rules.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        {/* board layout */}
+        <div
+          className={`rounded-xl border p-2.5 ${
+            randomBoard ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+              <MapIcon size={13} />
+            </span>
+            <p className="text-[13px] font-semibold text-[#3E2A18]">Board color pattern</p>
+            {randomBoard && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
+                <Sparkles size={9} /> differs
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+            Classic keeps the official weave. FULL RANDOM repaints every field — including all three
+            home cells — with random colors each match: even walking home demands the matching rolls!
+          </p>
+          <ToggleGroup
+            type="single"
+            value={rulesConfig.boardLayout}
+            onValueChange={(v) => v && setGameplayExtra('boardLayout', v)}
+            className="mt-2 grid w-full grid-cols-2 gap-1 rounded-xl bg-[#E8D6B4] p-1"
+            aria-label="Board color pattern"
+          >
+            <ToggleGroupItem
+              value="classic"
+              className="h-8 rounded-lg px-2 text-xs font-semibold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+            >
+              Classic official pattern
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="random"
+              className="h-8 rounded-lg px-2 text-xs font-semibold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+            >
+              Full random map
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* ceramic dice */}
+        <div
+          className={`rounded-xl border p-2.5 ${
+            ceramicDice ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+                  <Dices size={13} />
+                </span>
+                <p className="text-[13px] font-semibold text-[#3E2A18]">Ceramic dice (smart luck)</p>
+                {ceramicDice && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
+                    <Sparkles size={9} /> differs
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+                OFF by default — honest dice. ON: stuck players get gentle help; the base-exit color
+                climbs 50% → 75% → 99% on failed tries; a match-winning roll gets a random 15–25% boost.
+                Miss the 99% chance and the dice will tease you!
+              </p>
+            </div>
+            <Switch
+              checked={ceramicDice}
+              onCheckedChange={(v) => setGameplayExtra('ceramicDice', v)}
+              aria-label="Ceramic dice smart luck"
+            />
+          </div>
+        </div>
+
+        {/* auto-roll dice (a setting — lives across matches) */}
+        <label className="flex items-start justify-between gap-3 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3E2A18]">
+              <Dices size={13} className="text-[#8A6B4F]" /> Auto-roll dice
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-[#6B4E35]">
+              The die rolls itself at the start of your turn — hands-free turns. OFF by default.
+            </span>
+          </span>
+          <Switch
+            checked={autoRoll}
+            onCheckedChange={(v) => {
+              playSfx('uiClick');
+              setAutoRoll(v);
+            }}
+            aria-label="Auto-roll dice"
+          />
+        </label>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Preset cards
@@ -554,6 +682,7 @@ export function RulesScreen() {
             className="space-y-3"
           >
             <PresetCards />
+            <ExtrasCard />
             <CustomEditor />
             {/* summary & saved rules share a row on large screens */}
             <div className="grid gap-3 lg:grid-cols-2">

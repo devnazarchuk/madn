@@ -2,6 +2,7 @@
 
 import {
   Bot,
+  Dices,
   Layers,
   MonitorPlay,
   Shapes,
@@ -58,6 +59,8 @@ export function SettingsPanel() {
   const setShowMoveHints = useSettingsStore((s) => s.setShowMoveHints);
   const autoSingleMove = useSettingsStore((s) => s.autoSingleMove);
   const setAutoSingleMove = useSettingsStore((s) => s.setAutoSingleMove);
+  const autoRoll = useSettingsStore((s) => s.autoRoll);
+  const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const boardSkin = useSettingsStore((s) => s.boardSkin);
@@ -340,6 +343,19 @@ export function SettingsPanel() {
             playSfx('uiClick');
           }}
           aria-label="Auto-play single moves"
+        />
+      </label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2 font-medium">
+          <Dices size={15} /> Auto-roll dice
+        </span>
+        <Switch
+          checked={autoRoll}
+          onCheckedChange={(v) => {
+            setAutoRoll(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Auto-roll dice"
         />
       </label>
     </div>

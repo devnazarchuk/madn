@@ -242,6 +242,13 @@ export function GameHud() {
   const toggleMuted = useSettingsStore((s) => s.toggleMuted);
   const [rulesOpen, setRulesOpen] = useState(false);
 
+  // DYNAMIC TURN COLOR — the banner wears the ACTIVE player's color (the
+  // winner's once the match is decided); readable text color per background.
+  const bannerColorId = winner ?? activeColor;
+  const bannerColor = bannerColorId ? COLORS[bannerColorId] : null;
+  const bannerTextColor =
+    bannerColorId === 'yellow' || bannerColorId === null ? '#3E2A18' : '#FFFFFF';
+
   const humanAwaitRoll =
     phase === 'await-roll' && activeKind === 'human' && !diceRolling && !paused && !winner;
   const humanChoosing = phase === 'choose-pawn' && activeKind === 'human' && !paused && !winner;
@@ -280,7 +287,7 @@ export function GameHud() {
       case 'choose-pawn':
         return activeKind === 'ai'
           ? { text: `${activeName} rolled ${faceLabel(diceFace ?? 'red')} and is thinking…`, tone: 'wait' }
-          : { text: `Rolled ${faceLabel(diceFace ?? 'red')} — tap a glowing animal!`, tone: 'action' };
+          : { text: `Rolled ${faceLabel(diceFace ?? 'red')} — tap a glowing animal or its golden target!`, tone: 'action' };
       case 'animating':
         return { text: 'Hop hop hop…', tone: 'wait' };
       case 'turn-end':
@@ -297,9 +304,6 @@ export function GameHud() {
       {/* ---- top bar ---------------------------------------------------- */}
       <div className="flex items-start justify-between gap-2 p-2 sm:p-3">
         <div className="pointer-events-auto flex gap-2">
-          <HudIconButton label="Pause" onClick={() => togglePause()}>
-            <Pause size={18} />
-          </HudIconButton>
           <HudIconButton
             label={muted ? 'Unmute' : 'Mute'}
             onClick={() => {
@@ -316,7 +320,10 @@ export function GameHud() {
 
         {/* Status pill — keyed remount per text (a plain animate-in avoids the
             AnimatePresence mode="wait" exit queue, which can stall a fast
-            sequence of AI turns and leave a stale message on screen). */}
+            sequence of AI turns and leave a stale message on screen).
+            DYNAMIC TURN COLOR: the pill's background always follows the
+            ACTIVE player's color (or the winner's), so the top banner
+            instantly tells you whose turn it is — even across the room. */}
         <motion.div
           key={status.text}
           initial={{ opacity: 0, y: -8 }}
@@ -324,12 +331,18 @@ export function GameHud() {
           transition={{ duration: 0.25 }}
           role="status"
           aria-live="polite"
-          className={`pointer-events-none max-w-[46%] rounded-2xl px-3 py-1.5 text-center text-[13px] font-semibold leading-snug shadow-lg backdrop-blur-md sm:max-w-[58%] sm:px-4 sm:py-2 sm:text-sm ${TONE_STYLES[status.tone]}`}
+          style={bannerColor ? { backgroundColor: bannerColor, color: bannerTextColor, boxShadow: `0 8px 28px -8px ${bannerColor}` } : undefined}
+          className={`pointer-events-none max-w-[46%] rounded-2xl border border-white/10 px-3 py-1.5 text-center text-[13px] font-semibold leading-snug shadow-lg backdrop-blur-md sm:max-w-[58%] sm:px-4 sm:py-2 sm:text-sm ${TONE_STYLES[status.tone]}`}
         >
           {status.text}
         </motion.div>
 
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex gap-2">
+          {/* Pause lives on the RIGHT side of the game screen, next to the
+              rules reference — mute & camera stay on the left. */}
+          <HudIconButton label="Pause" onClick={() => togglePause()}>
+            <Pause size={18} />
+          </HudIconButton>
           <HudIconButton
             label={`Rules reference (${PRESET_LABEL[preset] ?? 'Rules'})`}
             onClick={() => {
