@@ -197,6 +197,8 @@ const GEO = {
   tier2: new THREE.ConeGeometry(0.95, 1.3, 12),
   snowCap: new THREE.ConeGeometry(0.62, 0.85, 12),
   gift: new THREE.BoxGeometry(1, 1, 1),
+  /** Flat ribbon band laid across a gift lid (baked into the box size). */
+  ribbon: new THREE.BoxGeometry(1.04, 0.1, 0.3),
   knot: new THREE.SphereGeometry(0.16, 12, 10),
   rock: new THREE.IcosahedronGeometry(0.55, 0),
   stem: new THREE.CylinderGeometry(0.025, 0.03, 0.5, 6),
@@ -207,14 +209,20 @@ const GEO = {
   palmCrown1: new THREE.ConeGeometry(1.05, 0.55, 10),
   palmCrown2: new THREE.ConeGeometry(0.72, 0.45, 10),
   beachBall: new THREE.SphereGeometry(0.28, 14, 12),
+  /** Christmas garland bits: pine sprigs + glowing string-light bulbs. */
+  sprig: new THREE.ConeGeometry(0.16, 0.42, 7),
+  bulb: new THREE.SphereGeometry(0.11, 12, 10),
 } as const;
 
 const MAT = {
   trunk: new THREE.MeshStandardMaterial({ color: '#4E3826', roughness: 0.85 }),
   pine: new THREE.MeshStandardMaterial({ color: '#2E5D4C', roughness: 0.8 }),
   pineLight: new THREE.MeshStandardMaterial({ color: '#3B7458', roughness: 0.8 }),
+  ribbon: new THREE.MeshStandardMaterial({ color: '#F6EBD9', roughness: 0.45 }),
   snow: new THREE.MeshStandardMaterial({ color: '#EDF4FA', roughness: 0.6, emissive: '#C9DCF0', emissiveIntensity: 0.06 }),
   gift: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.4 }),
+  /** Warm-glowing string-light bulbs (the garlands' emissive pulse). */
+  bulb: new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFDFA0', emissiveIntensity: 0.85, roughness: 0.3 }),
   gold: new THREE.MeshStandardMaterial({ color: '#D9A441', metalness: 0.65, roughness: 0.3 }),
   ice: new THREE.MeshStandardMaterial({ color: '#D5E6F5', roughness: 0.25, metalness: 0.15, emissive: '#CFE4F7', emissiveIntensity: 0.1 }),
   stem: new THREE.MeshStandardMaterial({ color: '#4E9A3D', roughness: 0.7 }),
@@ -254,6 +262,7 @@ function PineForest({ count, withSnowCaps }: { count: number; withSnowCaps: bool
   const trees = useMemo(() => ringPlacements(count, 1337, 11.5, 21), [count]);
   const gifts = useMemo(() => ringPlacements(Math.max(4, Math.floor(count / 4)), 4242, 9.8, 13), [count]);
   const rocks = useMemo(() => ringPlacements(Math.max(4, Math.floor(count / 3)), 911, 10.5, 18), [count]);
+  const GIFT_WRAP = ['#C23A28', '#2E8F63', '#D9A441', '#FDFBF4', '#3E8ED0', '#B23A6B'];
   return (
     <group>
       <InstancedProp geometry={GEO.trunk} material={MAT.trunk} placements={trees} offset={[0, 0.35, 0]} />
@@ -262,16 +271,29 @@ function PineForest({ count, withSnowCaps }: { count: number; withSnowCaps: bool
       {withSnowCaps && (
         <InstancedProp geometry={GEO.snowCap} material={MAT.snow} placements={trees} offset={[0, 3.05, 0]} />
       )}
-      {/* Christmas only: gift parcels in seasonal colors with golden knots */}
+      {/* Christmas gift parcels — richer wrap palette with cream ribbons
+          crossing every lid and the golden knot bow on top */}
       <InstancedProp
         geometry={GEO.gift}
         material={MAT.gift}
         placements={gifts.map((g) => ({
           ...g,
           s: g.s * 0.55,
-          color: g.color ?? ['#C23A28', '#2E8F63', '#D9A441', '#FDFBF4'][Math.floor(Math.abs(g.x) * 4) % 4],
+          color: g.color ?? GIFT_WRAP[Math.floor(Math.abs(g.x + g.z) * 100) % GIFT_WRAP.length],
         }))}
         offset={[0, 0.28, 0]}
+      />
+      <InstancedProp
+        geometry={GEO.ribbon}
+        material={MAT.ribbon}
+        placements={gifts.map((g) => ({ ...g, s: g.s * 0.55 }))}
+        offset={[0, 0.29, 0]}
+      />
+      <InstancedProp
+        geometry={GEO.ribbon}
+        material={MAT.ribbon}
+        placements={gifts.map((g) => ({ ...g, s: g.s * 0.55, yaw: g.yaw + Math.PI / 2 }))}
+        offset={[0, 0.29, 0]}
       />
       <InstancedProp geometry={GEO.knot} material={MAT.gold} placements={gifts} offset={[0, 0.62, 0]} />
     </group>
@@ -325,6 +347,84 @@ function Beach({ count }: { count: number }) {
       <InstancedProp geometry={GEO.palmCrown1} material={MAT.palmCrown} placements={palms} offset={[0, 2.55, 0]} />
       <InstancedProp geometry={GEO.palmCrown2} material={MAT.palmCrownLight} placements={palms} offset={[0, 2.95, 0]} />
       <InstancedProp geometry={GEO.beachBall} material={MAT.beachBall} placements={balls} offset={[0, 0.28, 0]} receiveShadow />
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Christmas garlands — pine swags with glowing string lights, framing the
+// board (Christmas theme only). The ropes follow gentle catenary-ish
+// quadratic curves between corner posts; bulbs twinkle via a shared
+// emissive pulse (the per-instance colors come from instanceColor).
+// ---------------------------------------------------------------------------
+
+const BULB_COLORS = ['#E8503A', '#F2C14E', '#43B57E', '#FDFBF4', '#3E8ED0'];
+
+function ChristmasGarlands() {
+  // Four swags draped between posts outside the board corners.
+  const { ropes, bulbPlacements, sprigPlacements } = useMemo(() => {
+    const corners: Array<[number, number]> = [
+      [8.6, -8.6],
+      [8.6, 8.6],
+      [-8.6, 8.6],
+      [-8.6, -8.6],
+    ];
+    const ropes: THREE.TubeGeometry[] = [];
+    const bulbPlacements: Placement[] = [];
+    const sprigPlacements: Placement[] = [];
+    const BULBS_PER_SWAG = 9;
+    const SPRIGS_PER_SWAG = 7;
+    corners.forEach((c, i) => {
+      const n = corners[(i + 1) % corners.length]!;
+      const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(c[0], 2.6, c[1]),
+        new THREE.Vector3((c[0] + n[0]) / 2, 1.25, (c[1] + n[1]) / 2),
+        new THREE.Vector3(n[0], 2.6, n[1]),
+      );
+      ropes.push(new THREE.TubeGeometry(curve, 26, 0.045, 6, false));
+      for (let b = 0; b < BULBS_PER_SWAG; b++) {
+        const t = (b + 0.5) / BULBS_PER_SWAG;
+        const p = curve.getPoint(t);
+        bulbPlacements.push({
+          x: p.x,
+          z: p.z,
+          s: 0.85 + ((b * 7 + i * 13) % 5) * 0.08,
+          yaw: 0,
+          color: BULB_COLORS[(b + i) % BULB_COLORS.length],
+        });
+      }
+      for (let s = 0; s < SPRIGS_PER_SWAG; s++) {
+        const t = (s + 0.5) / SPRIGS_PER_SWAG;
+        const p = curve.getPoint(t);
+        sprigPlacements.push({ x: p.x, z: p.z, s: 1.15, yaw: (s * 2.4) % Math.PI * 2 });
+      }
+    });
+    return { ropes, bulbPlacements, sprigPlacements };
+  }, []);
+
+  useEffect(
+    () => () => {
+      for (const g of ropes) g.dispose();
+    },
+    [ropes],
+  );
+
+  // The gentle twinkle: every bulb shares the module-level strand material,
+  // so pulsing its emissive makes the whole garland shimmer together.
+  useFrame((state) => {
+    MAT.bulb.emissiveIntensity = 0.7 + 0.45 * Math.sin(state.clock.elapsedTime * 2.2);
+  });
+
+  return (
+    <group>
+      {ropes.map((geometry, i) => (
+        <mesh key={i} geometry={geometry} material={MAT.pine} onUpdate={(self) => {
+          self.updateMatrix();
+          self.matrixAutoUpdate = false;
+        }} />
+      ))}
+      <InstancedProp geometry={GEO.sprig} material={MAT.pineLight} placements={sprigPlacements} />
+      <InstancedProp geometry={GEO.bulb} material={MAT.bulb} placements={bulbPlacements} />
     </group>
   );
 }
@@ -474,6 +574,10 @@ export function Environment() {
       )}
       {scenery && theme.environment === 'meadow' && <Meadow count={budget.big * 2} />}
       {scenery && theme.environment === 'beach' && <Beach count={Math.floor(budget.big * 0.7)} />}
+
+      {/* Christmas garlands — pine swags + twinkling string lights framing
+          the board (Christmas theme only) */}
+      {scenery && themeId === 'christmas' && <ChristmasGarlands />}
 
       {/* weather particles (toggleable, quality-scaled) */}
       {weather && (theme.weather === 'snow' || theme.weather === 'petals' || theme.weather === 'sparkles') && (
