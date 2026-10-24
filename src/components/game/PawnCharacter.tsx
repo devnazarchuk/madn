@@ -6,13 +6,17 @@ import type { PlayerColorId } from '@/engine/types';
 
 /**
  * ============================================================================
- * PAWN FIGURES — four skin families, always in each player's OWN color.
+ * PAWN FIGURES — six skin families, always in each player's OWN color.
  * ============================================================================
  *  classic : the four animal friends (Fox, Bear, Frog, Chick) — toy figures
- *            built from soft primitives with friendly faces.
+ *            built from soft primitives with friendly faces + eye glints.
+ *  elf     : pointy-eared little elves — player-color tunic, deep-tone
+ *            pointed hat with cream trim, belt with a golden buckle.
  *  gem     : a faceted gemstone on a pedestal base (flat-shaded sparkle).
  *  chess   : a lathe-turned chessman silhouette with a golden collar.
  *  egg     : a striped Easter egg with a golden foot ring.
+ *  gift    : a wrapped present — player-color box, deep-tone lid, cream
+ *            ribbon with a golden bow (the Christmas favorite).
  *
  * COLOR-PRESERVATION: every skin & every accessory renders in the player's
  * designated base color (plus neutral cream/white/gold trims) — ownership
@@ -57,6 +61,8 @@ const GEO = {
   ),
   /** Cylinder for bands & brims. */
   cyl: new THREE.CylinderGeometry(1, 1, 1, 20),
+  /** Unit cube — gift boxes, lids and ribbons. */
+  box: new THREE.BoxGeometry(1, 1, 1),
 } as const;
 
 const ACCENT = {
@@ -64,6 +70,10 @@ const ACCENT = {
   dark: new THREE.MeshStandardMaterial({ color: '#3E2A18', roughness: 0.42 }),
   white: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.38 }),
   gold: new THREE.MeshStandardMaterial({ color: MATERIAL.gold, roughness: 0.42 }),
+  /** Skin tone for elf faces. */
+  skin: new THREE.MeshStandardMaterial({ color: '#F6D7B8', roughness: 0.5 }),
+  /** Warm wooden gift box base. */
+  wood: new THREE.MeshStandardMaterial({ color: '#B98A5A', roughness: 0.6 }),
 } as const;
 
 /** Deep player-color materials for hats/scarves (static — color never changes). */
@@ -136,6 +146,11 @@ function spike(
 // Characters — each returns its JSX subtree directly
 // ---------------------------------------------------------------------------
 
+/** A tiny eye glint (the sparkle that makes the toys feel alive). */
+function glint(key: string, x: number, y: number, z: number, r = 0.012) {
+  return ball(key, x, y, z, r, ACCENT.white);
+}
+
 function FoxBody({ bodyMat }: { bodyMat: THREE.Material }) {
   return (
     <>
@@ -149,9 +164,11 @@ function FoxBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {/* muzzle + nose */}
       {ball('muzzle', 0, 0.575, 0.17, 0.1, ACCENT.cream, [1, 0.85, 1.1])}
       {ball('nose', 0, 0.605, 0.245, 0.045, ACCENT.dark)}
-      {/* eyes */}
+      {/* eyes + glints */}
       {ball('eye-l', -0.088, 0.665, 0.165, 0.036, ACCENT.dark)}
       {ball('eye-r', 0.088, 0.665, 0.165, 0.036, ACCENT.dark)}
+      {glint('glint-l', -0.078, 0.678, 0.192)}
+      {glint('glint-r', 0.098, 0.678, 0.192)}
       {/* bushy tail with cream tip */}
       {ball('tail', 0, 0.24, -0.27, 0.13, bodyMat, [1, 0.85, 1.5])}
       {ball('tail-tip', 0, 0.215, -0.42, 0.075, ACCENT.cream)}
@@ -177,9 +194,11 @@ function BearBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {/* muzzle + nose */}
       {ball('muzzle', 0, 0.6, 0.185, 0.105, ACCENT.cream, [1.05, 0.85, 1])}
       {ball('nose', 0, 0.645, 0.255, 0.05, ACCENT.dark)}
-      {/* eyes */}
+      {/* eyes + glints */}
       {ball('eye-l', -0.088, 0.715, 0.17, 0.036, ACCENT.dark)}
       {ball('eye-r', 0.088, 0.715, 0.17, 0.036, ACCENT.dark)}
+      {glint('glint-l', -0.078, 0.728, 0.197)}
+      {glint('glint-r', 0.098, 0.728, 0.197)}
       {/* belly patch */}
       {ball('belly', 0, 0.3, 0.145, 0.165, ACCENT.cream, [1, 1, 0.6])}
       {/* feet */}
@@ -199,6 +218,8 @@ function FrogBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {ball('eye-r', 0.115, 0.465, 0.09, 0.085, ACCENT.white)}
       {ball('pupil-l', -0.115, 0.475, 0.16, 0.041, ACCENT.dark)}
       {ball('pupil-r', 0.115, 0.475, 0.16, 0.041, ACCENT.dark)}
+      {glint('glint-l', -0.105, 0.488, 0.192)}
+      {glint('glint-r', 0.125, 0.488, 0.192)}
       {/* cheek dots */}
       {ball('cheek-l', -0.15, 0.3, 0.175, 0.05, ACCENT.cream)}
       {ball('cheek-r', 0.15, 0.3, 0.175, 0.05, ACCENT.cream)}
@@ -222,9 +243,11 @@ function ChickBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {spike('beak', 0, 0.585, 0.19, 0.052, 0.11, ACCENT.gold, [Math.PI / 2, 0, 0])}
       {/* head tuft */}
       {spike('tuft', 0, 0.785, -0.01, 0.035, 0.1, bodyMat, [-0.35, 0, 0])}
-      {/* eyes */}
+      {/* eyes + glints */}
       {ball('eye-l', -0.075, 0.655, 0.15, 0.034, ACCENT.dark)}
       {ball('eye-r', 0.075, 0.655, 0.15, 0.034, ACCENT.dark)}
+      {glint('glint-l', -0.066, 0.667, 0.176)}
+      {glint('glint-r', 0.084, 0.667, 0.176)}
       {/* little wings */}
       {ball('wing-l', -0.225, 0.31, 0.01, 0.1, bodyMat, [0.45, 0.95, 1])}
       {ball('wing-r', 0.225, 0.31, 0.01, 0.1, bodyMat, [0.45, 0.95, 1])}
@@ -282,6 +305,75 @@ function EggBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Mate
   );
 }
 
+/**
+ * A little elf helper: skin-tone face with pointy ears, a player-color
+ * tunic with a dark belt + golden buckle, curly shoes, and the classic
+ * pointed hat in the DEEP player tone with a cream trim — unmistakably an
+ * elf, unmistakably which player's elf.
+ */
+function ElfBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
+  return (
+    <>
+      {/* legs + curled shoes in the deep player tone */}
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[-0.08, 0.11, 0]} scale={[0.05, 0.22, 0.05]} castShadow />
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0.08, 0.11, 0]} scale={[0.05, 0.22, 0.05]} castShadow />
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[-0.08, 0.03, 0.06]} scale={[0.06, 0.045, 0.09]} castShadow />
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[0.08, 0.03, 0.06]} scale={[0.06, 0.045, 0.09]} castShadow />
+      {/* tunic — the player's color (a cone skirt + torso) */}
+      <mesh geometry={GEO.cone} material={bodyMat} position={[0, 0.26, 0]} scale={[0.21, 0.3, 0.21]} castShadow />
+      <mesh geometry={GEO.sphere} material={bodyMat} position={[0, 0.44, 0]} scale={[0.155, 0.14, 0.155]} castShadow />
+      {/* belt with the golden buckle */}
+      <mesh geometry={GEO.cyl} material={ACCENT.dark} position={[0, 0.3, 0]} scale={[0.152, 0.03, 0.152]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.3, 0.13]} scale={[0.032, 0.035, 0.032]} castShadow />
+      {/* golden collar */}
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.4, 0]} scale={[0.14, 0.024, 0.14]} castShadow />
+      {/* head — warm skin tone */}
+      <mesh geometry={GEO.sphere} material={ACCENT.skin} position={[0, 0.56, 0.01]} scale={[0.13, 0.125, 0.13]} castShadow />
+      {/* pointy ears */}
+      {spike('ear-l', -0.13, 0.58, 0, 0.035, 0.11, ACCENT.skin, [0, 0, 1.35])}
+      {spike('ear-r', 0.13, 0.58, 0, 0.035, 0.11, ACCENT.skin, [0, 0, -1.35])}
+      {/* friendly eyes + glints, blush, smile */}
+      {ball('eye-l', -0.05, 0.58, 0.115, 0.021, ACCENT.dark)}
+      {ball('eye-r', 0.05, 0.58, 0.115, 0.021, ACCENT.dark)}
+      {glint('glint-l', -0.044, 0.588, 0.131)}
+      {glint('glint-r', 0.056, 0.588, 0.131)}
+      {ball('blush-l', -0.08, 0.53, 0.1, 0.026, DEEP_MAT[color])}
+      {ball('blush-r', 0.08, 0.53, 0.1, 0.026, DEEP_MAT[color])}
+      {/* the pointed hat — deep player tone with a cream trim */}
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, 0.74, -0.015]} scale={[0.115, 0.24, 0.115]} rotation={[-0.12, 0, 0]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.635, 0.01]} scale={[0.115, 0.035, 0.115]} rotation={[0, 0, 0]} castShadow />
+      {ball('pom', 0, 0.87, -0.045, 0.04, ACCENT.cream)}
+    </>
+  );
+}
+
+/**
+ * A wrapped gift box: the player's color as the wrapping, the deep tone as
+ * the lid, a cream ribbon crossing the top, and a golden bow — Santa's
+ * workshop dropped a present on the board.
+ */
+function GiftBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
+  return (
+    <>
+      {/* wooden pallet base */}
+      <mesh geometry={GEO.cyl} material={ACCENT.wood} position={[0, 0.03, 0]} scale={[0.21, 0.06, 0.21]} castShadow />
+      {/* the gift box — player color */}
+      <mesh geometry={GEO.box} material={bodyMat} position={[0, 0.21, 0]} scale={[0.34, 0.3, 0.34]} castShadow />
+      {/* the lid — deep player tone, slightly wider */}
+      <mesh geometry={GEO.box} material={DEEP_MAT[color]} position={[0, 0.4, 0]} scale={[0.38, 0.1, 0.38]} castShadow />
+      {/* the ribbon crossing box + lid */}
+      <mesh geometry={GEO.box} material={ACCENT.cream} position={[0, 0.25, 0]} scale={[0.075, 0.36, 0.35]} castShadow />
+      <mesh geometry={GEO.box} material={ACCENT.cream} position={[0, 0.25, 0]} scale={[0.35, 0.36, 0.075]} castShadow />
+      {/* the golden bow — two loops + a knot */}
+      {ball('bow-l', -0.07, 0.49, 0, 0.055, ACCENT.gold, [1.4, 0.7, 0.7])}
+      {ball('bow-r', 0.07, 0.49, 0, 0.055, ACCENT.gold, [1.4, 0.7, 0.7])}
+      {ball('bow-knot', 0, 0.485, 0, 0.045, ACCENT.gold)}
+      {/* a little gift tag */}
+      <mesh geometry={GEO.box} material={ACCENT.cream} position={[0.14, 0.3, 0.16]} scale={[0.09, 0.07, 0.02]} rotation={[0, 0.5, 0.1]} castShadow />
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Accessories — hats/crown in each player's color
 // ---------------------------------------------------------------------------
@@ -304,6 +396,8 @@ const CLASSIC_ANCHOR: Record<PlayerColorId, Anchor> = {
 };
 
 const SKIN_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, Anchor> = {
+  elf: { y: 0.87, r: 0.14 }, // the hat tip — a crown sits above the pompom
+  gift: { y: 0.58, r: 0.14 }, // above the bow loops
   gem: { y: 0.66, r: 0.17 },
   chess: { y: 0.72, r: 0.13 },
   egg: { y: 0.6, r: 0.16, tilt: -0.1 },
@@ -414,6 +508,8 @@ export function PawnCharacter({
       {skin === 'gem' && <GemBody color={color} bodyMat={bodyMat} />}
       {skin === 'chess' && <ChessBody color={color} bodyMat={bodyMat} />}
       {skin === 'egg' && <EggBody color={color} bodyMat={bodyMat} />}
+      {skin === 'elf' && <ElfBody color={color} bodyMat={bodyMat} />}
+      {skin === 'gift' && <GiftBody color={color} bodyMat={bodyMat} />}
 
       {/* color-matched accessory — hats anchor at the figure's crown */}
       {accessory === 'beanie' && <Beanie color={color} a={a} />}
