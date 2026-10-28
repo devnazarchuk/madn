@@ -310,43 +310,58 @@ function EggBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Mate
 }
 
 /**
- * A little elf helper: skin-tone face with pointy ears, a player-color
- * tunic with a dark belt + golden buckle, curly shoes, and the classic
- * pointed hat in the DEEP player tone with a cream trim — unmistakably an
+ * A little elf helper, dressed for workshop duty: skin-tone face with pointy
+ * ears, a button nose and a tiny smile; a player-color tunic with cream hem,
+ * a hugging dark belt with a golden buckle, arms with deep-tone mittens,
+ * curly-toed shoes, and the classic pointed hat in the DEEP player tone —
+ * cream trim, a floppy tip bending backwards, cream pompom. Unmistakably an
  * elf, unmistakably which player's elf.
  */
 function ElfBody({ color, bodyMat }: { color: PlayerColorId; bodyMat: THREE.Material }) {
   return (
     <>
-      {/* legs + curled shoes in the deep player tone */}
-      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[-0.08, 0.11, 0]} scale={[0.05, 0.22, 0.05]} castShadow />
-      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0.08, 0.11, 0]} scale={[0.05, 0.22, 0.05]} castShadow />
-      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[-0.08, 0.03, 0.06]} scale={[0.06, 0.045, 0.09]} castShadow />
-      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[0.08, 0.03, 0.06]} scale={[0.06, 0.045, 0.09]} castShadow />
-      {/* tunic — the player's color (a cone skirt + torso) */}
-      <mesh geometry={GEO.cone} material={bodyMat} position={[0, 0.26, 0]} scale={[0.21, 0.3, 0.21]} castShadow />
-      <mesh geometry={GEO.sphere} material={bodyMat} position={[0, 0.44, 0]} scale={[0.155, 0.14, 0.155]} castShadow />
-      {/* belt with the golden buckle */}
-      <mesh geometry={GEO.cyl} material={ACCENT.dark} position={[0, 0.3, 0]} scale={[0.152, 0.03, 0.152]} castShadow />
-      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.3, 0.13]} scale={[0.032, 0.035, 0.032]} castShadow />
-      {/* golden collar */}
-      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.4, 0]} scale={[0.14, 0.024, 0.14]} castShadow />
+      {/* legs + curly elf shoes in the deep player tone */}
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[-0.08, 0.115, 0]} scale={[0.048, 0.2, 0.048]} castShadow />
+      <mesh geometry={GEO.cyl} material={DEEP_MAT[color]} position={[0.08, 0.115, 0]} scale={[0.048, 0.2, 0.048]} castShadow />
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[-0.08, 0.035, 0.055]} scale={[0.06, 0.045, 0.095]} castShadow />
+      <mesh geometry={GEO.sphere} material={DEEP_MAT[color]} position={[0.08, 0.035, 0.055]} scale={[0.06, 0.045, 0.095]} castShadow />
+      {/* the curled toe tips bending up from the shoe fronts */}
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[-0.08, 0.06, 0.148]} scale={[0.024, 0.055, 0.024]} rotation={[0.8, 0, 0]} castShadow />
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0.08, 0.06, 0.148]} scale={[0.024, 0.055, 0.024]} rotation={[0.8, 0, 0]} castShadow />
+      {/* tunic — the player's color (a cone skirt + torso) with a cream hem */}
+      <mesh geometry={GEO.cone} material={bodyMat} position={[0, 0.27, 0]} scale={[0.215, 0.32, 0.215]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.15, 0]} scale={[0.2, 0.032, 0.2]} castShadow />
+      <mesh geometry={GEO.sphere} material={bodyMat} position={[0, 0.455, 0]} scale={[0.16, 0.15, 0.16]} castShadow />
+      {/* belt hugging the waist, with the golden buckle on the front */}
+      <mesh geometry={GEO.cyl} material={ACCENT.dark} position={[0, 0.375, 0]} scale={[0.148, 0.034, 0.148]} castShadow />
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.375, 0.148]} scale={[0.033, 0.037, 0.033]} castShadow />
+      {/* arms angled out of the torso, mitten hands in the deep tone */}
+      <mesh geometry={GEO.cyl} material={bodyMat} position={[-0.175, 0.415, 0]} scale={[0.033, 0.19, 0.033]} rotation={[0, 0, 0.42]} castShadow />
+      <mesh geometry={GEO.cyl} material={bodyMat} position={[0.175, 0.415, 0]} scale={[0.033, 0.19, 0.033]} rotation={[0, 0, -0.42]} castShadow />
+      {ball('mitten-l', -0.222, 0.312, 0.01, 0.05, DEEP_MAT[color])}
+      {ball('mitten-r', 0.222, 0.312, 0.01, 0.05, DEEP_MAT[color])}
+      {/* golden collar between torso and head */}
+      <mesh geometry={GEO.cyl} material={ACCENT.gold} position={[0, 0.545, 0]} scale={[0.132, 0.026, 0.132]} castShadow />
       {/* head — warm skin tone */}
-      <mesh geometry={GEO.sphere} material={ACCENT.skin} position={[0, 0.56, 0.01]} scale={[0.13, 0.125, 0.13]} castShadow />
-      {/* pointy ears */}
-      {spike('ear-l', -0.13, 0.58, 0, 0.035, 0.11, ACCENT.skin, [0, 0, 1.35])}
-      {spike('ear-r', 0.13, 0.58, 0, 0.035, 0.11, ACCENT.skin, [0, 0, -1.35])}
-      {/* friendly eyes + glints, blush, smile */}
-      {ball('eye-l', -0.05, 0.58, 0.115, 0.021, ACCENT.dark)}
-      {ball('eye-r', 0.05, 0.58, 0.115, 0.021, ACCENT.dark)}
-      {glint('glint-l', -0.044, 0.588, 0.131)}
-      {glint('glint-r', 0.056, 0.588, 0.131)}
-      {ball('blush-l', -0.08, 0.53, 0.1, 0.026, DEEP_MAT[color])}
-      {ball('blush-r', 0.08, 0.53, 0.1, 0.026, DEEP_MAT[color])}
-      {/* the pointed hat — deep player tone with a cream trim */}
-      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, 0.74, -0.015]} scale={[0.115, 0.24, 0.115]} rotation={[-0.12, 0, 0]} castShadow />
-      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.635, 0.01]} scale={[0.115, 0.035, 0.115]} rotation={[0, 0, 0]} castShadow />
-      {ball('pom', 0, 0.87, -0.045, 0.04, ACCENT.cream)}
+      <mesh geometry={GEO.sphere} material={ACCENT.skin} position={[0, 0.63, 0.01]} scale={[0.135, 0.13, 0.135]} castShadow />
+      {/* pointy ears poking out sideways */}
+      {spike('ear-l', -0.14, 0.645, 0, 0.032, 0.12, ACCENT.skin, [0, 0, 1.45])}
+      {spike('ear-r', 0.14, 0.645, 0, 0.032, 0.12, ACCENT.skin, [0, 0, -1.45])}
+      {/* friendly eyes + glints, blush, button nose, tiny smile */}
+      {ball('eye-l', -0.052, 0.65, 0.118, 0.022, ACCENT.dark)}
+      {ball('eye-r', 0.052, 0.65, 0.118, 0.022, ACCENT.dark)}
+      {glint('glint-l', -0.045, 0.662, 0.136)}
+      {glint('glint-r', 0.059, 0.662, 0.136)}
+      {ball('blush-l', -0.088, 0.605, 0.104, 0.027, DEEP_MAT[color])}
+      {ball('blush-r', 0.088, 0.605, 0.104, 0.027, DEEP_MAT[color])}
+      {ball('nose', 0, 0.615, 0.142, 0.02, ACCENT.nose)}
+      {ball('smile', 0, 0.578, 0.132, 0.016, ACCENT.dark, [1.7, 0.5, 0.45])}
+      {/* the pointed hat — deep player tone with a cream trim, a floppy tip
+          bending backwards and a cream pompom at its end */}
+      <mesh geometry={GEO.cyl} material={ACCENT.cream} position={[0, 0.7, 0.005]} scale={[0.125, 0.045, 0.125]} castShadow />
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, 0.815, -0.01]} scale={[0.118, 0.22, 0.118]} rotation={[-0.1, 0, 0]} castShadow />
+      <mesh geometry={GEO.cone} material={DEEP_MAT[color]} position={[0, 0.955, -0.08]} scale={[0.05, 0.14, 0.05]} rotation={[-1.15, 0, 0]} castShadow />
+      {ball('pom', 0, 0.988, -0.148, 0.04, ACCENT.cream)}
     </>
   );
 }
@@ -400,7 +415,7 @@ const CLASSIC_ANCHOR: Record<PlayerColorId, Anchor> = {
 };
 
 const SKIN_ANCHOR: Record<Exclude<PawnSkinId, 'classic'>, Anchor> = {
-  elf: { y: 0.87, r: 0.14 }, // the hat tip — a crown sits above the pompom
+  elf: { y: 0.96, r: 0.13, z: -0.03 }, // perched above the hat's pompom
   gift: { y: 0.58, r: 0.14 }, // above the bow loops
   gem: { y: 0.66, r: 0.17 },
   chess: { y: 0.72, r: 0.13 },
