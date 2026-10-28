@@ -10,8 +10,10 @@ import type { PlayerColorId } from '@/engine/types';
  * ============================================================================
  *  classic : the four animal friends (Fox, Bear, Frog, Chick) — toy figures
  *            built from soft primitives with friendly faces + eye glints.
- *  elf     : pointy-eared little elves — player-color tunic, deep-tone
- *            pointed hat with cream trim, belt with a golden buckle.
+ *  elf     : pointy-eared little elves — player-color tunic with cream hem,
+ *            dark belt + golden buckle, mitten hands, curly-toed shoes,
+ *            and a deep-tone pointed hat with cream trim, floppy tip and
+ *            pompom (the hat IS part of the skin — no extra hat is stacked).
  *  gem     : a faceted gemstone on a pedestal base (flat-shaded sparkle).
  *  chess   : a lathe-turned chessman silhouette with a golden collar.
  *  egg     : a striped Easter egg with a golden foot ring.
@@ -72,6 +74,8 @@ const ACCENT = {
   gold: new THREE.MeshStandardMaterial({ color: MATERIAL.gold, roughness: 0.42 }),
   /** Skin tone for elf faces. */
   skin: new THREE.MeshStandardMaterial({ color: '#F6D7B8', roughness: 0.5 }),
+  /** Slightly deeper skin tone for elf noses (reads against the face). */
+  nose: new THREE.MeshStandardMaterial({ color: '#EFC29F', roughness: 0.5 }),
   /** Warm wooden gift box base. */
   wood: new THREE.MeshStandardMaterial({ color: '#B98A5A', roughness: 0.6 }),
 } as const;
