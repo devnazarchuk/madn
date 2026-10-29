@@ -252,6 +252,26 @@ export const ACCESSORY_ORDER: AccessoryChoice[] = [
   'crown',
 ];
 
+/**
+ * Resolves the accessory a pawn ACTUALLY wears: 'auto' follows the active
+ * seasonal theme, and skins that come with their own built-in hat (the elf's
+ * signature pointed hat) never get a second hat stacked on top — otherwise
+ * an elf in the Christmas theme would wear its own hat AND a Santa hat.
+ * The golden crown is the one exception: it is designed to perch above the
+ * elf's hat pompom, so it is always allowed.
+ */
+export function effectiveAccessory(
+  choice: AccessoryChoice,
+  theme: ThemeId,
+  skin: PawnSkinId,
+): PawnAccessoryId {
+  const raw = choice === 'auto' ? THEMES[theme].accessory : choice;
+  if (skin === 'elf' && (raw === 'beanie' || raw === 'santa' || raw === 'cap')) {
+    return 'none';
+  }
+  return raw;
+}
+
 export function faceColor(face: DiceFaceId): string {
   return face === 'star' ? STAR_COLOR : COLORS[face];
 }

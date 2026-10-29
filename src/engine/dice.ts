@@ -54,8 +54,10 @@ export interface CeramicPlan {
  * player. Pure — never mutates the state. Priority:
  *   1. a roll that would immediately WIN the match  → boost that face by a
  *      random 15–25% (of the whole probability mass),
- *   2. ALL pawns stuck in the base (own-color entry, no assist) → the pity
- *      ladder sets the exit color's probability to 50% / 75% / 99%,
+ *   2. ALL movable pawns stuck in the base — pawns already home on their
+ *      finish platforms have left the race for good and don't count (own-
+ *      color entry, no assist) → the pity ladder sets the exit color's
+ *      probability to 50% / 75% / 99%, exactly like at the start
  *   3. fully blocked on the track (NO face yields a legal move) → gently
  *      favor faces that would allow a move; when none exists, the own color
  *      (the likeliest future help) gets the gentle nudge,
@@ -104,12 +106,17 @@ export function planCeramicRoll(state: GameState, boostRoll: () => number): Cera
     return { probs, pityActive: false, pityTopTier: false };
   }
 
-  // 2. Base exit pity ladder — every pawn still waits in the base and the
-  //    rules require the OWN color to come out (any-color entry or the
-  //    first-pawn assist can never fail, so they never trigger it).
-  const allInBase = player.pawns.every((p) => p.pos.area === 'base');
+  // 2. Base exit pity ladder — every MOVABLE pawn still waits in the base
+  //    and the rules require the OWN color to come out (any-color entry or
+  //    the first-pawn assist can never fail, so they never trigger it).
+  //    Pawns already home on their finish platforms (area 'home') have
+  //    finished the race and can never return to the track, so they don't
+  //    block the pity — a player whose early pawns finished while a capture
+  //    sent the rest back to the base gets the same 50/75/99 ladder as on
+  //    the very first roll of the match.
+  const allWaitingInBase = player.pawns.every((p) => p.pos.area !== 'track');
   const pityApplies =
-    allInBase &&
+    allWaitingInBase &&
     state.rulesConfig.entryRule === 'own-color' &&
     !state.rulesConfig.entryAssist &&
     faces.includes(color);
