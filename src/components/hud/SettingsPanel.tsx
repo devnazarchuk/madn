@@ -216,6 +216,11 @@ export function SettingsPanel() {
           </SelectContent>
         </Select>
       </div>
+      {pawnSkin === 'elf' && (
+        <p className="-mt-1 px-1 text-[11px] leading-snug text-muted-foreground">
+          Elves wear their own pointed hat — beanies, Santa and sun caps are skipped (the golden crown still fits on top).
+        </p>
+      )}
 
       <Separator />
 

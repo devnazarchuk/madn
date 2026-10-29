@@ -153,9 +153,10 @@ function ExtrasCard() {
                 )}
               </div>
               <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
-                OFF by default — honest dice. ON: stuck players get gentle help; the base-exit color
-                climbs 50% → 75% → 99% on failed tries; a match-winning roll gets a random 15–25% boost.
-                Miss the 99% chance and the dice will tease you!
+                OFF by default — honest dice. ON: whenever all of a player&apos;s movable pawns wait on
+                their base (pawns already home on the finish platforms are done and don&apos;t count),
+                the exit color climbs 50% → 75% → 99% on failed tries; a match-winning roll gets a
+                random 15–25% boost. Miss the 99% chance and the dice will tease you!
               </p>
             </div>
             <Switch
