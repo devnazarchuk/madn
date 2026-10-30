@@ -27,6 +27,9 @@ interface SettingsState {
   /** Auto-Roll Dice — the die rolls itself at the start of a human turn
    * (OFF by default; toggled in the rules screen and the pause menu). */
   autoRoll: boolean;
+  /** The "Would you like to take an interactive tutorial?" intro was shown
+   * (and dismissed for good) — it never pops up on future visits. */
+  tutorialIntroSeen: boolean;
   // --- appearance ---
   theme: ThemeId;
   boardSkin: BoardSkinId;
@@ -46,6 +49,7 @@ interface SettingsState {
   setShowMoveHints: (v: boolean) => void;
   setAutoSingleMove: (v: boolean) => void;
   setAutoRoll: (v: boolean) => void;
+  setTutorialIntroSeen: (v: boolean) => void;
   setTheme: (t: ThemeId) => void;
   setBoardSkin: (s: BoardSkinId) => void;
   setPawnSkin: (s: PawnSkinId) => void;
@@ -73,6 +77,7 @@ export const useSettingsStore = create<SettingsState>()(
       showMoveHints: true,
       autoSingleMove: true,
       autoRoll: false,
+      tutorialIntroSeen: false,
       theme: 'classic',
       boardSkin: 'walnut',
       pawnSkin: 'classic',
@@ -91,6 +96,7 @@ export const useSettingsStore = create<SettingsState>()(
       setShowMoveHints: (v) => set({ showMoveHints: v }),
       setAutoSingleMove: (v) => set({ autoSingleMove: v }),
       setAutoRoll: (v) => set({ autoRoll: v }),
+      setTutorialIntroSeen: (v) => set({ tutorialIntroSeen: v }),
       setTheme: (t) => set({ theme: t }),
       setBoardSkin: (s) => set({ boardSkin: s }),
       setPawnSkin: (s) => set({ pawnSkin: s }),
