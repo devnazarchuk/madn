@@ -137,13 +137,13 @@ function PlayerChip({
 
   return (
     <div
-      className={`flex flex-1 items-center justify-center gap-1 rounded-xl bg-white/90 px-1.5 py-1.5 backdrop-blur-md transition-all sm:flex-none sm:justify-start sm:gap-2 sm:px-3 ${
-        active ? 'scale-105 shadow-lg' : 'opacity-75 shadow-sm'
+      className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-xl bg-white/90 px-1 py-1 backdrop-blur-md transition-all sm:flex-none sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 ${
+        active ? 'scale-[1.03] shadow-lg' : 'opacity-75 shadow-sm'
       }`}
       style={active ? { boxShadow: `0 0 0 2.5px ${COLORS[color]}, 0 6px 18px rgba(0,0,0,0.28)` } : undefined}
     >
       <span
-        className="relative flex size-6 items-center justify-center rounded-lg text-white sm:size-7"
+        className="relative flex size-6 shrink-0 items-center justify-center rounded-lg text-white sm:size-7"
         style={{ backgroundColor: COLORS[color] }}
       >
         {isWinner ? <Crown size={14} /> : <AnimalIcon color={color} size={15} />}
@@ -164,7 +164,7 @@ function PlayerChip({
         {name}
       </span>
       <PawnDots color={color} home={counts.home} track={counts.track} total={totalPawns} />
-      {kind === 'ai' && <Bot size={12} className="hidden text-[#8A6B4F] sm:block" />}
+      {kind === 'ai' && <Bot size={12} className="hidden shrink-0 text-[#8A6B4F] sm:block" />}
     </div>
   );
 }
@@ -299,10 +299,16 @@ export function GameHud() {
     }
   })();
 
+  // MOBILE top indicator — color + name only (the pill background carries
+  // the active player's color; the desktop variant keeps the full detail).
+  const statusShort = winner
+    ? `${players.find((p) => p.color === winner)?.name ?? 'Player'} wins!`
+    : `${activeName}'s turn`;
+
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col">
       {/* ---- top bar ---------------------------------------------------- */}
-      <div className="flex items-start justify-between gap-2 p-2 sm:p-3">
+      <div className="flex items-start justify-between gap-2 px-2 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3 sm:pt-3">
         <div className="pointer-events-auto flex gap-2">
           <HudIconButton
             label={muted ? 'Unmute' : 'Mute'}
@@ -318,24 +324,40 @@ export function GameHud() {
           </HudIconButton>
         </div>
 
-        {/* Status pill — keyed remount per text (a plain animate-in avoids the
-            AnimatePresence mode="wait" exit queue, which can stall a fast
-            sequence of AI turns and leave a stale message on screen).
-            DYNAMIC TURN COLOR: the pill's background always follows the
-            ACTIVE player's color (or the winner's), so the top banner
-            instantly tells you whose turn it is — even across the room. */}
-        <motion.div
-          key={status.text}
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          role="status"
-          aria-live="polite"
-          style={bannerColor ? { backgroundColor: bannerColor, color: bannerTextColor, boxShadow: `0 8px 28px -8px ${bannerColor}` } : undefined}
-          className={`pointer-events-none max-w-[46%] rounded-2xl border border-white/10 px-3 py-1.5 text-center text-[13px] font-semibold leading-snug shadow-lg backdrop-blur-md sm:max-w-[58%] sm:px-4 sm:py-2 sm:text-sm ${TONE_STYLES[status.tone]}`}
-        >
-          {status.text}
-        </motion.div>
+        {/* Status pill — DYNAMIC TURN COLOR: the pill's background always
+            follows the ACTIVE player's color (or the winner's).
+            MOBILE: shows ONLY the active player's name on their color — one
+            truncated line in a fixed-height pill so the header never shifts.
+            DESKTOP (sm+): keeps the detailed status message, capped at two
+            lines with a reserved minimum height. Both variants are keyed per
+            text (a plain animate-in avoids the AnimatePresence exit queue,
+            which can stall a fast sequence of AI turns). */}
+        <div className="flex min-w-0 max-w-[52%] items-center justify-center sm:max-w-[58%]">
+          <motion.div
+            key={`m-${winner ? 'win' : 'turn'}-${statusShort}`}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            role="status"
+            aria-live="polite"
+            style={bannerColor ? { backgroundColor: bannerColor, color: bannerTextColor, boxShadow: `0 8px 28px -8px ${bannerColor}` } : undefined}
+            className={`pointer-events-none flex h-9 min-w-0 items-center justify-center truncate rounded-2xl border border-white/10 px-3 text-[13px] font-semibold leading-none shadow-lg backdrop-blur-md sm:hidden ${TONE_STYLES[status.tone]}`}
+          >
+            <span className="truncate">{statusShort}</span>
+          </motion.div>
+          <motion.div
+            key={status.text}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            role="status"
+            aria-live="polite"
+            style={bannerColor ? { backgroundColor: bannerColor, color: bannerTextColor, boxShadow: `0 8px 28px -8px ${bannerColor}` } : undefined}
+            className={`pointer-events-none hidden min-h-10 items-center justify-center rounded-2xl border border-white/10 px-4 py-1.5 text-center text-sm font-semibold leading-snug shadow-lg backdrop-blur-md sm:flex ${TONE_STYLES[status.tone]}`}
+          >
+            <span className="line-clamp-2">{status.text}</span>
+          </motion.div>
+        </div>
 
         <div className="pointer-events-auto flex gap-2">
           {/* Pause lives on the RIGHT side of the game screen, next to the
