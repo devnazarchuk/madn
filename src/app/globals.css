@@ -119,6 +119,24 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* ---- App shell viewport lock (mobile scroll fix) ------------------------
+     The game is an app-style shell: every screen owns its own scroll
+     container. The BODY itself must never scroll — a body-sized root driven
+     by 100dvh re-flows whenever the phone browser hides/shows its URL bar,
+     which makes the page rubber-band instead of scrolling the screen.
+     html/body at a static 100% (the stable layout viewport) removes that
+     re-flow; overflow hidden is what makes the per-screen scrollers the only
+     scroll surfaces. */
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
 }
 
 /* ---- Color Hop! Kids helpers -------------------------------------------- */

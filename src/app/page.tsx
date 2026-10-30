@@ -26,7 +26,7 @@ const useMounted = () =>
 function Splash() {
   return (
     <div
-      className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[#241B14]"
+      className="flex h-full flex-col items-center justify-center gap-4 bg-[#241B14]"
       role="status"
       aria-live="polite"
     >
@@ -80,8 +80,11 @@ export default function Home() {
   if (!mounted) return <Splash />;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#241B14]">
-      <main className="relative min-h-[420px] flex-1">
+    <div className="flex h-full flex-col bg-[#241B14]">
+      {/* The shell fills the (locked) viewport exactly; each screen overlay
+          inside <main> owns its own scroll container — the page never scrolls
+          as a whole, so mobile browser chrome changes cannot hijack it. */}
+      <main className="relative min-h-0 flex-1">
         {/* warm 3D scene */}
         <GameCanvas />
 
