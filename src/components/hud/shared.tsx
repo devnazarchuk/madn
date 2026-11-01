@@ -109,13 +109,13 @@ export function PawnDots({
   total?: number;
 }) {
   return (
-    <span className="flex items-center gap-1" aria-hidden>
+    <span className="flex shrink-0 items-center gap-0.5 sm:gap-1" aria-hidden>
       {Array.from({ length: total }, (_, i) => {
         if (i < home) {
           return (
             <span
               key={i}
-              className="inline-block size-2 rounded-full"
+              className="inline-block size-1.5 rounded-full sm:size-2"
               style={{ backgroundColor: '#D9A441' }}
             />
           );
@@ -124,12 +124,14 @@ export function PawnDots({
           return (
             <span
               key={i}
-              className="inline-block size-2 rounded-full"
+              className="inline-block size-1.5 rounded-full sm:size-2"
               style={{ backgroundColor: COLORS_DEEP[color] }}
             />
           );
         }
-        return <span key={i} className="inline-block size-2 rounded-full bg-black/15" />;
+        return (
+          <span key={i} className="inline-block size-1.5 rounded-full bg-black/15 sm:size-2" />
+        );
       })}
     </span>
   );

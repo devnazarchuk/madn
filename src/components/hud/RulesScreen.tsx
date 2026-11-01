@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   BookLock,
   Check,
-  Dice3,
   DoorOpen,
   Dices,
   Flag,
@@ -26,10 +25,16 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { playSfx } from '@/services/audio';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -53,6 +58,8 @@ import {
   rulesHeadline,
   type DiffKey,
   type RuleGroup,
+  type RuleOptionMeta,
+  type RulesConfig,
   type RulesPresetId,
 } from '@/engine/rulesConfig';
 import { AnimalIcon } from './shared';
@@ -66,133 +73,18 @@ const GROUP_ICONS: Record<RuleGroup, typeof DoorOpen> = {
   board: MapIcon,
 };
 
-// ---------------------------------------------------------------------------
-// Board & dice extras — available for EVERY preset (they copy the preset
-// into Custom Rules when flipped, so the documented presets stay pure)
-// ---------------------------------------------------------------------------
-
-function ExtrasCard() {
-  const rulesConfig = useGameStore((s) => s.rulesConfig);
-  const setGameplayExtra = useGameStore((s) => s.setGameplayExtra);
-  const autoRoll = useSettingsStore((s) => s.autoRoll);
-  const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
-  const randomBoard = rulesConfig.boardLayout === 'random';
-  const ceramicDice = rulesConfig.ceramicDice;
-
+/** Sparkles badge shown on cards whose value differs from Classic. */
+function DiffersBadge() {
   return (
-    <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
-          <Dice3 size={15} /> Board &amp; dice extras
-        </CardTitle>
-        <CardDescription className="text-[11px] text-[#8A6B4F]">
-          Work with every preset — switching one on copies your preset into Custom Rules.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2.5">
-        {/* board layout */}
-        <div
-          className={`rounded-xl border p-2.5 ${
-            randomBoard ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
-          }`}
-        >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
-              <MapIcon size={13} />
-            </span>
-            <p className="text-[13px] font-semibold text-[#3E2A18]">Board color pattern</p>
-            {randomBoard && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
-                <Sparkles size={9} /> differs
-              </span>
-            )}
-          </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
-            Classic keeps the official weave. FULL RANDOM repaints every field — including all three
-            home cells — with random colors each match: even walking home demands the matching rolls!
-          </p>
-          <ToggleGroup
-            type="single"
-            value={rulesConfig.boardLayout}
-            onValueChange={(v) => v && setGameplayExtra('boardLayout', v)}
-            className="mt-2 grid w-full grid-cols-2 gap-1 rounded-xl bg-[#E8D6B4] p-1"
-            aria-label="Board color pattern"
-          >
-            <ToggleGroupItem
-              value="classic"
-              className="h-8 rounded-lg px-2 text-xs font-semibold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
-            >
-              Classic official pattern
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="random"
-              className="h-8 rounded-lg px-2 text-xs font-semibold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
-            >
-              Full random map
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        {/* ceramic dice */}
-        <div
-          className={`rounded-xl border p-2.5 ${
-            ceramicDice ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
-                  <Dices size={13} />
-                </span>
-                <p className="text-[13px] font-semibold text-[#3E2A18]">Ceramic dice (smart luck)</p>
-                {ceramicDice && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
-                    <Sparkles size={9} /> differs
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
-                OFF by default — honest dice. ON: whenever all of a player&apos;s movable pawns wait on
-                their base (pawns already home on the finish platforms are done and don&apos;t count),
-                the exit color climbs 50% → 75% → 99% on failed tries; a match-winning roll gets a
-                random 15–25% boost. Miss the 99% chance and the dice will tease you!
-              </p>
-            </div>
-            <Switch
-              checked={ceramicDice}
-              onCheckedChange={(v) => setGameplayExtra('ceramicDice', v)}
-              aria-label="Ceramic dice smart luck"
-            />
-          </div>
-        </div>
-
-        {/* auto-roll dice (a setting — lives across matches) */}
-        <label className="flex items-start justify-between gap-3 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3E2A18]">
-              <Dices size={13} className="text-[#8A6B4F]" /> Auto-roll dice
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-snug text-[#6B4E35]">
-              The die rolls itself at the start of your turn — hands-free turns. OFF by default.
-            </span>
-          </span>
-          <Switch
-            checked={autoRoll}
-            onCheckedChange={(v) => {
-              playSfx('uiClick');
-              setAutoRoll(v);
-            }}
-            aria-label="Auto-roll dice"
-          />
-        </label>
-      </CardContent>
-    </Card>
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
+      <Sparkles size={9} /> differs
+    </span>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Preset cards
+// Preset cards — compact 2×2 grid; the longer description only appears for
+// the SELECTED preset (caption below the grid keeps all four rows equal).
 // ---------------------------------------------------------------------------
 
 function PresetCards() {
@@ -214,46 +106,144 @@ function PresetCards() {
   };
 
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2">
-      {PRESET_ORDER.map((preset) => {
-        const meta = PRESET_META[preset];
-        const selected = active === preset;
-        return (
-          <button
-            key={preset}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => selectRulesPreset(preset)}
-            className={`rounded-2xl border p-3 text-left transition-all ${
-              selected
-                ? 'border-[#E8503A] bg-white shadow-lg shadow-[#E8503A]/15 ring-2 ring-[#E8503A]/60'
-                : 'border-[#5B3A24]/20 bg-white/90 hover:border-[#5B3A24]/40 hover:bg-white'
-            }`}
-          >
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 text-sm font-bold text-[#3E2A18]">
-                {meta.title}
-                {meta.locked && preset === 'classic' && <BookLock size={14} className="text-[#B08A5E]" />}
-              </span>
-              {selected && (
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#E8503A] text-white">
-                  <Check size={12} strokeWidth={3.5} />
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        {PRESET_ORDER.map((preset) => {
+          const meta = PRESET_META[preset];
+          const selected = active === preset;
+          return (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => selectRulesPreset(preset)}
+              className={`min-w-0 rounded-2xl border p-2.5 text-left transition-all ${
+                selected
+                  ? 'border-[#E8503A] bg-white shadow-lg shadow-[#E8503A]/15 ring-2 ring-[#E8503A]/60'
+                  : 'border-[#5B3A24]/20 bg-white/90 hover:border-[#5B3A24]/40 hover:bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-tight text-[#3E2A18]">
+                  <span className="truncate">{meta.title}</span>
+                  {meta.locked && preset === 'classic' && (
+                    <BookLock size={14} className="shrink-0 text-[#B08A5E]" />
+                  )}
                 </span>
-              )}
-            </div>
-            <p className="text-[11px] leading-snug text-[#6B4E35]">{meta.tagline}</p>
-            <span className="mt-1.5 inline-block rounded-full bg-[#F4E7CE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8A6B4F]">
-              {badge(preset)}
-            </span>
-          </button>
-        );
-      })}
+                {selected && (
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#E8503A] text-white">
+                    <Check size={12} strokeWidth={3.5} />
+                  </span>
+                )}
+              </div>
+              <span className="mt-1.5 inline-block max-w-full truncate rounded-full bg-[#F4E7CE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8A6B4F]">
+                {badge(preset)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {/* description of the SELECTED preset only — keeps the grid compact */}
+      <p className="min-w-0 rounded-xl border border-[#5B3A24]/10 bg-white/70 px-3 py-2 text-[11px] leading-snug text-[#6B4E35]">
+        {PRESET_META[active].tagline}
+      </p>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Option editor (custom mode)
+// Rule info popup — full explanation behind the ⬁ info icon of each card
+// ---------------------------------------------------------------------------
+
+function RuleInfoDialog({
+  open,
+  onOpenChange,
+  meta,
+  value,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  meta: RuleOptionMeta;
+  value: boolean | string;
+}) {
+  const Icon = GROUP_ICONS[meta.group];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        variant="sheet"
+        className="rounded-3xl border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-md"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-xl font-bold text-[#3E2A18]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#5B3A24] text-[#F6EBD9]">
+              <Icon size={15} />
+            </span>
+            {meta.title}
+          </DialogTitle>
+          <DialogDescription className="text-[13px] leading-snug text-[#6B4E35]">
+            {meta.explanation}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          {meta.kind === 'select' ? (
+            meta.choices?.map((choice) => {
+              const active = String(value) === choice.value;
+              return (
+                <div
+                  key={choice.value}
+                  className={`rounded-xl border p-2.5 ${
+                    active ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
+                  }`}
+                >
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-[#3E2A18]">
+                    {active && <Check size={12} className="text-[#B6842B]" />}
+                    {choice.label}
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+                    {choice.description}
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
+              <p className="text-xs font-bold text-[#3E2A18]">
+                Right now: {value ? 'switched ON' : 'switched OFF'}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+                {value
+                  ? 'This rule is currently part of your match.'
+                  : 'This rule is currently switched off for your match.'}
+              </p>
+            </div>
+          )}
+          {meta.requires && (
+            <p className="rounded-xl border border-[#B08A5E]/30 bg-[#F4E7CE]/60 p-2.5 text-[11px] leading-snug text-[#8A6B4F]">
+              <span className="font-bold">Why it may be greyed out: </span>
+              {meta.requires.why}
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={() => {
+              playSfx('uiClick');
+              onOpenChange(false);
+            }}
+            className="h-10 rounded-xl bg-[#E8503A] font-bold text-white hover:bg-[#C23A28]"
+          >
+            <Check size={15} /> Got it
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Option editor (custom mode) — compact card: name + state + info popup
 // ---------------------------------------------------------------------------
 
 function OptionRow({ optionKey }: { optionKey: DiffKey }) {
@@ -263,6 +253,7 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
   const value = rulesConfig[optionKey];
   const changed = diffFromClassic(rulesConfig).includes(optionKey);
   const requiresMet = !meta.requires || rulesConfig[meta.requires.key] === meta.requires.value;
+  const [infoOpen, setInfoOpen] = useState(false);
   const Icon = GROUP_ICONS[meta.group];
 
   const setValue = (v: string | boolean) => {
@@ -280,58 +271,39 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
         changed ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
       } ${requiresMet ? '' : 'opacity-55'}`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+          <Icon size={13} />
+        </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
-              <Icon size={13} />
-            </span>
-            <p className="text-[13px] font-semibold text-[#3E2A18]">{meta.title}</p>
-            {changed && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
-                <Sparkles size={9} /> differs
-              </span>
-            )}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate text-[13px] font-semibold text-[#3E2A18]">{meta.title}</p>
+            {changed && <DiffersBadge />}
           </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">{meta.explanation}</p>
-          {!requiresMet && meta.requires && (
-            <p className="mt-0.5 text-[10px] italic text-[#B08A5E]">{meta.requires.why}</p>
-          )}
         </div>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={`About ${meta.title}`}
-              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[#8A6B4F] hover:bg-[#F4E7CE]"
-            >
-              <Info size={12} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-56 text-xs">
-            {meta.kind === 'select'
-              ? meta.choices?.find((c) => c.value === String(value))?.description
-              : value
-                ? 'Switched ON right now.'
-                : 'Switched OFF right now.'}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
-      {meta.kind === 'toggle' ? (
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-[#8A6B4F]">
-            {value ? 'ON' : 'OFF'}
-          </span>
+        <button
+          type="button"
+          aria-label={`About ${meta.title}`}
+          aria-expanded={infoOpen}
+          onClick={() => {
+            playSfx('uiClick');
+            setInfoOpen(true);
+          }}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#8A6B4F] transition hover:bg-[#F4E7CE] focus-visible:ring-2 focus-visible:ring-[#D9A441]/60"
+        >
+          <Info size={15} />
+        </button>
+        {meta.kind === 'toggle' && (
           <Switch
             checked={Boolean(value)}
             disabled={!requiresMet}
             onCheckedChange={setValue}
             aria-label={meta.title}
           />
-        </div>
-      ) : (
+        )}
+      </div>
+
+      {meta.kind === 'select' && (
         <ToggleGroup
           type="single"
           value={String(value)}
@@ -344,51 +316,102 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
             <ToggleGroupItem
               key={choice.value}
               value={choice.value}
-              className="h-8 rounded-lg px-2 text-xs font-semibold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+              className="h-8 min-w-0 rounded-lg px-1.5 text-[11px] font-semibold leading-tight text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
             >
               {choice.label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
       )}
+
+      {!requiresMet && meta.requires && (
+        <p className="mt-1.5 text-[10px] italic leading-snug text-[#B08A5E]">{meta.requires.why}</p>
+      )}
+
+      <RuleInfoDialog open={infoOpen} onOpenChange={setInfoOpen} meta={meta} value={value} />
     </div>
   );
 }
 
-function CustomEditor() {
+// ---------------------------------------------------------------------------
+// Auto-roll — a device setting (works with EVERY preset), now living inside
+// the Additional Rules card after the old Board & Dice Extras section was
+// removed. Persistence (settings store) is unchanged.
+// ---------------------------------------------------------------------------
+
+function AutoRollRow() {
+  const autoRoll = useSettingsStore((s) => s.autoRoll);
+  const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3E2A18]">
+          <Dices size={13} className="shrink-0 text-[#8A6B4F]" /> Auto-roll dice
+        </p>
+        <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+          The die rolls itself at the start of your turn — hands-free turns. Works with every
+          preset; OFF by default.
+        </p>
+      </div>
+      <Switch
+        checked={autoRoll}
+        onCheckedChange={(v) => {
+          playSfx('uiClick');
+          setAutoRoll(v);
+        }}
+        aria-label="Auto-roll dice"
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Additional Rules — always visible; the full editor appears in custom mode
+// ---------------------------------------------------------------------------
+
+function AdditionalRulesCard() {
   const rulesConfig = useGameStore((s) => s.rulesConfig);
   const customizeFromPreset = useGameStore((s) => s.customizeFromPreset);
   const resetRulesToClassic = useGameStore((s) => s.resetRulesToClassic);
+  const isCustom = rulesConfig.preset === 'custom';
 
-  if (rulesConfig.preset !== 'custom') {
+  if (!isCustom) {
     const meta = PRESET_META[rulesConfig.preset];
     return (
-      <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
-        <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-          <p className="min-w-0 flex-1 text-xs leading-snug text-[#6B4E35]">
-            <span className="font-bold text-[#3E2A18]">{meta.title}</span> is a fixed preset —
-            copy it into Custom Rules to tweak anything.
-          </p>
-          <div className="flex shrink-0 gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                playSfx('modal');
-                customizeFromPreset();
-              }}
-              className="h-8 rounded-lg bg-[#E8503A] hover:bg-[#C23A28]"
-            >
-              <Wand2 size={13} /> Make it custom
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => resetRulesToClassic()}
-              className="h-8 rounded-lg border-[#5B3A24]/25 bg-white/60"
-            >
-              <RotateCcw size={13} /> Classic
-            </Button>
+      <Card className="w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
+            <Wand2 size={15} /> Additional Rules
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
+            <p className="min-w-0 flex-1 basis-52 text-xs leading-snug text-[#6B4E35]">
+              <span className="font-bold text-[#3E2A18]">{meta.title}</span> is a fixed preset.
+              Copy it into Custom Rules to tweak every option — ceramic dice, random maps and all.
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  playSfx('modal');
+                  customizeFromPreset();
+                }}
+                className="h-8 rounded-lg bg-[#E8503A] hover:bg-[#C23A28]"
+              >
+                <Wand2 size={13} /> Make it custom
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => resetRulesToClassic()}
+                className="h-8 rounded-lg border-[#5B3A24]/25 bg-white/60"
+              >
+                <RotateCcw size={13} /> Classic
+              </Button>
+            </div>
           </div>
+          <AutoRollRow />
         </CardContent>
       </Card>
     );
@@ -396,14 +419,11 @@ function CustomEditor() {
 
   const groups = [...new Set(RULE_OPTIONS.map((o) => o.group))] as RuleGroup[];
   return (
-    <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
           <Wand2 size={15} /> Additional Rules
         </CardTitle>
-        <CardDescription className="text-[11px] text-[#8A6B4F]">
-          Every option is explained — yellow cards differ from Classic Rules.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {groups.map((group) => {
@@ -421,6 +441,7 @@ function CustomEditor() {
             </div>
           );
         })}
+        <AutoRollRow />
         <Button
           variant="outline"
           onClick={() => resetRulesToClassic()}
