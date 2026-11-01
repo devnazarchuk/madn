@@ -21,13 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { RULES_VERSION } from '@/config/gameConfig';
 import { COLORS } from '@/config/theme';
 import type { PlayerColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { clearAutosave } from '@/engine/persistence';
 import { playSfx } from '@/services/audio';
-import { AboutDialog, HistoryDialog, RulesDialog } from './Dialogs';
+import { AboutDialog, HistoryDialog } from './Dialogs';
+import { HowToPlayDialog, TutorialIntroDialog, TutorialOverlay } from './HowToPlay';
 import { AnimalIcon } from './shared';
 import { SettingsDialog } from './SettingsPanel';
 
@@ -47,10 +48,16 @@ export function MenuScreen() {
   const refreshAutosave = useGameStore((s) => s.refreshAutosave);
   const autosave = useGameStore((s) => s.autosave);
 
-  const [rulesOpen, setRulesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // How-to-play flow: first visit offers the interactive tutorial, later
+  // visits open the visual manual directly ("Don't show again" persists).
+  const [howOpen, setHowOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
+  const tutorialIntroSeen = useSettingsStore((s) => s.tutorialIntroSeen);
+  const setTutorialIntroSeen = useSettingsStore((s) => s.setTutorialIntroSeen);
 
   useEffect(() => {
     refreshAutosave();
@@ -60,7 +67,7 @@ export function MenuScreen() {
   const savedPlayers = autosave?.game.players ?? [];
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex justify-center overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+    <div className="pointer-events-none absolute inset-0 flex justify-center overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <motion.div
         initial={{ opacity: 0, y: 28, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -161,7 +168,11 @@ export function MenuScreen() {
                 className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
                 onClick={() => {
                   playSfx('modal');
-                  setRulesOpen(true);
+                  if (tutorialIntroSeen) {
+                    setHowOpen(true);
+                  } else {
+                    setIntroOpen(true);
+                  }
                 }}
               >
                 <BookOpen size={17} /> How to play
@@ -208,18 +219,40 @@ export function MenuScreen() {
             >
               <Trophy size={17} /> Match history
             </Button>
-
-            <p className="text-center text-[11px] uppercase tracking-[0.18em] text-[#B08A5E]">
-              ruleset {RULES_VERSION} · kids edition · 3 pawns
-            </p>
           </CardContent>
         </Card>
       </motion.div>
 
-      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <TutorialIntroDialog
+        open={introOpen}
+        onClose={() => setIntroOpen(false)}
+        onStart={() => {
+          setTutorialIntroSeen(true);
+          setIntroOpen(false);
+          setTutorialOpen(true);
+        }}
+        onManual={() => {
+          setIntroOpen(false);
+          setHowOpen(true);
+        }}
+        onDontShow={() => {
+          setTutorialIntroSeen(true);
+          setIntroOpen(false);
+          setHowOpen(true);
+        }}
+      />
+      <HowToPlayDialog
+        open={howOpen}
+        onClose={() => setHowOpen(false)}
+        onTutorial={() => {
+          setHowOpen(false);
+          setTutorialOpen(true);
+        }}
+      />
+      <TutorialOverlay open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
     </div>
   );
 }
