@@ -47,20 +47,33 @@ function DialogOverlay({
 }
 
 function DialogContent({
+  variant = 'center',
   className,
   children,
   showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean
+  showCloseButton?: boolean;
+  /** "sheet" docks to the bottom edge on phones (thumb-friendly) and falls
+   *  back to a centered dialog on desktop. */
+  variant?: 'center' | 'sheet';
 }) {
+  const positioning =
+    variant === 'sheet'
+      ? 'inset-x-0 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-3xl max-w-none sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:right-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-b-3xl'
+      : 'top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]';
+  const innerScroll =
+    variant === 'sheet'
+      ? 'max-h-[85dvh] pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-h-[calc(100dvh-2rem)] sm:pb-6'
+      : 'max-h-[calc(100dvh-2rem)]';
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-1.5rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 sm:max-w-lg",
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed z-50 w-full max-w-[calc(100%-1.5rem)] rounded-lg border shadow-lg duration-200',
+          positioning,
           className
         )}
         {...props}
@@ -69,7 +82,7 @@ function DialogContent({
             dragging reliable on phones (custom scrollbar widgets are not),
             capped to the dynamic viewport height so nothing ever falls off
             screen on small or landscape displays. */}
-        <div className="scrollbar-cute flex max-h-[calc(100dvh-2rem)] flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
+        <div className={cn('scrollbar-cute flex flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-6', innerScroll)}>
           {children}
         </div>
         {showCloseButton && (
