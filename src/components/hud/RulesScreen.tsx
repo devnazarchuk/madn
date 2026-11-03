@@ -455,7 +455,7 @@ function AdditionalRulesCard() {
 }
 
 // ---------------------------------------------------------------------------
-// Saved preset management
+// Saved preset management — overflow-proof rows (min-w-0 everywhere)
 // ---------------------------------------------------------------------------
 
 function PresetManager() {
@@ -467,7 +467,7 @@ function PresetManager() {
   const [editName, setEditName] = useState('');
 
   return (
-    <Card className="h-full rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="h-full w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
           <Save size={15} /> My saved rules
@@ -476,14 +476,14 @@ function PresetManager() {
           Keep your favorite rule mixes — they stay on this device.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2.5">
+      <CardContent className="min-w-0 space-y-2.5">
         <div className="flex gap-2">
           <Input
             value={name}
             maxLength={40}
             placeholder="Name your rule mix"
             onChange={(e) => setName(e.target.value)}
-            className="h-9 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
+            className="h-9 min-w-0 flex-1 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
             aria-label="Preset name"
           />
           <Button
@@ -507,83 +507,83 @@ function PresetManager() {
         )}
 
         {presets.length > 0 && (
-          <ul className="scrollbar-cute max-h-36 space-y-1.5 overflow-y-auto pr-1">
+          <ul className="scrollbar-cute max-h-36 min-w-0 space-y-1.5 overflow-y-auto pr-1">
             {presets.map((preset) => (
-                <li
-                  key={preset.id}
-                  className="flex items-center gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 px-2.5 py-1.5"
-                >
-                  {editingId === preset.id ? (
-                    <>
-                      <Input
-                        value={editName}
-                        maxLength={40}
-                        autoFocus
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="h-8 rounded-lg bg-white text-base"
-                        aria-label="Rename preset"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 rounded-lg bg-[#43B57E] text-white hover:bg-[#2E8F63]"
-                        onClick={() => {
-                          const next = renamePreset(preset.id, editName);
-                          setPresets(next);
-                          setEditingId(null);
-                          playSfx('uiClick');
-                        }}
-                      >
-                        <Check size={14} />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#3E2A18]">{preset.name}</p>
-                        <p className="truncate text-[11px] text-[#8A6B4F]">
-                          {rulesHeadline(preset.config)}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 rounded-lg border-[#5B3A24]/25"
-                        onClick={() => {
-                          playSfx('uiClick');
-                          useGameStore.setState({ rulesConfig: preset.config });
-                        }}
-                      >
-                        Load
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={`Rename ${preset.name}`}
-                        className="size-8 rounded-lg text-[#8A6B4F] hover:bg-[#F4E7CE]"
-                        onClick={() => {
-                          setEditingId(preset.id);
-                          setEditName(preset.name);
-                        }}
-                      >
-                        <Pencil size={13} />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={`Delete ${preset.name}`}
-                        className="size-8 rounded-lg text-[#C23A28] hover:bg-[#FBE3DE]"
-                        onClick={() => {
-                          setPresets(deletePreset(preset.id));
-                          playSfx('uiClick');
-                        }}
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
+              <li
+                key={preset.id}
+                className="flex min-w-0 items-center gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 px-2.5 py-1.5"
+              >
+                {editingId === preset.id ? (
+                  <>
+                    <Input
+                      value={editName}
+                      maxLength={40}
+                      autoFocus
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="h-8 min-w-0 flex-1 rounded-lg bg-white text-base"
+                      aria-label="Rename preset"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0 rounded-lg bg-[#43B57E] text-white hover:bg-[#2E8F63]"
+                      onClick={() => {
+                        const next = renamePreset(preset.id, editName);
+                        setPresets(next);
+                        setEditingId(null);
+                        playSfx('uiClick');
+                      }}
+                    >
+                      <Check size={14} />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[#3E2A18]">{preset.name}</p>
+                      <p className="truncate text-[11px] leading-snug text-[#8A6B4F] [overflow-wrap:anywhere]">
+                        {rulesHeadline(preset.config)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 rounded-lg border-[#5B3A24]/25"
+                      onClick={() => {
+                        playSfx('uiClick');
+                        useGameStore.setState({ rulesConfig: preset.config as RulesConfig });
+                      }}
+                    >
+                      Load
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Rename ${preset.name}`}
+                      className="size-8 shrink-0 rounded-lg text-[#8A6B4F] hover:bg-[#F4E7CE]"
+                      onClick={() => {
+                        setEditingId(preset.id);
+                        setEditName(preset.name);
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Delete ${preset.name}`}
+                      className="size-8 shrink-0 rounded-lg text-[#C23A28] hover:bg-[#FBE3DE]"
+                      onClick={() => {
+                        setPresets(deletePreset(preset.id));
+                        playSfx('uiClick');
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Card>
@@ -599,13 +599,13 @@ function RulesSummary() {
   const diffs = diffFromClassic(rulesConfig);
   const sections = describeRules(rulesConfig);
   return (
-    <Card className="h-full rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="h-full w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
           <Shield size={15} /> Match summary
         </CardTitle>
-        <CardDescription className="text-[11px] text-[#8A6B4F]">
-          {rulesHeadline(rulesConfig)}
+        <CardDescription className="min-w-0 text-[11px] text-[#8A6B4F]">
+          <span className="[overflow-wrap:anywhere]">{rulesHeadline(rulesConfig)}</span>
           {diffs.length > 0 && (
             <span className="ml-1 font-semibold text-[#B6842B]">
               ({diffs.length} change{diffs.length === 1 ? '' : 's'} from Classic)
@@ -613,23 +613,26 @@ function RulesSummary() {
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="scrollbar-cute max-h-44 space-y-2 overflow-y-auto pr-1">
+      <CardContent className="min-w-0">
+        <div className="scrollbar-cute max-h-44 min-w-0 space-y-2 overflow-y-auto pr-1">
           {sections.map((section) => (
-              <div key={section.title}>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#8A6B4F]">
-                  {section.title}
-                </p>
-                <ul className="mt-1 space-y-1">
-                  {section.points.map((point) => (
-                    <li key={point} className="flex gap-1.5 text-[11px] leading-snug text-[#6B4E35]">
-                      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            <div key={section.title}>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[#8A6B4F]">
+                {section.title}
+              </p>
+              <ul className="mt-1 min-w-0 space-y-1">
+                {section.points.map((point) => (
+                  <li
+                    key={point}
+                    className="flex gap-1.5 text-[11px] leading-snug text-[#6B4E35] [overflow-wrap:anywhere]"
+                  >
+                    <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
@@ -650,109 +653,110 @@ export function RulesScreen() {
   const activeSeats = seats.slice(0, playerCount);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="pointer-events-none absolute inset-0 overflow-y-auto overscroll-contain">
-        <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl flex-col gap-3 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-          {/* header */}
-          <div className="flex items-center justify-between gap-3">
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="Back"
-              className="size-10 rounded-2xl bg-[#241B14]/75 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B]"
-              onClick={() => {
-                playSfx('uiClick');
-                goScreen(rulesReturnTo === 'setup' ? 'setup' : 'menu');
-              }}
-            >
-              <ArrowLeft size={18} />
-            </Button>
-            <div className="flex-1 text-center">
-              <h1 className="font-[family-name:var(--font-baloo)] text-2xl font-extrabold text-[#F6EBD9] drop-shadow-md">
-                Choose your rules
-              </h1>
-              <p className="text-[11px] text-[#D9C3A0]">
-                {rulesReturnTo === 'setup'
-                  ? 'One last look before the match'
-                  : 'Set the rules for the next match'}
-              </p>
-            </div>
-            <span className="w-10" aria-hidden />
-          </div>
-
-          {/* who's playing (from setup) */}
-          {rulesReturnTo === 'setup' && (
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {activeSeats.map((seat, i) => (
-                <span
-                  key={i}
-                  className="flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold text-[#3E2A18] shadow"
-                >
-                  <span className="text-[#5B3A24]">
-                    <AnimalIcon color={seat.color} size={12} />
-                  </span>
-                  {seat.name}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="space-y-3"
+    <div className="pointer-events-none absolute inset-0 overflow-y-auto overscroll-contain">
+      <div className="pointer-events-auto mx-auto flex min-h-full w-full max-w-2xl min-w-0 flex-col gap-3 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+        {/* header */}
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label="Back"
+            className="size-10 shrink-0 rounded-2xl bg-[#241B14]/75 text-[#F6EBD9] backdrop-blur-md hover:bg-[#3A2A1B]"
+            onClick={() => {
+              playSfx('uiClick');
+              goScreen(rulesReturnTo === 'setup' ? 'setup' : 'menu');
+            }}
           >
-            <PresetCards />
-            <ExtrasCard />
-            <CustomEditor />
-            {/* summary & saved rules share a row on large screens */}
-            <div className="grid gap-3 lg:grid-cols-2">
-              <RulesSummary />
-              <PresetManager />
-            </div>
-          </motion.div>
+            <ArrowLeft size={18} />
+          </Button>
+          <div className="min-w-0 flex-1 text-center">
+            <h1 className="truncate font-[family-name:var(--font-baloo)] text-2xl font-extrabold text-[#F6EBD9] drop-shadow-md">
+              Choose your rules
+            </h1>
+            <p className="truncate text-[11px] text-[#D9C3A0]">
+              {rulesReturnTo === 'setup'
+                ? 'One last look before the match'
+                : 'Set the rules for the next match'}
+            </p>
+          </div>
+          <span className="w-10 shrink-0" aria-hidden />
+        </div>
 
-          {/* actions — sticky floating bar with its own panel so scrolling
-              content never shows through between the buttons */}
-          <div className="sticky bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-10 flex gap-2.5 rounded-[1.4rem] border border-[#5B3A24]/20 bg-[#FBF3E0]/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur-md">
-            {rulesReturnTo === 'setup' ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="h-12 flex-1 rounded-2xl border-[#5B3A24]/40 bg-[#FBF3E0]/95 text-sm font-semibold text-[#3E2A18] backdrop-blur-md hover:bg-[#FBF3E0]"
-                  onClick={() => {
-                    playSfx('uiClick');
-                    goScreen('setup');
-                  }}
-                >
-                  <ArrowLeft size={16} /> Players
-                </Button>
-                <Button
-                  onClick={() => {
-                    playSfx('star');
-                    startGame();
-                  }}
-                  className="h-12 flex-[2] rounded-2xl bg-[#E8503A] text-base font-bold text-white shadow-xl shadow-[#E8503A]/30 hover:bg-[#C23A28]"
-                >
-                  <Dices size={19} /> Start the match
-                  <Sparkles size={14} className="opacity-70" />
-                </Button>
-              </>
-            ) : (
+        {/* who's playing (from setup) */}
+        {rulesReturnTo === 'setup' && (
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {activeSeats.map((seat, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold text-[#3E2A18] shadow"
+              >
+                <span className="text-[#5B3A24]">
+                  <AnimalIcon color={seat.color} size={12} />
+                </span>
+                {seat.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="min-w-0 space-y-3"
+        >
+          <PresetCards />
+          <AdditionalRulesCard />
+          {/* summary & saved rules share a row on large screens; min-w-0
+              stops long preset names from blowing the grid out of the
+              viewport */}
+          <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+            <RulesSummary />
+            <PresetManager />
+          </div>
+        </motion.div>
+
+        {/* actions — sticky floating bar with its own panel so scrolling
+            content never shows through between the buttons */}
+        <div className="sticky bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-10 flex gap-2.5 rounded-[1.4rem] border border-[#5B3A24]/20 bg-[#FBF3E0]/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur-md">
+          {rulesReturnTo === 'setup' ? (
+            <>
+              <Button
+                variant="outline"
+                className="h-12 min-w-0 flex-1 rounded-2xl border-[#5B3A24]/40 bg-[#FBF3E0]/95 text-sm font-semibold text-[#3E2A18] backdrop-blur-md hover:bg-[#FBF3E0]"
+                onClick={() => {
+                  playSfx('uiClick');
+                  goScreen('setup');
+                }}
+              >
+                <ArrowLeft size={16} /> Players
+              </Button>
               <Button
                 onClick={() => {
                   playSfx('star');
-                  goScreen('menu');
+                  startGame();
                 }}
-                className="h-12 w-full rounded-2xl bg-[#43B57E] text-base font-bold text-white shadow-xl shadow-[#43B57E]/30 hover:bg-[#2E8F63]"
+                className="h-12 min-w-0 flex-[2] rounded-2xl bg-[#E8503A] text-base font-bold text-white shadow-xl shadow-[#E8503A]/30 hover:bg-[#C23A28]"
               >
-                <Check size={18} /> Save rules &amp; back to menu
+                <span className="truncate">
+                  <Dices size={19} className="inline align-[-3px]" /> Start the match
+                </span>
+                <Sparkles size={14} className="opacity-70" />
               </Button>
-            )}
-          </div>
+            </>
+          ) : (
+            <Button
+              onClick={() => {
+                playSfx('star');
+                goScreen('menu');
+              }}
+              className="h-12 w-full rounded-2xl bg-[#43B57E] text-base font-bold text-white shadow-xl shadow-[#43B57E]/30 hover:bg-[#2E8F63]"
+            >
+              <Check size={18} /> Save rules &amp; back to menu
+            </Button>
+          )}
         </div>
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
