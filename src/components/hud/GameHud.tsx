@@ -406,85 +406,105 @@ export function GameHud() {
         </div>
       </div>
 
-      {/* ---- bottom bar (docked flush to the screen edge on phones) ------- */}
+      {/* ---- bottom bar (docked flush to the screen edge on phones) -------
+          STABLE BY CONSTRUCTION: one row, no wrapping, a fixed-height center
+          zone and truncated dynamic text — status messages can never change
+          the panel's height or width. The rules chip & stats live on the
+          left on sm+ (mobile reaches the rules via the top-right book
+          button, keeping the bar roomy for pawn pickers). */}
       <div className="mt-auto sm:p-3">
-        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-t-2xl bg-[#241B14]/90 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[#F6EBD9] shadow-2xl backdrop-blur-md sm:rounded-2xl sm:bg-[#241B14]/75 sm:px-4 sm:py-2.5">
-          <div className="flex items-center gap-3 text-[11px] font-medium text-[#D9C3A0] sm:text-xs">
+        <div className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-3xl flex-nowrap items-center justify-between gap-2 rounded-t-2xl bg-[#241B14]/90 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[#F6EBD9] shadow-2xl backdrop-blur-md sm:rounded-2xl sm:bg-[#241B14]/75 sm:gap-x-4 sm:px-4 sm:py-2.5">
+          {/* left zone — preset chip + stats (desktop only) */}
+          <div className="hidden min-w-0 items-center gap-3 text-xs font-medium text-[#D9C3A0] sm:flex">
             <button
               type="button"
               onClick={() => {
                 playSfx('modal');
                 setRulesOpen(true);
               }}
-              className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#F6EBD9] transition hover:bg-white/20"
+              className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#F6EBD9] transition hover:bg-white/20"
               title="Show the active rules"
             >
               {PRESET_LABEL[preset] ?? 'Rules'}
             </button>
-            <span title="Turn number" className="hidden sm:inline">
+            <span title="Turn number" className="hidden shrink-0 md:inline">
               Turn {turn}
             </span>
-            <span aria-hidden className="hidden opacity-40 sm:inline">
+            <span aria-hidden className="hidden opacity-40 md:inline">
               ·
             </span>
-            <span title="Moves played" className="hidden sm:inline">
+            <span title="Moves played" className="hidden shrink-0 md:inline">
               {totalMoves} moves
             </span>
-            <span aria-hidden className="hidden opacity-40 sm:inline">
+            <span aria-hidden className="hidden opacity-40 md:inline">
               ·
             </span>
-            <span title="Captures">{captures} captures</span>
+            <span title="Captures" className="shrink-0">
+              {captures} captures
+            </span>
           </div>
 
-          {/* No mode="wait" here: the exit queue can stall on a fast sequence
-              of AI turns and leave a stale chip on screen (same lesson as the
-              status pill) — plain cross-fade instead. */}
-          <AnimatePresence>
-            {humanAwaitRoll ? (
-              <motion.div
-                key="roll"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-              >
-                <Button
-                  onClick={() => rollDice()}
-                  className="animate-pulse-soft h-11 rounded-full bg-[#E8503A] px-6 text-base font-bold text-white shadow-lg shadow-[#E8503A]/25 hover:bg-[#C23A28]"
+          {/* center zone — the dynamic dice status; fixed height + truncation
+              so "Rolled Yellow" never resizes the panel */}
+          <div className="flex h-11 min-w-0 flex-1 items-center justify-center sm:flex-none">
+            {/* No mode="wait" here: the exit queue can stall on a fast sequence
+                of AI turns and leave a stale chip on screen (same lesson as the
+                status pill) — plain cross-fade instead. */}
+            <AnimatePresence>
+              {humanAwaitRoll ? (
+                <motion.div
+                  key="roll"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex max-w-full"
                 >
-                  <Dices size={18} /> Roll the die
-                  <kbd className="ml-1 hidden rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold md:inline">
-                    Space
-                  </kbd>
-                </Button>
-              </motion.div>
-            ) : diceFace ? (
-              <motion.div
-                key={`face-${diceFace}`}
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.85 }}
-                className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5"
-              >
-                <ColorDot color={diceFace} size={13} />
-                <span className="text-sm font-semibold">Rolled {faceLabel(diceFace)}</span>
-              </motion.div>
-            ) : (
-              <motion.span
-                key="watch"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-sm text-[#B99B72]"
-              >
-                {activeKind === 'ai' ? 'Robots at play…' : 'Watch the die…'}
-              </motion.span>
-            )}
-          </AnimatePresence>
+                  <Button
+                    onClick={() => rollDice()}
+                    className="animate-pulse-soft h-11 max-w-full rounded-full bg-[#E8503A] px-4 text-sm font-bold text-white shadow-lg shadow-[#E8503A]/25 hover:bg-[#C23A28] sm:px-6 sm:text-base"
+                  >
+                    <Dices size={18} className="shrink-0" />
+                    <span className="truncate">Roll the die</span>
+                    <kbd className="ml-1 hidden shrink-0 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold md:inline">
+                      Space
+                    </kbd>
+                  </Button>
+                </motion.div>
+              ) : diceFace ? (
+                <motion.div
+                  key={`face-${diceFace}`}
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  className="flex min-w-0 max-w-full items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 sm:px-4"
+                >
+                  <ColorDot color={diceFace} size={13} />
+                  <span className="truncate text-sm font-semibold">
+                    Rolled {faceLabel(diceFace)}
+                  </span>
+                </motion.div>
+              ) : (
+                <motion.span
+                  key="watch"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="min-w-0 truncate text-sm text-[#B99B72]"
+                >
+                  {activeKind === 'ai' ? 'Robots at play…' : 'Watch the die…'}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {/* pawn-picker buttons — accessible alternative to 3D tapping */}
             {humanChoosing && activePlayer && (
-              <div className="flex items-center gap-1.5" role="group" aria-label="Choose a pawn">
+              <div
+                className="flex shrink-0 items-center gap-1.5"
+                role="group"
+                aria-label="Choose a pawn"
+              >
                 {activePlayer.pawns.map((pawn) => {
                   const movable = legalMoves.some((m) => m.pawnId === pawn.id);
                   const Icon = CHAR_ICON[activePlayer.color];
@@ -495,7 +515,7 @@ export function GameHud() {
                       disabled={!movable}
                       aria-label={`${pawn.id} ${movable ? 'can move' : 'cannot move'}`}
                       onClick={() => tapPawn(pawn.id)}
-                      className={`flex size-10 items-center justify-center rounded-xl transition sm:size-9 ${
+                      className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition sm:size-9 ${
                         movable
                           ? 'bg-white/90 text-[#5B3A24] shadow hover:scale-105 active:scale-95'
                           : 'bg-white/10 text-white/25'
@@ -513,13 +533,13 @@ export function GameHud() {
               <Button
                 onClick={() => skipTurn()}
                 variant="outline"
-                className="h-9 rounded-full border-white/25 bg-white/10 px-4 text-xs font-semibold text-[#F6EBD9] hover:bg-white/20"
+                className="h-9 shrink-0 rounded-full border-white/25 bg-white/10 px-3 text-xs font-semibold text-[#F6EBD9] hover:bg-white/20 sm:px-4"
               >
-                <SkipForward size={14} /> Skip
+                <SkipForward size={14} className="shrink-0" /> Skip
               </Button>
             )}
 
-            <p className="hidden items-center gap-1.5 text-xs text-[#B99B72] md:flex">
+            <p className="hidden shrink-0 items-center gap-1.5 text-xs text-[#B99B72] md:flex">
               {phase === 'choose-pawn' && activeKind === 'human' ? (
                 <>
                   <span
