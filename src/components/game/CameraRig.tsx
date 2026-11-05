@@ -25,10 +25,34 @@ import { easeInOut } from './geometry';
  *    kids' ludo-app framing that fills a tall canvas naturally.
  */
 
+/**
+ * ============================================================================
+ * Camera choreography — see the module doc above.
+ *
+ * PORTRAIT FRAMING TARGETS (validated against real phone viewports):
+ *   - the board spans ≈103% of the viewport width (left/right corners touch
+ *     or slightly overshoot the screen edges),
+ *   - the bottom corner rests just above the bottom gameplay bar (~83% of
+ *     the viewport height) while keeping breathing room below the top bar.
+ * The framing is derived from the live viewport aspect ratio on every
+ * resize/orientation change — nothing is hardcoded to one device.
+ * ============================================================================
+ */
+
 const ORBIT_TARGET = new THREE.Vector3(0, 0.5, 0);
 const DEFAULT_POSITION = new THREE.Vector3(...CAMERA_DEFAULTS.position);
 /** Top surface height of the board (y). */
 const SURFACE_Y = 0.6;
+
+/** Portrait diamond tuning: how far past the screen edges the widest board
+ *  corners reach (1.03 → board spans ≈103% of viewport width) and how far
+ *  the orbit target is lifted along +Y (moves the board down-screen so its
+ *  bottom corner rests just above the bottom gameplay bar). Values are
+ *  visual targets, tuned against real phone viewports in the browser. */
+const PORTRAIT_FIT = {
+  widthScale: 1.03,
+  targetLift: 6.5,
+} as const;
 
 interface ViewSpec {
   /** Unit vector from the orbit target toward the default camera. */
@@ -37,7 +61,7 @@ interface ViewSpec {
   baseDistance: number;
   /** Vertical fov at the reference aspect. */
   fov: number;
-  /** Widest horizontal half-extent of the board incl. margin (world units). */
+  /** Widest horizontal half-extent the board must span on screen. */
   halfWidth: number;
   /** View-axis depth of the corners that carry that extent. */
   nearDepth: number;
@@ -47,6 +71,8 @@ interface ViewSpec {
   fovGain: number;
   fovMax: number;
   distanceMax: number;
+  /** The orbit target for this framing. */
+  target: THREE.Vector3;
 }
 
 /**
@@ -56,7 +82,7 @@ interface ViewSpec {
  * one binds:
  *   halfWidth / (distance − nearDepth) ≤ tan(hFov/2).
  */
-function cornerFit(direction: THREE.Vector3, margin: number) {
+function cornerFit(direction: THREE.Vector3, margin: number, targetY: number) {
   const horiz = new THREE.Vector3(direction.x, 0, direction.z).normalize();
   const right = new THREE.Vector3(horiz.z, 0, -horiz.x);
   const corner = new THREE.Vector3();
@@ -64,7 +90,7 @@ function cornerFit(direction: THREE.Vector3, margin: number) {
   let nearDepth = -Infinity;
   for (const sx of [-1, 1] as const) {
     for (const sz of [-1, 1] as const) {
-      corner.set((sx * BOARD.size) / 2, SURFACE_Y - ORBIT_TARGET.y, (sz * BOARD.size) / 2);
+      corner.set((sx * BOARD.size) / 2, SURFACE_Y - targetY, (sz * BOARD.size) / 2);
       const r = Math.abs(corner.dot(right));
       const d = corner.dot(direction);
       if (r > halfWidth + 1e-6) {
@@ -85,11 +111,12 @@ const LANDSCAPE: ViewSpec = (() => {
     direction,
     baseDistance: DEFAULT_POSITION.distanceTo(ORBIT_TARGET),
     fov: CAMERA_DEFAULTS.fov,
-    ...cornerFit(direction, 0.5),
+    ...cornerFit(direction, 0.5, ORBIT_TARGET.y),
     fitAspect: 1.63,
     fovGain: 8,
     fovMax: 62,
     distanceMax: 32,
+    target: ORBIT_TARGET,
   };
 })();
 
@@ -102,18 +129,29 @@ const DIAMOND: ViewSpec = (() => {
     Math.sin(elevation),
     Math.cos(elevation) * horizontal,
   );
-  const { halfWidth, nearDepth } = cornerFit(direction, 0.3);
+  // Lifted orbit target: pushes the board down-screen so its bottom corner
+  // rests above the bottom gameplay bar.
+  const target = ORBIT_TARGET.clone();
+  target.y += PORTRAIT_FIT.targetLift;
+  // Raw corner extent (no authored margin). The width scale DIVIDES into the
+  // fit width so the widest corners land at NDC ±widthScale — i.e. the board
+  // spans ≈103% of the viewport width (slight, even overshoot). (Putting the
+  // scale in the distance instead would cancel out and pin the corners to
+  // exactly the screen edge.)
+  const { halfWidth, nearDepth } = cornerFit(direction, 0, target.y);
+  const fitWidth = halfWidth / PORTRAIT_FIT.widthScale;
   return {
     direction,
     // The fit the diamond has at a square aspect with the base fov.
-    baseDistance: nearDepth + halfWidth / Math.tan(THREE.MathUtils.degToRad(CAMERA_DEFAULTS.fov / 2)),
+    baseDistance: nearDepth + fitWidth / Math.tan(THREE.MathUtils.degToRad(CAMERA_DEFAULTS.fov / 2)),
     fov: CAMERA_DEFAULTS.fov,
-    halfWidth,
+    halfWidth: fitWidth,
     nearDepth,
     fitAspect: 1,
     fovGain: 12,
     fovMax: 64,
     distanceMax: 48,
+    target,
   };
 })();
 
@@ -127,10 +165,15 @@ const DIAMOND_MAX_ASPECT = 1;
  * viewing angle itself never changes within a branch; crossing the
  * landscape↔portrait boundary swaps to the matching default framing.
  */
-function cameraFitFor(aspect: number): { fov: number; distance: number; direction: THREE.Vector3 } {
+function cameraFitFor(aspect: number): {
+  fov: number;
+  distance: number;
+  direction: THREE.Vector3;
+  target: THREE.Vector3;
+} {
   const view = aspect < DIAMOND_MAX_ASPECT ? DIAMOND : LANDSCAPE;
   if (!Number.isFinite(aspect) || aspect >= view.fitAspect) {
-    return { fov: view.fov, distance: view.baseDistance, direction: view.direction };
+    return { fov: view.fov, distance: view.baseDistance, direction: view.direction, target: view.target };
   }
   const fov = Math.min(view.fovMax, view.fov + (view.fitAspect / aspect - 1) * view.fovGain);
   const tanHalf = Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect;
@@ -139,7 +182,7 @@ function cameraFitFor(aspect: number): { fov: number; distance: number; directio
     view.baseDistance,
     view.distanceMax,
   );
-  return { fov, distance, direction: view.direction };
+  return { fov, distance, direction: view.direction, target: view.target };
 }
 
 /**
@@ -168,18 +211,22 @@ export function CameraRig() {
   const fit = useMemo(() => cameraFitFor(size.width / Math.max(1, size.height)), [size.width, size.height]);
   /** Fitted camera position: same direction and elevation, adapted distance. */
   const fitPosition = useMemo(
-    () => fit.direction.clone().multiplyScalar(fit.distance).add(ORBIT_TARGET),
+    () => fit.direction.clone().multiplyScalar(fit.distance).add(fit.target),
     [fit],
   );
 
   // Aspect fit — applied before the first paint (so portrait phones never
   // flash a cropped or wrongly angled board) and re-applied whenever the
-  // orientation changes. The numeric deps keep this stable for same-value
-  // aspect resizes, so an ordinary desktop window resize does not reset a
-  // player's camera.
+  // orientation changes. Also re-seats the orbit target (the portrait branch
+  // orbits a lifted point so the board sits low, above the bottom bar).
   useLayoutEffect(() => {
     applyCameraFit(camera, fitPosition, fit.fov);
-  }, [fit.fov, fitPosition, camera]);
+    const c = controls.current;
+    if (c) {
+      c.target.copy(fit.target);
+      c.update();
+    }
+  }, [fit.fov, fit.target, fitPosition, camera]);
 
   useEffect(() => {
     if (introPlaying) {
@@ -195,9 +242,9 @@ export function CameraRig() {
     const c = controls.current;
     if (!c) return;
     applyCameraFit(camera, fitPosition, fit.fov);
-    c.target.set(0, 0.5, 0);
+    c.target.copy(fit.target);
     c.update();
-  }, [cameraResetToken, camera, fit.fov, fitPosition]);
+  }, [cameraResetToken, camera, fit.fov, fit.target, fitPosition]);
 
   useFrame(() => {
     if (!introPlaying) return;

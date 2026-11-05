@@ -236,15 +236,15 @@ export function DiceModel() {
 
     // Idle: rest orientation shows the last rolled face; while waiting for a
     // human roll the die floats gently and spins to invite a click — and a
-    // HOVERED die spins up a little faster, tilts playfully and swells so
-    // the cursor visibly "catches" it.
+    // HOVERED die spins up (at HALF the earlier speed), tilts playfully and
+    // swells so the cursor visibly "catches" it.
     if (canRoll) {
       const tt = state.clock.elapsedTime;
       g.quaternion.setFromEuler(
         IDLE_SPIN.set(
-          0.35 * Math.sin(tt * 0.8) + 0.22 * h * Math.sin(tt * 4.1),
-          tt * (1.15 + 1.7 * h),
-          0.22 * Math.cos(tt * 0.7) + 0.16 * h * Math.cos(tt * 3.6),
+          0.35 * Math.sin(tt * 0.8) + 0.22 * h * Math.sin(tt * 2.05),
+          tt * (1.15 + 0.85 * h),
+          0.22 * Math.cos(tt * 0.7) + 0.16 * h * Math.cos(tt * 1.8),
         ),
       );
       g.position.set(
