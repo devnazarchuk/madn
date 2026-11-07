@@ -11,6 +11,12 @@ import type {
 
 export type QualityLevel = 'high' | 'medium' | 'low';
 
+/** The two portrait board framings a phone can flip between. */
+export type MobileViewId = 'diagonal' | 'topdown';
+
+/** The three synthesized audio styles (SFX timbre + background music). */
+export type SoundPackId = 'toys' | 'christmas' | 'arcade';
+
 export interface AudioSettings {
   master: number;
   sfx: number;
@@ -22,11 +28,16 @@ interface SettingsState {
   audio: AudioSettings;
   reducedMotion: boolean;
   quality: QualityLevel;
-  showMoveHints: boolean;
   autoSingleMove: boolean;
   /** Auto-Roll Dice — the die rolls itself at the start of a human turn
    * (OFF by default; toggled in the rules screen and the pause menu). */
   autoRoll: boolean;
+  /** Portrait board view: angled diamond (default) or straight top-down.
+   * Only applied while the viewport is taller than wide; landscape and
+   * desktop always keep the classic three-quarter camera. */
+  mobileView: MobileViewId;
+  /** Which synthesized sound pack (SFX voices + music style) is active. */
+  soundPack: SoundPackId;
   /** The "Would you like to take an interactive tutorial?" intro was shown
    * (and dismissed for good) — it never pops up on future visits. */
   tutorialIntroSeen: boolean;

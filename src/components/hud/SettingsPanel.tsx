@@ -3,6 +3,7 @@
 import {
   Bot,
   Dices,
+  Disc3,
   Layers,
   MonitorPlay,
   Shapes,
@@ -41,7 +42,14 @@ import {
   type ThemeId,
 } from '@/config/theme';
 import { playSfx } from '@/services/audio';
-import { useSettingsStore } from '@/store/settingsStore';
+import { useSettingsStore, type SoundPackId } from '@/store/settingsStore';
+
+/** The three synthesized audio styles, selectable in the settings. */
+const SOUND_PACKS: Array<{ id: SoundPackId; label: string }> = [
+  { id: 'toys', label: 'Toy shop' },
+  { id: 'christmas', label: 'Christmas bells' },
+  { id: 'arcade', label: 'Arcade chip' },
+];
 
 /**
  * Compact audio/visual/gameplay settings panel, embedded in the setup

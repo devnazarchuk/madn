@@ -51,6 +51,7 @@ import {
   initAudio,
   playSfx,
   setAudioSettings,
+  setSoundPack,
   startMusic,
 } from '@/services/audio';
 import { saveMatch } from '@/services/matchesApi';
@@ -811,7 +812,19 @@ export const useGameStore = create<GameStore>()((set, get) => {
         }
         return;
       }
+      // Tapping an ENEMY pawn that stands on a capture destination performs
+      // the capture: the child presses the highlighted PLATFORM and the
+      // occupant must not swallow the tap with its own "not your pawn"
+      // handler (the destination disc sits under the pawn's meshes).
       if (pawn.color !== player.color) {
+        const captureMove = s.legalMoves.find(
+          (m) => Array.isArray(m.capturedPawnIds) && m.capturedPawnIds.includes(pawnId),
+        );
+        if (captureMove) {
+          playSfx('pawnSelect');
+          get().choosePawn(captureMove.pawnId);
+          return;
+        }
         notify(`That's not your pawn — you play the ${player.color} one!`, 'info');
         return;
       }
