@@ -3,17 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowLeft,
   ArrowRight,
   Bot,
+  ChevronDown,
+  Disc3,
   Dices,
+  DoorOpen,
+  Flag,
   Footprints,
+  Hourglass,
+  Layers,
+  Map as MapIcon,
   PartyPopper,
   PlayCircle,
   Shield,
+  SkipForward,
   Sparkles,
   Target,
   Trophy,
+  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,13 +41,23 @@ import { useSettingsStore } from '@/store/settingsStore';
  * ============================================================================
  * HOW TO PLAY — visual manual, tutorial intro & interactive onboarding.
  * ============================================================================
- * The manual teaches the actual implemented mechanics (Classic behavior)
- * with small animated diagrams instead of walls of text. The interactive
- * tutorial walks through the same mechanics step by step.
+ * The manual teaches the ACTUAL implemented mechanics (single source of
+ * truth: the engine + rulesConfig) with animated diagrams instead of walls
+ * of text.
+ *
+ *  · Two depths: the SHORT guide (the six core mechanics) and the FULL
+ *    rules walkthrough (every rule the engine knows — special rules included).
+ *  · The manual lists sections COLLAPSED by default; opening a section plays
+ *    its animation — collapsed sections render nothing, so exactly the
+ *    animations you want run, never all of them at once.
+ *  · The interactive tutorial walks the same steps one at a time, in short
+ *    or full length (Next/Back navigation, progress, exit anytime).
  */
 
 const GOLD = MATERIAL.gold;
 const CREAM = '#FBF3E0';
+
+export type TutorialMode = 'short' | 'full';
 
 // ---------------------------------------------------------------------------
 // Keyframe helper — builds a hop-by-hop journey along given points
@@ -156,6 +174,27 @@ function SceneDie({ x, y, color, still }: { x: number; y: number; color: string;
   );
 }
 
+/** A die face showing a golden star (Star Mode wild). */
+function SceneStarDie({ x, y, still }: { x: number; y: number; still: boolean }) {
+  return (
+    <motion.g
+      animate={still ? undefined : { scale: [1, 1.14, 1], rotate: [0, -8, 8, 0] }}
+      transition={still ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+      style={{ transformOrigin: `${x}px ${y}px` }}
+    >
+      <g transform={`translate(${x} ${y})`}>
+        <rect x={-16} y={-16} width={32} height={32} rx={8} fill={GOLD} stroke="rgba(36,27,20,0.3)" strokeWidth={2} />
+        <path
+          d="M0,-9 L2.6,-2.8 9.5,-2.8 3.9,1.8 5.9,8.7 0,4.4 -5.9,8.7 -3.9,1.8 -9.5,-2.8 -2.6,-2.8 Z"
+          fill={CREAM}
+          stroke="rgba(36,27,20,0.25)"
+          strokeWidth={1.2}
+        />
+      </g>
+    </motion.g>
+  );
+}
+
 function SceneLabel({ x, y, children }: { x: number; y: number; children: string }) {
   return (
     <text
@@ -187,7 +226,7 @@ function Scene({ children, label }: { children: React.ReactNode; label: string }
 }
 
 // ---------------------------------------------------------------------------
-// The six demo scenes
+// Core scenes
 // ---------------------------------------------------------------------------
 
 function SceneRace({ still }: { still: boolean }) {
@@ -398,69 +437,610 @@ function SceneWin({ still }: { still: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step definitions (shared by the tutorial and the manual)
+// Special-rule scenes (full walkthrough)
 // ---------------------------------------------------------------------------
 
-interface TutorialStep {
-  id: string;
-  title: string;
-  text: string;
-  Scene: (props: { still: boolean }) => React.ReactElement;
-  icon: typeof Dices;
+function SceneStar({ still }: { still: boolean }) {
+  return (
+    <Scene label="A golden star is wild — it counts as any color you like">
+      <SceneStarDie x={46} y={50} still={still} />
+      <Field x={115} y={70} color={COLORS.blue} />
+      <Field x={170} y={70} color={COLORS.yellow} />
+      <Field x={225} y={70} color={COLORS.green} />
+      <Field x={280} y={70} color={COLORS.red} />
+      {!still && (
+        <motion.circle
+          cx={280}
+          cy={70}
+          r={23}
+          fill="none"
+          stroke={GOLD}
+          strokeWidth={3}
+          animate={{ opacity: [0, 0.9, 0], scale: [1, 1.2, 1.35] }}
+          transition={{ duration: 2.4, times: [0, 0.5, 1], repeat: Infinity }}
+        />
+      )}
+      <SceneLabel x={200} y={104}>pick ANY color — even white or black</SceneLabel>
+      <Field x={225} y={150} color={COLORS.green} />
+      <SceneLabel x={225} y={182}>the star walks you there</SceneLabel>
+      <TravelingPawn
+        still={still}
+        color={COLORS.red}
+        stillAt={1}
+        points={[
+          { x: 115, y: 54 },
+          { x: 280, y: 54 },
+          { x: 280, y: 134 },
+          { x: 225, y: 134 },
+        ]}
+      />
+    </Scene>
+  );
 }
 
-const STEPS: TutorialStep[] = [
+function SceneEntryAny({ still }: { still: boolean }) {
+  const cycle = [COLORS.blue, COLORS.yellow, COLORS.green, COLORS.red];
+  return (
+    <Scene label="With any-color entry every roll lets a pawn out of the base">
+      <g transform="translate(46 50)">
+        <rect x={-16} y={-16} width={32} height={32} rx={8} fill={CREAM} stroke="rgba(36,27,20,0.3)" strokeWidth={2} />
+        {still ? (
+          <circle cx={0} cy={0} r={8.5} fill={COLORS.blue} stroke="rgba(36,27,20,0.25)" strokeWidth={1.5} />
+        ) : (
+          <motion.circle
+            cx={0}
+            cy={0}
+            r={8.5}
+            stroke="rgba(36,27,20,0.25)"
+            strokeWidth={1.5}
+            animate={{ fill: [COLORS.blue, COLORS.yellow, COLORS.green, COLORS.red, COLORS.blue] }}
+            transition={{ duration: 3.2, repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1], ease: 'easeInOut' }}
+          />
+        )}
+      </g>
+      <SceneLabel x={46} y={92}>ANY color works</SceneLabel>
+      <rect x={110} y={92} width={104} height={78} rx={16} fill="rgba(91,58,36,0.14)" stroke="rgba(91,58,36,0.3)" strokeWidth={2} />
+      <SceneLabel x={162} y={112}>your base</SceneLabel>
+      <Pawn color={COLORS.red} x={162} y={144} scale={0.72} />
+      <TravelingPawn
+        still={still}
+        color={COLORS.red}
+        stillAt={1}
+        points={[{ x: 184, y: 138 }, { x: 252, y: 130 }]}
+      />
+      <Field x={272} y={146} color={COLORS.red} />
+      <SceneLabel x={272} y={180}>start field</SceneLabel>
+    </Scene>
+  );
+}
+
+function ScenePass({ still }: { still: boolean }) {
+  return (
+    <Scene label="Free passing hops over pawns; blocked paths must wait">
+      {/* left — hop over */}
+      <Field x={50} y={96} color={COLORS.blue} />
+      <Field x={105} y={96} color={COLORS.yellow} />
+      <Field x={160} y={96} color={COLORS.green} />
+      <Pawn color={COLORS.blue} x={105} y={82} scale={0.8} />
+      <SceneLabel x={105} y={142}>hop over freely</SceneLabel>
+      <TravelingPawn
+        still={still}
+        color={COLORS.red}
+        stillAt={1}
+        points={[
+          { x: 50, y: 82 },
+          { x: 160, y: 82 },
+        ]}
+      />
+      {/* right — blocked */}
+      <Field x={215} y={96} color={COLORS.blue} />
+      <Field x={270} y={96} color={COLORS.yellow} />
+      <Field x={318} y={96} color={COLORS.green} r={13} />
+      <Pawn color={COLORS.blue} x={270} y={82} scale={0.8} />
+      <SceneLabel x={285} y={142}>blocked — wait</SceneLabel>
+      {!still && (
+        <motion.g
+          animate={{ x: [0, -4, 4, 0] }}
+          transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 1.1, ease: 'easeInOut' }}
+        >
+          <Pawn color={COLORS.red} x={215} y={82} scale={0.95} />
+        </motion.g>
+      )}
+      {still && <Pawn color={COLORS.red} x={215} y={82} scale={0.95} />}
+    </Scene>
+  );
+}
+
+function SceneSafe({ still }: { still: boolean }) {
+  return (
+    <Scene label="A pawn on its own start field is safe — nobody may land there">
+      {/* own start field with a protective ring */}
+      <motion.g
+        animate={still ? undefined : { opacity: [0.9, 0.4, 0.9], scale: [1, 1.08, 1] }}
+        transition={still ? undefined : { duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ transformOrigin: '150px 96px' }}
+      >
+        <circle cx={150} cy={96} r={24} fill="none" stroke={COLORS.red} strokeWidth={3.5} strokeDasharray="5 4" />
+      </motion.g>
+      <Field x={150} y={96} color={COLORS.red} />
+      <Pawn color={COLORS.red} x={150} y={82} />
+      {/* shield badge */}
+      <g transform="translate(150 44)">
+        <circle r={14} fill={GOLD} stroke="#B6842B" strokeWidth={2} />
+        <path d="M0,-7 L6,-4 V2 C6,6 3,8.5 0,10 C-3,8.5 -6,6 -6,2 V-4 Z" fill="#3E2A18" transform="scale(0.9)" />
+      </g>
+      {/* the rival has to stop next to it */}
+      <Field x={235} y={96} color={COLORS.yellow} />
+      <SceneLabel x={235} y={142}>rivals must stop here</SceneLabel>
+      <TravelingPawn
+        still={still}
+        color={COLORS.blue}
+        stillAt={1}
+        points={[
+          { x: 285, y: 82 },
+          { x: 235, y: 82 },
+        ]}
+      />
+      <SceneLabel x={150} y={182}>safe on your start field</SceneLabel>
+    </Scene>
+  );
+}
+
+function SceneTower({ still }: { still: boolean }) {
+  return (
+    <Scene label="A pawn tower stands together — one bump sends them all home">
+      <Field x={150} y={110} color={COLORS.red} />
+      <Pawn color={COLORS.red} x={144} y={98} scale={0.9} />
+      <Pawn color={COLORS.red} x={158} y={104} scale={0.9} />
+      <SceneLabel x={150} y={62}>pawn tower</SceneLabel>
+      {/* the blue pawn lands on the tower */}
+      <TravelingPawn
+        still={still}
+        color={COLORS.blue}
+        stillAt={still ? 1 : 0}
+        points={[{ x: 270, y: 94 }, { x: 150, y: 94 }]}
+      />
+      {/* both tower pawns fly home */}
+      {still ? (
+        <>
+          <Pawn color={COLORS.red} x={92} y={164} scale={0.7} />
+          <Pawn color={COLORS.red} x={116} y={168} scale={0.7} />
+        </>
+      ) : (
+        <>
+          <motion.g
+            animate={{ x: [144, 92], y: [98, 164], opacity: [1, 1, 0.9, 0] }}
+            transition={{ duration: 2.4, times: [0, 0.55, 0.8, 1], repeat: Infinity, repeatDelay: 0.8, ease: 'easeInOut' }}
+          >
+            <Pawn color={COLORS.red} x={0} y={0} scale={0.9} />
+          </motion.g>
+          <motion.g
+            animate={{ x: [158, 116], y: [104, 168], opacity: [1, 1, 0.9, 0] }}
+            transition={{ duration: 2.4, times: [0, 0.55, 0.8, 1], repeat: Infinity, repeatDelay: 0.8, ease: 'easeInOut', delay: 0.12 }}
+          >
+            <Pawn color={COLORS.red} x={0} y={0} scale={0.9} />
+          </motion.g>
+        </>
+      )}
+      <rect x={66} y={156} width={92} height={30} rx={10} fill="rgba(91,58,36,0.14)" stroke="rgba(91,58,36,0.3)" strokeWidth={2} />
+      <SceneLabel x={112} y={176}>all go home!</SceneLabel>
+    </Scene>
+  );
+}
+
+function SceneExtra({ still }: { still: boolean }) {
+  return (
+    <Scene label="A bump or your own color earns an extra roll">
+      <SceneDie x={60} y={60} color={COLORS.red} still={still} />
+      {/* circling "again" arrow around the die */}
+      {!still && (
+        <motion.g
+          animate={{ rotate: 360 }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+          style={{ transformOrigin: '60px 60px' }}
+        >
+          <path
+            d="M 60 22 A 38 38 0 1 1 34 32"
+            fill="none"
+            stroke={GOLD}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+          <path d="M 30 24 L 38 36 L 44 24 Z" fill={GOLD} />
+        </motion.g>
+      )}
+      <SceneLabel x={60} y={122}>roll again!</SceneLabel>
+      <Field x={150} y={96} color={COLORS.blue} />
+      <Field x={210} y={96} color={COLORS.red} />
+      <Field x={270} y={96} color={COLORS.green} />
+      <Pawn color={COLORS.blue} x={210} y={82} scale={0.8} />
+      <SceneLabel x={210} y={142}>bump…</SceneLabel>
+      <TravelingPawn
+        still={still}
+        color={COLORS.red}
+        stillAt={1}
+        points={[
+          { x: 150, y: 82 },
+          { x: 270, y: 82 },
+        ]}
+      />
+      <SceneLabel x={225} y={182}>…or roll your own color</SceneLabel>
+    </Scene>
+  );
+}
+
+function SceneSkip({ still }: { still: boolean }) {
+  return (
+    <Scene label="With skipping on, you may pass on a move you do not like">
+      {/* skip button mock */}
+      <motion.g
+        animate={still ? undefined : { scale: [1, 0.94, 1] }}
+        transition={still ? undefined : { duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ transformOrigin: '85px 90px' }}
+      >
+        <rect x={45} y={72} width={80} height={36} rx={14} fill="#F2C14E" stroke="rgba(36,27,20,0.3)" strokeWidth={2} />
+        <text x={85} y={95} textAnchor="middle" fontSize={13} fontWeight={800} fill="#3E2A18">
+          Skip
+        </text>
+      </motion.g>
+      <SceneLabel x={85} y={128}>pass on this one</SceneLabel>
+      {/* the pawn stays put, gently idling */}
+      <Field x={210} y={90} color={COLORS.yellow} />
+      {still ? (
+        <Pawn color={COLORS.red} x={210} y={76} />
+      ) : (
+        <motion.g animate={{ rotate: [0, -5, 5, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} style={{ transformOrigin: '210px 90px' }}>
+          <Pawn color={COLORS.red} x={210} y={76} />
+        </motion.g>
+      )}
+      <Field x={275} y={90} color={COLORS.green} />
+      <SceneLabel x={262} y={140}>a better roll may come</SceneLabel>
+      <SceneLabel x={210} y={182}>you wait on your field</SceneLabel>
+    </Scene>
+  );
+}
+
+function SceneCeramic({ still }: { still: boolean }) {
+  const ladder = [
+    { x: 120, w: 44, label: '50%' },
+    { x: 120, w: 66, label: '75%' },
+    { x: 120, w: 84, label: '99%' },
+  ];
+  return (
+    <Scene label="Ceramic dice quietly favor you when you are stuck">
+      <SceneDie x={60} y={90} color={COLORS.red} still={still} />
+      {!still && (
+        <motion.circle
+          cx={60}
+          cy={90}
+          r={26}
+          fill="none"
+          stroke={GOLD}
+          strokeWidth={2.5}
+          animate={{ opacity: [0, 0.8, 0], scale: [1, 1.25, 1.4] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut' }}
+        />
+      )}
+      <SceneLabel x={60} y={140}>stuck? luck leans in</SceneLabel>
+      {/* the exit-color luck ladder */}
+      {ladder.map((bar, i) => (
+        <g key={bar.label}>
+          <rect
+            x={150}
+            y={64 + i * 30}
+            width={84}
+            height={16}
+            rx={8}
+            fill="rgba(91,58,36,0.12)"
+          />
+          {!still ? (
+            <motion.rect
+              x={150}
+              y={64 + i * 30}
+              height={16}
+              rx={8}
+              fill={GOLD}
+              initial={false}
+              animate={{ width: [0, bar.w, bar.w, 0] }}
+              transition={{ duration: 3.6, times: [0, 0.22 + i * 0.16, 0.85, 1], repeat: Infinity, delay: i * 0.25, ease: 'easeOut' }}
+            />
+          ) : (
+            <rect x={150} y={64 + i * 30} width={bar.w} height={16} rx={8} fill={GOLD} />
+          )}
+          <text x={244} y={76 + i * 30} fontSize={11} fontWeight={800} fill="#8A6B4F">
+            {bar.label}
+          </text>
+        </g>
+      ))}
+      <SceneLabel x={205} y={40}>exit color while all pawns wait</SceneLabel>
+      <SceneLabel x={205} y={182}>consecutive failed tries</SceneLabel>
+    </Scene>
+  );
+}
+
+function SceneMap({ still }: { still: boolean }) {
+  const fields = [
+    { x: 60, y: 80 },
+    { x: 125, y: 80 },
+    { x: 190, y: 80 },
+    { x: 255, y: 80 },
+    { x: 95, y: 140 },
+    { x: 160, y: 140 },
+    { x: 225, y: 140 },
+    { x: 290, y: 140 },
+  ];
+  const palette = [COLORS.red, COLORS.blue, COLORS.green, COLORS.yellow, '#FFFFFF', '#37332D'];
+  return (
+    <Scene label="Full random map — every field gets a random color each match">
+      {fields.map((f, i) =>
+        still ? (
+          <Field key={i} x={f.x} y={f.y} color={palette[i % palette.length]!} />
+        ) : (
+          <motion.circle
+            key={i}
+            cx={f.x}
+            cy={f.y}
+            r={17}
+            stroke="rgba(36,27,20,0.25)"
+            strokeWidth={2}
+            animate={{
+              fill: [
+                palette[(i + 1) % palette.length]!,
+                palette[(i + 3) % palette.length]!,
+                palette[(i + 5) % palette.length]!,
+                palette[(i + 1) % palette.length]!,
+              ],
+            }}
+            transition={{ duration: 4.2, repeat: Infinity, delay: i * 0.22, ease: 'easeInOut', times: [0, 0.33, 0.66, 1] }}
+          />
+        ),
+      )}
+      <SceneLabel x={170} y={40}>the whole board is repainted — even home!</SceneLabel>
+      <SceneLabel x={170} y={182}>only the start fields keep their color</SceneLabel>
+    </Scene>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section definitions (single source of truth for manual AND tutorial)
+// ---------------------------------------------------------------------------
+
+interface ManualSection {
+  id: string;
+  title: string;
+  /** One-line teaser, always visible. */
+  lead: string;
+  icon: typeof Dices;
+  Scene?: (props: { still: boolean }) => React.ReactElement;
+  bullets: string[];
+}
+
+const SHORT_SECTIONS: ManualSection[] = [
   {
     id: 'goal',
     title: 'The goal',
-    text: 'Race your pawns around the board into your own home stretch. The first player with every pawn home wins!',
-    Scene: SceneRace,
+    lead: 'Race your pawns into your own home stretch — first to bring every pawn home wins!',
     icon: Target,
+    Scene: SceneRace,
+    bullets: [
+      'Every player races their pawns around the cross-shaped track.',
+      'The own home stretch is fed from the arm tip opposite your color row.',
+    ],
   },
   {
     id: 'roll',
     title: 'Roll & move',
-    text: 'Tap the die, then move ONE pawn to the NEXT field showing the rolled color. No counting — just matching.',
-    Scene: SceneRoll,
+    lead: 'Roll a color, then move ONE pawn to the NEXT field of that color. No counting — just matching.',
     icon: Dices,
+    Scene: SceneRoll,
+    bullets: [
+      'Roll a color → move ONE pawn to the next field of that color.',
+      'White & black faces are long platform strides (Star Mode turns them into wild stars).',
+    ],
   },
   {
     id: 'base',
     title: 'Leave the base',
-    text: 'Roll your own color to bring a pawn out onto your start field. (In Quick Game any color works — a golden star is always wild.)',
-    Scene: SceneBase,
+    lead: 'Roll your own color to bring a pawn out onto your start field.',
     icon: PlayCircle,
+    Scene: SceneBase,
+    bullets: [
+      'Roll your OWN color to bring a pawn onto your start field.',
+      'While all pawns still wait in the base, any color may let the first one out.',
+    ],
   },
   {
     id: 'bump',
     title: 'Bumping rivals',
-    text: 'Land exactly on a rival pawn and it goes all the way back to its base. Careful — rivals can bump you too!',
-    Scene: SceneBump,
+    lead: 'Land exactly on a rival pawn and it goes all the way back to its base.',
     icon: Bot,
+    Scene: SceneBump,
+    bullets: [
+      'Land exactly on an opponent to send it back to its base.',
+      'Pawns on their own start field are safe when "Safe start fields" is on.',
+    ],
   },
   {
     id: 'arrow',
     title: 'The golden arrow',
-    text: 'The arrow at the arm tip is a mandatory stop — roll its color to reach it, then your own color to enter your row. Every finish slot holds one pawn.',
-    Scene: SceneArrow,
+    lead: 'The arrow at the arm tip is a mandatory stop — then your own color walks you home.',
     icon: Footprints,
+    Scene: SceneArrow,
+    bullets: [
+      'The golden arrow is a MANDATORY stop — you can never hop over it.',
+      'Roll the arrow cell\'s color to land on it, then your own color to step inside the row.',
+    ],
   },
   {
     id: 'win',
     title: 'Winning',
-    text: 'Fill your home stretch — one pawn per cell, the first on the golden cell — and the game ends immediately. Hooray!',
-    Scene: SceneWin,
+    lead: 'Fill your home stretch — one pawn per cell — and the game ends immediately. Hooray!',
     icon: Trophy,
+    Scene: SceneWin,
+    bullets: [
+      'One pawn per finish cell — the first stands on the golden cell forever.',
+      'Bring ALL pawns home to win; the game ends immediately.',
+    ],
   },
 ];
 
+/** Full walkthrough — the six core sections plus EVERY special rule. */
+const FULL_SECTIONS: ManualSection[] = [
+  SHORT_SECTIONS[0]!,
+  SHORT_SECTIONS[1]!,
+  {
+    id: 'star',
+    title: 'Star Mode (wild die)',
+    lead: 'In Star Mode the golden star is wild — it counts as ANY color you like.',
+    icon: Sparkles,
+    Scene: SceneStar,
+    bullets: [
+      'OFF (standard): the die carries a WHITE and a BLACK face — roll them to hop to the next white or black platform on the track.',
+      'ON (Star Mode): those two faces become golden STARS — a star counts as ANY color, even white or black.',
+      'A star also brings a pawn out of the base — pick your own color for it.',
+    ],
+  },
+  SHORT_SECTIONS[2]!,
+  {
+    id: 'entryAny',
+    title: 'Any-color entry',
+    lead: 'The any-color variant lets EVERY roll bring a pawn out of the base.',
+    icon: DoorOpen,
+    Scene: SceneEntryAny,
+    bullets: [
+      'Classic rule: only YOUR color starts a pawn — the game waits for it.',
+      'Any-color entry: every roll lets a pawn step out — games start much faster.',
+      'First-pawn help: while ALL your pawns wait in the base, any color lets the first one out.',
+      'The Quick Game preset plays with any-color entry; switch it in Custom Rules.',
+    ],
+  },
+  {
+    id: 'pass',
+    title: 'Passing other pawns',
+    lead: 'Classic blocks jumping — the friendly variant lets you hop right over others.',
+    icon: Footprints,
+    Scene: ScenePass,
+    bullets: [
+      'Blocked paths (Classic): nobody may be jumped over — wait until the way is clear.',
+      'Free passing (Family Mode): you may jump over pawns — only the landing field matters.',
+      'Inside a home stretch nobody is EVER passed — every finish slot holds one pawn.',
+    ],
+  },
+  SHORT_SECTIONS[3]!,
+  {
+    id: 'safe',
+    title: 'Safe start fields',
+    lead: 'With safe starts, a pawn standing on its own start field cannot be bumped.',
+    icon: Shield,
+    Scene: SceneSafe,
+    bullets: [
+      'A pawn on its OWN start field is protected — nobody may land there.',
+      'The protection needs Bumping to be switched on.',
+      'Family Mode plays with safe starts; enable it in Custom Rules.',
+    ],
+  },
+  {
+    id: 'towers',
+    title: 'Pawn towers',
+    lead: 'Pawn towers: your own pawns may share a field — but a bump takes them ALL home.',
+    icon: Layers,
+    Scene: SceneTower,
+    bullets: [
+      'Your own pawns may stand together on one TRACK field.',
+      'An opponent who lands on your tower bumps ALL of them home!',
+      'Inside the home stretch the limit stays strict: one pawn per finish cell.',
+    ],
+  },
+  {
+    id: 'extraRolls',
+    title: 'Extra rolls',
+    lead: 'Extra rolls reward bumps and own-color rolls with another turn.',
+    icon: Hourglass,
+    Scene: SceneExtra,
+    bullets: [
+      'Extra roll after a bump: bump an opponent and you immediately roll again.',
+      'Extra roll on your color: rolling your own color earns another roll right away.',
+      'Both are OFF in Classic — turn them on in Custom Rules for livelier races.',
+    ],
+  },
+  {
+    id: 'skip',
+    title: 'Skipping moves',
+    lead: 'With skipping on, you may pass on a move you do not like.',
+    icon: SkipForward,
+    Scene: SceneSkip,
+    bullets: [
+      'A Skip button lets you pass on a legal move you do not like.',
+      'OFF (Classic): if you can move, you must move.',
+      'Family Mode enables skipping for gentler matches.',
+    ],
+  },
+  SHORT_SECTIONS[4]!,
+  {
+    id: 'finishRule',
+    title: 'Reaching the golden goal',
+    lead: 'Choose whether the golden goal must be hit exactly — or any roll that reaches it counts.',
+    icon: Flag,
+    bullets: [
+      'Exact landing (Classic): a roll that would carry a pawn PAST the golden cell cannot move it.',
+      'Carry past is fine (Family Mode): any roll that reaches or passes the golden cell completes the pawn.',
+      'The golden arrow gateway before the row is ALWAYS a mandatory stop.',
+    ],
+  },
+  {
+    id: 'ceramic',
+    title: 'Ceramic dice (smart luck)',
+    lead: 'Ceramic dice quietly tip luck in your favor when you are stuck — fair play stays fair.',
+    icon: Disc3,
+    Scene: SceneCeramic,
+    bullets: [
+      'OFF in fair play — normal rolls are perfectly honest.',
+      'Fully blocked? The die gently favors colors that let a pawn move.',
+      'All pawns in the base? The exit color climbs 50% → 75% → 99% on consecutive failed tries.',
+      'A match-winning roll gets a random 15–25% boost. Miss the 99% chance and the dice will tease you!',
+    ],
+  },
+  {
+    id: 'map',
+    title: 'Board color pattern',
+    lead: 'Pick the official color weave — or repaint the whole board randomly every match.',
+    icon: MapIcon,
+    Scene: SceneMap,
+    bullets: [
+      'Classic: the documented official weave; every home row is painted in the owner\'s color.',
+      'Full random map: EVERY field — including all three home-stretch cells — gets a random color each match.',
+      'Even walking home demands the matching rolls! Start fields keep their owner\'s color.',
+    ],
+  },
+  {
+    id: 'pawns',
+    title: 'Pawns per player',
+    lead: 'Race three pawns — or just two for a quicker match.',
+    icon: Users,
+    bullets: [
+      'Three pawns: the documented edition amount.',
+      'Two pawns: shorter races for quick games.',
+    ],
+  },
+  SHORT_SECTIONS[5]!,
+];
+
 // ---------------------------------------------------------------------------
-// Interactive tutorial overlay
+// Interactive tutorial overlay (short & full)
 // ---------------------------------------------------------------------------
 
-export function TutorialOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TutorialOverlay({
+  open,
+  onClose,
+  mode = 'short',
+}: {
+  open: boolean;
+  onClose: () => void;
+  mode?: TutorialMode;
+}) {
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const [step, setStep] = useState(0);
+  const steps = mode === 'full' ? FULL_SECTIONS : SHORT_SECTIONS;
 
   // Restart at step 1 whenever the tutorial (re)opens — adjusted during
   // render per the React docs so no effect/setState cascade is needed.
@@ -482,17 +1062,17 @@ export function TutorialOverlay({ open, onClose }: { open: boolean; onClose: () 
         e.preventDefault();
         onClose();
       }
-      if (e.key === 'ArrowRight') setStep((s) => Math.min(STEPS.length - 1, s + 1));
+      if (e.key === 'ArrowRight') setStep((s) => Math.min(steps.length - 1, s + 1));
       if (e.key === 'ArrowLeft') setStep((s) => Math.max(0, s - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, steps.length]);
 
   if (!open) return null;
-  const current = STEPS[step]!;
+  const current = steps[step]!;
   const SceneComp = current.Scene;
-  const last = step === STEPS.length - 1;
+  const last = step === steps.length - 1;
 
   return (
     <div
@@ -503,18 +1083,15 @@ export function TutorialOverlay({ open, onClose }: { open: boolean; onClose: () 
     >
       {/* header — progress & exit */}
       <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#D9C3A0]">
-          Step {step + 1} of {STEPS.length}
+        <p className="shrink-0 text-xs font-bold uppercase tracking-[0.14em] text-[#D9C3A0]">
+          Step {step + 1} of {steps.length}
         </p>
-        <div className="flex items-center gap-1.5" aria-hidden>
-          {STEPS.map((s, i) => (
-            <span
-              key={s.id}
-              className={`h-2 rounded-full transition-all ${
-                i === step ? 'w-5 bg-[#D9A441]' : i < step ? 'w-2 bg-[#D9A441]/60' : 'w-2 bg-white/25'
-              }`}
-            />
-          ))}
+        {/* compact progress bar (17-dot row would crowd small phones) */}
+        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/15" aria-hidden>
+          <div
+            className="h-full rounded-full bg-[#D9A441] transition-all duration-300"
+            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+          />
         </div>
         <Button
           size="icon"
