@@ -1101,24 +1101,30 @@ export function TutorialOverlay({
             playSfx('uiClick');
             onClose();
           }}
-          className="size-9 rounded-xl bg-white/10 text-[#F6EBD9] hover:bg-white/20"
+          className="size-9 shrink-0 rounded-xl bg-white/10 text-[#F6EBD9] hover:bg-white/20"
         >
           <X size={17} />
         </Button>
       </div>
 
       {/* stage */}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-3 sm:px-6">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-3 py-2 sm:px-6">
         <AnimatePresence mode="wait">
           <motion.div
-            key={current.id}
+            key={`${mode}-${current.id}`}
             initial={reducedMotion ? false : { opacity: 0, x: 34, scale: 0.97 }}
             animate={reducedMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
             exit={reducedMotion ? undefined : { opacity: 0, x: -34, scale: 0.97 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="w-full max-w-lg rounded-3xl border border-[#5B3A24]/25 bg-[#FBF3E0] p-3 shadow-2xl shadow-black/50 sm:p-4"
           >
-            <SceneComp still={reducedMotion} />
+            {SceneComp ? (
+              <SceneComp still={reducedMotion} />
+            ) : (
+              <div className="flex items-center justify-center rounded-2xl bg-[#F8EED8] py-8 text-[#B6842B]">
+                <current.icon size={44} strokeWidth={1.6} />
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1127,21 +1133,29 @@ export function TutorialOverlay({
       <div className="px-3 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-6">
         <AnimatePresence mode="wait">
           <motion.div
-            key={`cap-${current.id}`}
+            key={`cap-${mode}-${current.id}`}
             initial={reducedMotion ? false : { opacity: 0, y: 14 }}
             animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
             exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
             transition={{ duration: 0.24 }}
             className="mx-auto w-full max-w-lg"
           >
-            <div className="rounded-3xl border border-white/10 bg-[#2E241A]/95 p-4 text-[#F6EBD9] shadow-xl">
+            <div className="scrollbar-cute max-h-[30dvh] overflow-y-auto rounded-3xl border border-white/10 bg-[#2E241A]/95 p-4 text-[#F6EBD9] shadow-xl">
               <p className="mb-1 flex items-center gap-2 text-base font-extrabold">
-                <span className="flex size-7 items-center justify-center rounded-xl bg-[#D9A441] text-[#3E2A18]">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-[#D9A441] text-[#3E2A18]">
                   <current.icon size={15} />
                 </span>
                 {current.title}
               </p>
-              <p className="text-sm leading-relaxed text-[#E4D2B4]">{current.text}</p>
+              <p className="text-sm leading-relaxed text-[#E4D2B4]">{current.lead}</p>
+              <ul className="mt-2 space-y-1">
+                {current.bullets.map((b) => (
+                  <li key={b} className="flex gap-1.5 text-xs leading-snug text-[#D9C3A0]">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                    {b}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="mt-3 flex items-center justify-between gap-2">
               <Button
@@ -1153,7 +1167,7 @@ export function TutorialOverlay({
                 disabled={step === 0}
                 className="h-11 rounded-2xl border-white/20 bg-white/10 px-4 font-semibold text-[#F6EBD9] hover:bg-white/20 disabled:opacity-40"
               >
-                <ArrowLeft size={16} /> Back
+                Back
               </Button>
               <Button
                 onClick={() => {
@@ -1212,8 +1226,8 @@ export function TutorialIntroDialog({
             Would you like to take an interactive tutorial?
           </DialogTitle>
           <DialogDescription className="text-sm text-[#8A6B4F]">
-            It demonstrates the most important rules with short animations and visual examples —
-            it takes about a minute. You can also read the manual instead.
+            The short tour shows the most important rules with animations — about a minute. The
+            manual also holds the full walkthrough with every special rule.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2.5">
