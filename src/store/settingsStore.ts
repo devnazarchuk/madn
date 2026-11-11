@@ -57,9 +57,10 @@ interface SettingsState {
   toggleMuted: () => void;
   setReducedMotion: (v: boolean) => void;
   setQuality: (q: QualityLevel) => void;
-  setShowMoveHints: (v: boolean) => void;
   setAutoSingleMove: (v: boolean) => void;
   setAutoRoll: (v: boolean) => void;
+  setMobileView: (v: MobileViewId) => void;
+  setSoundPack: (p: SoundPackId) => void;
   setTutorialIntroSeen: (v: boolean) => void;
   setTheme: (t: ThemeId) => void;
   setBoardSkin: (s: BoardSkinId) => void;
@@ -85,9 +86,10 @@ export const useSettingsStore = create<SettingsState>()(
       audio: { master: 0.8, sfx: 0.9, music: 0.5, muted: false },
       reducedMotion: false,
       quality: 'high',
-      showMoveHints: true,
       autoSingleMove: true,
       autoRoll: false,
+      mobileView: 'diagonal',
+      soundPack: 'toys',
       tutorialIntroSeen: false,
       theme: 'classic',
       boardSkin: 'walnut',
@@ -104,9 +106,10 @@ export const useSettingsStore = create<SettingsState>()(
         set((s) => ({ audio: { ...s.audio, muted: !s.audio.muted } })),
       setReducedMotion: (v) => set({ reducedMotion: v }),
       setQuality: (q) => set({ quality: q, ...EFFECT_PRESET[q] }),
-      setShowMoveHints: (v) => set({ showMoveHints: v }),
       setAutoSingleMove: (v) => set({ autoSingleMove: v }),
       setAutoRoll: (v) => set({ autoRoll: v }),
+      setMobileView: (v) => set({ mobileView: v }),
+      setSoundPack: (p) => set({ soundPack: p }),
       setTutorialIntroSeen: (v) => set({ tutorialIntroSeen: v }),
       setTheme: (t) => set({ theme: t }),
       setBoardSkin: (s) => set({ boardSkin: s }),
