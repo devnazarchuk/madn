@@ -164,7 +164,9 @@ function RuleInfoDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   meta: RuleOptionMeta;
-  value: boolean | string;
+  /** A rule value as stored in RulesConfig: booleans for toggles, strings
+   *  for presets/enums, numbers for the count options (pawns per player). */
+  value: boolean | string | number;
 }) {
   const Icon = GROUP_ICONS[meta.group];
   return (
@@ -366,56 +368,17 @@ function AutoRollRow() {
 }
 
 // ---------------------------------------------------------------------------
-// Additional Rules — always visible; the full editor appears in custom mode
+// Additional Rules — only exists in Custom mode. For the locked presets the
+// section is hidden entirely (the presets are fixed; Auto-roll lives in the
+// full editor and the pause menu's settings, so nothing is lost).
 // ---------------------------------------------------------------------------
 
 function AdditionalRulesCard() {
   const rulesConfig = useGameStore((s) => s.rulesConfig);
-  const customizeFromPreset = useGameStore((s) => s.customizeFromPreset);
   const resetRulesToClassic = useGameStore((s) => s.resetRulesToClassic);
   const isCustom = rulesConfig.preset === 'custom';
 
-  if (!isCustom) {
-    const meta = PRESET_META[rulesConfig.preset];
-    return (
-      <Card className="w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
-            <Wand2 size={15} /> Additional Rules
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
-            <p className="min-w-0 flex-1 basis-52 text-xs leading-snug text-[#6B4E35]">
-              <span className="font-bold text-[#3E2A18]">{meta.title}</span> is a fixed preset.
-              Copy it into Custom Rules to tweak every option — ceramic dice, random maps and all.
-            </p>
-            <div className="flex shrink-0 gap-2">
-              <Button
-                size="sm"
-                onClick={() => {
-                  playSfx('modal');
-                  customizeFromPreset();
-                }}
-                className="h-8 rounded-lg bg-[#E8503A] hover:bg-[#C23A28]"
-              >
-                <Wand2 size={13} /> Make it custom
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => resetRulesToClassic()}
-                className="h-8 rounded-lg border-[#5B3A24]/25 bg-white/60"
-              >
-                <RotateCcw size={13} /> Classic
-              </Button>
-            </div>
-          </div>
-          <AutoRollRow />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (!isCustom) return null;
 
   const groups = [...new Set(RULE_OPTIONS.map((o) => o.group))] as RuleGroup[];
   return (

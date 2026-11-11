@@ -1,7 +1,13 @@
 'use client';
 
+import { playSfx } from '@/services/audio';
 import { COLORS, COLORS_DEEP, STAR_COLOR } from '@/config/theme';
 import type { DiceFaceId, PlayerColorId } from '@/engine/types';
+
+/** Soft pointer-enter tick for big menu buttons (≈ −20 dB, never annoying). */
+export function hoverSfx(): void {
+  playSfx('uiHover');
+}
 
 // ---------------------------------------------------------------------------
 // Animal icons — small hand-drawn silhouettes of the four characters

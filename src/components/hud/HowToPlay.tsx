@@ -1267,35 +1267,8 @@ export function TutorialIntroDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Visual manual dialog
+// Visual manual dialog — short & full walkthrough, collapsible sections
 // ---------------------------------------------------------------------------
-
-const MANUAL_BULLETS: Record<string, string[]> = {
-  goal: [
-    'Every player races their pawns around the cross-shaped track.',
-    'The own home stretch is fed from the arm tip opposite your color row.',
-  ],
-  roll: [
-    'Roll a color → move ONE pawn to the next field of that color.',
-    'White & black faces are long platform strides (Star Mode turns them into wild stars).',
-  ],
-  base: [
-    'Roll your OWN color to bring a pawn onto your start field.',
-    'While all pawns still wait in the base, any color may let the first one out.',
-  ],
-  bump: [
-    'Land exactly on an opponent to send it back to its base.',
-    'Pawns on their own start field are safe when "Safe start fields" is on.',
-  ],
-  arrow: [
-    'The golden arrow is a MANDATORY stop — you can never hop over it.',
-    'Roll the arrow cell\'s color to land on it, then your own color to step inside the row.',
-  ],
-  win: [
-    'One pawn per finish cell — the first stands on the golden cell forever.',
-    'Bring ALL pawns home to win; the game ends immediately.',
-  ],
-};
 
 export function HowToPlayDialog({
   open,
@@ -1304,9 +1277,21 @@ export function HowToPlayDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onTutorial: () => void;
+  onTutorial: (mode: TutorialMode) => void;
 }) {
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
+  const [tab, setTab] = useState<TutorialMode>('short');
+  /** Single-open accordion — collapsed by default so only the wanted
+   *  animation ever runs. */
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setOpenId(null);
+  }
+
+  const sections = tab === 'full' ? FULL_SECTIONS : SHORT_SECTIONS;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0] sm:max-w-xl">
@@ -1318,56 +1303,126 @@ export function HowToPlayDialog({
             How to play
           </DialogTitle>
           <DialogDescription>
-            The most important rules, shown with little examples — the full rule reference lives in
-            the game&apos;s book button.
+            Little animated examples — tap a section to open it. The full walkthrough covers every
+            special rule; the deeper reference lives in the game&apos;s book button.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          {STEPS.map((step, i) => {
-            const SceneComp = step.Scene;
+
+        {/* short / full segmented control */}
+        <div
+          role="tablist"
+          aria-label="Manual depth"
+          className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-[#E8D6B4] p-1"
+        >
+          {(
+            [
+              { id: 'short', label: 'Short guide' },
+              { id: 'full', label: 'Full rules' },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => {
+                playSfx('uiClick');
+                setTab(t.id);
+                setOpenId(null);
+              }}
+              className={`h-10 min-w-0 rounded-xl text-sm font-bold transition ${
+                tab === t.id
+                  ? 'bg-white text-[#3E2A18] shadow'
+                  : 'text-[#6B4E35] hover:bg-white/40'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* collapsible sections — nothing renders for closed sections, so
+            collapsed sections never animate (and never cost performance) */}
+        <div className="space-y-2">
+          {sections.map((section, i) => {
+            const isOpen = openId === section.id;
+            const SceneComp = section.Scene;
             return (
               <div
-                key={step.id}
+                key={section.id}
                 className="overflow-hidden rounded-2xl border border-[#5B3A24]/15 bg-white/60"
               >
-                <div className="border-b border-[#5B3A24]/10 bg-[#F8EED8]/70 px-3 py-2">
-                  <p className="flex items-center gap-2 text-sm font-bold text-[#3E2A18]">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
-                      <step.icon size={13} />
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  onClick={() => {
+                    playSfx('uiClick');
+                    setOpenId(isOpen ? null : section.id);
+                  }}
+                  className="flex w-full items-center gap-2 border-b border-[#5B3A24]/10 bg-[#F8EED8]/70 px-3 py-2.5 text-left transition hover:bg-[#F8EED8]"
+                >
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+                    <section.icon size={14} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline gap-1 text-sm font-bold text-[#3E2A18]">
+                      <span className="text-[#B08A5E]">{i + 1}.</span> {section.title}
                     </span>
-                    {i + 1}. {step.title}
-                  </p>
-                </div>
-                <div className="grid gap-2 p-3 sm:grid-cols-[1.1fr_1fr] sm:items-center sm:gap-3">
-                  <div className="rounded-xl bg-[#F8EED8]/80 p-1.5">
-                    <SceneComp still={reducedMotion} />
-                  </div>
-                  <ul className="space-y-1.5">
-                    {MANUAL_BULLETS[step.id]!.map((b) => (
-                      <li key={b} className="flex gap-1.5 text-xs leading-snug text-[#6B4E35]">
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                    {!isOpen && (
+                      <span className="mt-0.5 block truncate text-[11px] leading-snug text-[#8A6B4F]">
+                        {section.lead}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`shrink-0 text-[#8A6B4F] transition-transform duration-200 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {isOpen && (
+                  <motion.div
+                    initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+                    animate={reducedMotion ? undefined : { height: 'auto', opacity: 1 }}
+                    exit={reducedMotion ? undefined : { height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="grid gap-2 p-3 sm:grid-cols-[1.1fr_1fr] sm:items-center sm:gap-3"
+                  >
+                    {SceneComp && (
+                      <div className="rounded-xl bg-[#F8EED8]/80 p-1.5">
+                        <SceneComp still={reducedMotion} />
+                      </div>
+                    )}
+                    <ul className="space-y-1.5">
+                      {section.bullets.map((b) => (
+                        <li key={b} className="flex gap-1.5 text-xs leading-snug text-[#6B4E35]">
+                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                )}
               </div>
             );
           })}
-          <p className="px-1 text-[11px] leading-snug text-[#8A6B4F]">
-            Every family plays its own way — the Custom rules menu lets you tune entry, bumping,
-            extra rolls, the board pattern and more.
-          </p>
         </div>
+
+        <p className="px-1 text-[11px] leading-snug text-[#8A6B4F]">
+          Every family plays its own way — the Custom rules menu lets you tune entry, bumping,
+          extra rolls, the board pattern and more.
+        </p>
+
         <div className="flex justify-end">
           <Button
             onClick={() => {
               playSfx('star');
-              onTutorial();
+              onTutorial(tab);
             }}
             className="h-11 rounded-2xl bg-[#43B57E] font-bold text-white hover:bg-[#2E8F63]"
           >
-            <PlayCircle size={17} /> Try the interactive tutorial
+            <PlayCircle size={17} />
+            {tab === 'full' ? 'Try the full tutorial' : 'Try the interactive tutorial'}
           </Button>
         </div>
       </DialogContent>
