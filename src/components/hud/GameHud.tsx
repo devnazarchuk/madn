@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BookOpen, Bot, Crown, Dices, Focus, Pause, SkipForward, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import { BookOpen, Bot, Crown, Dices, Diamond, Focus, Pause, SkipForward, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -22,6 +22,26 @@ interface StatusInfo {
 
 /** Stable empty fallback (never return a fresh array from a zustand selector). */
 const EMPTY_PLAYERS: never[] = [];
+
+/**
+ * True while the viewport is taller than wide — i.e. the camera is using one
+ * of the two portrait board framings and the top-down/angled view toggle
+ * applies. Re-evaluated on resize & orientation change.
+ */
+function usePortraitViewport(): boolean {
+  const [portrait, setPortrait] = useState(false);
+  useEffect(() => {
+    const update = () => setPortrait(window.innerHeight > window.innerWidth);
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+  return portrait;
+}
 
 const TONE_STYLES: Record<StatusInfo['tone'], string> = {
   action: 'bg-[#E8503A] text-white',
@@ -240,6 +260,9 @@ export function GameHud() {
   const introPlaying = useGameStore((s) => s.introPlaying);
   const muted = useSettingsStore((s) => s.audio.muted);
   const toggleMuted = useSettingsStore((s) => s.toggleMuted);
+  const mobileView = useSettingsStore((s) => s.mobileView);
+  const setMobileView = useSettingsStore((s) => s.setMobileView);
+  const isPortrait = usePortraitViewport();
   const [rulesOpen, setRulesOpen] = useState(false);
 
   // DYNAMIC TURN COLOR — the banner wears the ACTIVE player's color (the
@@ -319,6 +342,20 @@ export function GameHud() {
           >
             {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </HudIconButton>
+          {/* Phones only: flip between the angled diamond framing and the
+              straight top-down view (landscape/desktop keeps the classic
+              three-quarter camera, so the toggle would do nothing there). */}
+          {isPortrait && (
+            <HudIconButton
+              label={mobileView === 'diagonal' ? 'Switch to top-down view' : 'Switch to angled view'}
+              onClick={() => {
+                playSfx('uiClick');
+                setMobileView(mobileView === 'diagonal' ? 'topdown' : 'diagonal');
+              }}
+            >
+              {mobileView === 'diagonal' ? <Square size={16} /> : <Diamond size={16} />}
+            </HudIconButton>
+          )}
           <HudIconButton label="Reset camera view" onClick={() => resetCamera()}>
             <Focus size={18} />
           </HudIconButton>
@@ -380,8 +417,10 @@ export function GameHud() {
       {/* ---- player chips ------------------------------------------------ */}
       {/* flex-1 chips share the row equally on phones (no name text, no
           clipping); sm+ keeps the natural-width labelled pills. overflow-x-auto
-          remains as a graceful fallback for narrow desktop windows. */}
-      <div className="pointer-events-auto flex gap-1 overflow-x-auto px-1.5 pb-1 no-scrollbar sm:gap-2 sm:px-3">
+          remains as a graceful fallback for narrow desktop windows. The extra
+          top padding nudges the cards down a few pixels so the active card's
+          ring/border is never cut off against the screen edge. */}
+      <div className="pointer-events-auto flex gap-1 overflow-x-auto px-1.5 pb-1 pt-1.5 no-scrollbar sm:gap-2 sm:px-3 sm:pt-2">
         {players.map((p) => (
           <PlayerChip
             key={p.id}

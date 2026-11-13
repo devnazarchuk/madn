@@ -28,8 +28,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { clearAutosave } from '@/engine/persistence';
 import { playSfx } from '@/services/audio';
 import { AboutDialog, HistoryDialog } from './Dialogs';
-import { HowToPlayDialog, TutorialIntroDialog, TutorialOverlay } from './HowToPlay';
-import { AnimalIcon } from './shared';
+import { HowToPlayDialog, TutorialIntroDialog, TutorialOverlay, type TutorialMode } from './HowToPlay';
+import { AnimalIcon, hoverSfx } from './shared';
 import { SettingsDialog } from './SettingsPanel';
 
 /** Colorful KIDS lettering under the title. */
@@ -55,6 +55,7 @@ export function MenuScreen() {
   // visits open the visual manual directly ("Don't show again" persists).
   const [howOpen, setHowOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialMode, setTutorialMode] = useState<TutorialMode>('short');
   const [introOpen, setIntroOpen] = useState(false);
   const tutorialIntroSeen = useSettingsStore((s) => s.tutorialIntroSeen);
   const setTutorialIntroSeen = useSettingsStore((s) => s.setTutorialIntroSeen);
@@ -126,6 +127,7 @@ export function MenuScreen() {
                 </div>
                 <div className="flex gap-2">
                   <Button
+                    onMouseEnter={hoverSfx}
                     onClick={() => {
                       playSfx('star');
                       continueGame();
@@ -153,6 +155,7 @@ export function MenuScreen() {
             )}
 
             <Button
+              onMouseEnter={hoverSfx}
               onClick={() => {
                 playSfx('modal');
                 goScreen('setup');
@@ -165,6 +168,7 @@ export function MenuScreen() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
+                onMouseEnter={hoverSfx}
                 className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
                 onClick={() => {
                   playSfx('modal');
@@ -179,6 +183,7 @@ export function MenuScreen() {
               </Button>
               <Button
                 variant="outline"
+                onMouseEnter={hoverSfx}
                 className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
                 onClick={() => {
                   playSfx('modal');
@@ -189,6 +194,7 @@ export function MenuScreen() {
               </Button>
               <Button
                 variant="outline"
+                onMouseEnter={hoverSfx}
                 className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
                 onClick={() => {
                   playSfx('modal');
@@ -199,6 +205,7 @@ export function MenuScreen() {
               </Button>
               <Button
                 variant="outline"
+                onMouseEnter={hoverSfx}
                 className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
                 onClick={() => {
                   playSfx('modal');
@@ -211,6 +218,7 @@ export function MenuScreen() {
 
             <Button
               variant="outline"
+              onMouseEnter={hoverSfx}
               className="h-11 w-full rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
               onClick={() => {
                 playSfx('modal');
@@ -232,6 +240,7 @@ export function MenuScreen() {
         onStart={() => {
           setTutorialIntroSeen(true);
           setIntroOpen(false);
+          setTutorialMode('short');
           setTutorialOpen(true);
         }}
         onManual={() => {
@@ -247,12 +256,17 @@ export function MenuScreen() {
       <HowToPlayDialog
         open={howOpen}
         onClose={() => setHowOpen(false)}
-        onTutorial={() => {
+        onTutorial={(mode) => {
           setHowOpen(false);
+          setTutorialMode(mode);
           setTutorialOpen(true);
         }}
       />
-      <TutorialOverlay open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
+      <TutorialOverlay
+        open={tutorialOpen}
+        mode={tutorialMode}
+        onClose={() => setTutorialOpen(false)}
+      />
     </div>
   );
 }
