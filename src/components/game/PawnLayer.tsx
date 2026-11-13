@@ -21,6 +21,9 @@ import { idleStyleFor, PawnCharacter } from './PawnCharacter';
  *  - The director calls confirmMoveAnimation() once the whole sequence is
  *    visually finished (the store also holds an independent failsafe).
  *  - Illegal taps trigger a shake on the specific pawn (shakePawnId/token).
+ *  - Tapping an ENEMY pawn standing on a capture target plays the capture
+ *    (the platform is what the child presses — the occupant must not eat
+ *    the tap with its own "not your pawn" handler).
  */
 
 interface PawnSpec {
@@ -393,15 +396,18 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
  * the move. Hovering a target brightens the ring, tints the cell and shows
  * the pointer cursor. When two moves share one destination the cell click
  * plays the first of them (the per-pawn rings stay precise for the rest).
+ *
+ * ALWAYS ON for a human while choosing: the golden target platforms are
+ * how a child sees WHERE a pawn would land, and they are the tap targets
+ * themselves — they must never be hidden behind a settings toggle.
  */
 function TargetRings() {
   const legalMoves = useGameStore((s) => s.legalMoves);
-  const showHints = useSettingsStore((s) => s.showMoveHints);
   const phase = useGameStore((s) => s.game?.phase ?? null);
   const activeKind = useGameStore((s) => s.game?.players[s.game.activeIndex ?? 0]?.kind ?? null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
-  const visible = phase === 'choose-pawn' && activeKind === 'human' && showHints;
+  const visible = phase === 'choose-pawn' && activeKind === 'human';
 
   const onTargetClick = (e: ThreeEvent<MouseEvent>, pawnId: string) => {
     e.stopPropagation();

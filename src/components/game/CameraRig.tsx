@@ -367,22 +367,22 @@ export function CameraRig() {
     }
   }, [introPlaying, camera]);
 
-  // Restore the fitted default view (diamond on portrait, three-quarter on
-  // landscape) whenever the HUD asks for it.
+  // Restore the fitted default view (diamond / top-down on portrait phones,
+  // three-quarter on landscape) whenever the HUD asks for it.
   useEffect(() => {
     if (cameraResetToken === 0) return;
     const c = controls.current;
     if (!c) return;
-    applyCameraFit(camera, fitPosition, fit.fov);
+    applyCameraFit(camera, fit.position, fit.fov);
     c.target.copy(fit.target);
     c.update();
-  }, [cameraResetToken, camera, fit.fov, fit.target, fitPosition]);
+  }, [cameraResetToken, camera, fit]);
 
   useFrame(() => {
     if (!introPlaying) return;
     const t = Math.min(1, (Date.now() - startAt.current) / TIMING.introDuration);
-    camera.position.lerpVectors(fromPos.current, fitPosition, easeInOut(t));
-    camera.lookAt(0, 0.6, 0);
+    camera.position.lerpVectors(fromPos.current, fit.position, easeInOut(t));
+    camera.lookAt(fit.target);
     if (t >= 1) useGameStore.getState().finishIntro();
   });
 
@@ -393,7 +393,6 @@ export function CameraRig() {
       ref={controls}
       makeDefault
       enabled={!introPlaying}
-      target={[0, 0.5, 0]}
       enablePan={false}
       enableDamping
       dampingFactor={0.09}
@@ -401,8 +400,8 @@ export function CameraRig() {
       zoomSpeed={0.7}
       minDistance={CAMERA_DEFAULTS.minDistance}
       maxDistance={Math.max(CAMERA_DEFAULTS.maxDistance, fit.distance + 5)}
-      minPolarAngle={CAMERA_DEFAULTS.minPolarAngle}
-      maxPolarAngle={CAMERA_DEFAULTS.maxPolarAngle}
+      minPolarAngle={fit.polarMin}
+      maxPolarAngle={fit.polarMax}
       autoRotate={autoRotate}
       autoRotateSpeed={screen === 'menu' ? 0.55 : 1.05}
     />
