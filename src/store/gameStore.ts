@@ -961,6 +961,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     // ---------------------------------------------------------------------
     togglePause: () => {
       const paused = !get().paused;
+      playSfx(paused ? 'modal' : 'uiClick', { intensity: paused ? 0.8 : 0.6 });
       set({ paused });
       if (!paused) tick();
     },
@@ -1022,9 +1023,13 @@ export const useGameStore = create<GameStore>()((set, get) => {
   };
 });
 
-// Keep audio settings in sync with the settings store.
+// Keep audio settings in sync with the settings store (volumes AND the
+// active sound pack — also applied once so a persisted pack is live from
+// the very first sound).
 if (typeof window !== 'undefined') {
-  useSettingsStore.subscribe((s) => {
+  setSoundPack(useSettingsStore.getState().soundPack);
+  useSettingsStore.subscribe((s, prev) => {
     setAudioSettings(s.audio);
+    if (s.soundPack !== prev.soundPack) setSoundPack(s.soundPack);
   });
 }
