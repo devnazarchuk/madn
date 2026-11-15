@@ -59,12 +59,12 @@ export function SettingsPanel() {
   const audio = useSettingsStore((s) => s.audio);
   const setAudio = useSettingsStore((s) => s.setAudio);
   const toggleMuted = useSettingsStore((s) => s.toggleMuted);
+  const soundPack = useSettingsStore((s) => s.soundPack);
+  const setSoundPack = useSettingsStore((s) => s.setSoundPack);
   const quality = useSettingsStore((s) => s.quality);
   const setQuality = useSettingsStore((s) => s.setQuality);
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const setReducedMotion = useSettingsStore((s) => s.setReducedMotion);
-  const showMoveHints = useSettingsStore((s) => s.showMoveHints);
-  const setShowMoveHints = useSettingsStore((s) => s.setShowMoveHints);
   const autoSingleMove = useSettingsStore((s) => s.autoSingleMove);
   const setAutoSingleMove = useSettingsStore((s) => s.setAutoSingleMove);
   const autoRoll = useSettingsStore((s) => s.autoRoll);
@@ -122,9 +122,38 @@ export function SettingsPanel() {
             step={0.05}
             disabled={audio.muted}
             onValueChange={(v) => setAudio({ [key]: v[0] ?? 0 })}
+            onValueCommit={() => playSfx('uiHover')}
           />
         </div>
       ))}
+
+      {/* --- Sound pack: changes the SFX timbre AND the music style -------- */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Disc3 size={15} /> Sound pack
+        </div>
+        <Select
+          value={soundPack}
+          onValueChange={(v) => {
+            setSoundPack(v as SoundPackId);
+            playSfx('star');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Sound pack">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SOUND_PACKS.map((pack) => (
+              <SelectItem key={pack.id} value={pack.id}>
+                {pack.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <p className="-mt-1 px-1 text-[11px] leading-snug text-muted-foreground">
+        Three audio characters — effects and background music change together.
+      </p>
 
       <Separator />
 
@@ -334,17 +363,6 @@ export function SettingsPanel() {
       <Separator />
 
       {/* --- Gameplay ------------------------------------------------------- */}
-      <label className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">Show move hints</span>
-        <Switch
-          checked={showMoveHints}
-          onCheckedChange={(v) => {
-            setShowMoveHints(v);
-            playSfx('uiClick');
-          }}
-          aria-label="Show move hints"
-        />
-      </label>
       <label className="flex items-center justify-between gap-3 text-sm">
         <span className="flex items-center gap-2 font-medium">
           <Bot size={15} /> Auto-play single moves

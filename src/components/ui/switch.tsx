@@ -10,15 +10,15 @@ import { cn } from "@/lib/utils"
  * njesenberger, adapted to the game's warm theme and component architecture):
  *  - rounded-rectangular track with distinct OFF (warm tan) / ON (green) fills,
  *  - a sliding button with a subtle mechanical look,
- *  - twelve small decorative circles inside the sliding button,
+ *  - four small decorative circles inside the sliding button (2 × 2),
  *  - smooth transitions, disabled by prefers-reduced-motion,
  *  - full Radix a11y: role="switch", keyboard toggling, focus-visible ring.
  * The Root element is the touch target; wrap it in a <label> to make the
  * whole row clickable (existing call sites already do).
  */
 
-/** Decorative dots inside the sliding button (2 rows × 6). */
-const DOTS = Array.from({ length: 12 }, (_, i) => i)
+/** Decorative dots inside the sliding button (2 rows × 2). */
+const DOTS = Array.from({ length: 4 }, (_, i) => i)
 
 function Switch({
   className,
@@ -39,7 +39,7 @@ function Switch({
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
         className={cn(
-          "pointer-events-none grid h-[26px] w-9 translate-x-0 grid-cols-6 grid-rows-2 gap-[1.5px] rounded-[8px] bg-[#FBF3E0] p-[5px] shadow-[0_2px_5px_rgba(0,0,0,0.32),inset_0_-2px_3px_rgba(91,58,36,0.14)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          "pointer-events-none grid h-[26px] w-9 translate-x-0 grid-cols-2 grid-rows-2 place-content-center gap-[3px] rounded-[8px] bg-[#FBF3E0] p-[6px] shadow-[0_2px_5px_rgba(0,0,0,0.32),inset_0_-2px_3px_rgba(91,58,36,0.14)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           "data-[state=checked]:translate-x-[22px]"
         )}
       >
@@ -47,7 +47,7 @@ function Switch({
           <span
             key={i}
             aria-hidden
-            className="size-[3px] rounded-full bg-[#5B3A24]/25"
+            className="size-[4px] rounded-full bg-[#5B3A24]/25"
           />
         ))}
       </SwitchPrimitive.Thumb>
