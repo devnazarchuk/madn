@@ -14,7 +14,16 @@ import {
 } from '@/engine/board';
 import { TRACK_FIELDS, CLASSIC_LAYOUT } from '@/engine/boardTrackConfig';
 import { BOARD, cellToWorld } from '@/engine/layout';
-import { BOARD_SKINS, COLORS, COLORS_DEEP, COLORS_SOFT, MATERIAL, type BoardSkin } from '@/config/theme';
+import {
+  BOARD_SKINS,
+  COLORS,
+  COLORS_DEEP,
+  COLORS_SOFT,
+  MATERIAL,
+  TILE_SKINS,
+  type BoardSkin,
+  type TileSkin,
+} from '@/config/theme';
 import { PLAYER_COLORS } from '@/config/gameConfig';
 import type { PlayerColorId, TrackColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
@@ -54,9 +63,10 @@ const GOLD_FRAME_Y = FOUNDATION_TOP + 0.015;
 /**
  * One track field as a crafted colored inlay: a warm cream socket ring
  * (consistent separation between neighbours), a slightly raised colored
- * inlay with soft highlights, and a deep-tone painted edge. White & black
- * PLATFORM fields use the same craft with their platform colors. Start
- * fields additionally carry a golden ring.
+ * inlay and a painted edge — shape language & finish follow the TILE SKIN
+ * (smooth classic inlay, faceted low-poly gems, plush cushions with a
+ * little top button, glossy porcelain with golden rims). Start fields
+ * additionally carry a golden ring.
  */
 function TrackField({
   color,
@@ -64,36 +74,59 @@ function TrackField({
   socketColor,
   isStart,
   protectedStart,
+  tile,
 }: {
   color: string;
   deepColor: string;
   socketColor: string;
   isStart: boolean;
   protectedStart: boolean;
+  tile: TileSkin;
 }) {
   return (
     <group>
       {/* cream socket — clear separation between adjacent spaces */}
       <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, 28]} />
-        <meshStandardMaterial color={socketColor} roughness={0.6} metalness={0.02} />
+        <cylinderGeometry args={[0.5, 0.5, BOARD.tileHeight, tile.segments]} />
+        <meshStandardMaterial
+          color={socketColor}
+          roughness={0.6}
+          metalness={0.02}
+          flatShading={tile.flat}
+        />
       </mesh>
       {/* the colored inlay — slightly proud of the socket */}
       <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.44, 0.455, BOARD.tileHeight + 0.008, 32]} />
+        <cylinderGeometry args={[0.44, 0.455, BOARD.tileHeight + 0.008, tile.segments]} />
         <meshStandardMaterial
           color={color}
-          roughness={0.38}
-          metalness={0.05}
+          roughness={tile.roughness}
+          metalness={tile.metalness}
+          flatShading={tile.flat}
           emissive={color}
-          emissiveIntensity={0.055}
+          emissiveIntensity={tile.glow}
         />
       </mesh>
-      {/* painted edge — the inlay's deep-tone rim */}
-      <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.44, 0.018, 8, 40]} />
-        <meshStandardMaterial color={deepColor} roughness={0.5} metalness={0.03} />
-      </mesh>
+      {/* plush style: a soft top button at the inlay center */}
+      {tile.button && (
+        <mesh position={[0, 0.05, 0]} castShadow>
+          <sphereGeometry args={[0.075, 14, 10]} />
+          <meshStandardMaterial color={deepColor} roughness={0.8} metalness={0} flatShading={false} />
+        </mesh>
+      )}
+      {/* painted edge — the inlay's rim */}
+      {tile.rim === 'paint' && (
+        <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.44, 0.018 * tile.rimScale, 8, Math.min(40, tile.segments * 2 + 8)]} />
+          <meshStandardMaterial color={deepColor} roughness={0.5} metalness={0.03} flatShading={tile.flat} />
+        </mesh>
+      )}
+      {tile.rim === 'gold' && (
+        <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.44, 0.016 * tile.rimScale, 8, 44]} />
+          <meshStandardMaterial color={MATERIAL.gold} metalness={0.68} roughness={0.3} />
+        </mesh>
+      )}
       {isStart && (
         <mesh position={[0, 0.058, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.475, 0.042, 10, 44]} />
@@ -133,11 +166,13 @@ function HomeSlots({
   color,
   skin,
   slotColors,
+  tile,
 }: {
   color: PlayerColorId;
   skin: BoardSkin;
   /** The three finish-platform colors from the match's layout. */
   slotColors: TrackColorId[];
+  tile: TileSkin;
 }) {
   const goalIdx = HOME_ROW[color].length - 1;
   return (
@@ -149,28 +184,44 @@ function HomeSlots({
           <group key={i} position={[x, HOME_Y, z]}>
             {/* cream socket — noticeably tighter than a track cell */}
             <mesh castShadow receiveShadow>
-              <cylinderGeometry args={[0.38, 0.38, BOARD.tileHeight, 28]} />
-              <meshStandardMaterial color={skin.surfaceDeep} roughness={0.6} metalness={0.02} />
+              <cylinderGeometry args={[0.38, 0.38, BOARD.tileHeight, tile.segments]} />
+              <meshStandardMaterial color={skin.surfaceDeep} roughness={0.6} metalness={0.02} flatShading={tile.flat} />
             </mesh>
             {/* the finish platform — smaller & semi-transparent, clearly
                 distinct from the saturated track inlays */}
             <mesh position={[0, 0.004, 0]} castShadow receiveShadow>
-              <cylinderGeometry args={[0.3, 0.315, BOARD.tileHeight + 0.008, 32]} />
+              <cylinderGeometry args={[0.3, 0.315, BOARD.tileHeight + 0.008, tile.segments]} />
               <meshStandardMaterial
                 color={COLORS[paint]}
-                roughness={0.38}
-                metalness={0.05}
+                roughness={tile.roughness}
+                metalness={tile.metalness}
+                flatShading={tile.flat}
                 emissive={COLORS[paint]}
-                emissiveIntensity={0.055}
+                emissiveIntensity={tile.glow}
                 transparent
                 opacity={0.78}
               />
             </mesh>
+            {/* plush style: soft top button */}
+            {tile.button && (
+              <mesh position={[0, 0.05, 0]} castShadow>
+                <sphereGeometry args={[0.06, 14, 10]} />
+                <meshStandardMaterial color={COLORS_DEEP[paint]} roughness={0.8} />
+              </mesh>
+            )}
             {/* the platform framing rim */}
-            <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.3, 0.022, 8, 40]} />
-              <meshStandardMaterial color={COLORS_DEEP[paint]} roughness={0.5} metalness={0.03} />
-            </mesh>
+            {tile.rim === 'paint' && (
+              <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.3, 0.022 * tile.rimScale, 8, Math.min(40, tile.segments * 2 + 8)]} />
+                <meshStandardMaterial color={COLORS_DEEP[paint]} roughness={0.5} metalness={0.03} flatShading={tile.flat} />
+              </mesh>
+            )}
+            {tile.rim === 'gold' && (
+              <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.3, 0.02 * tile.rimScale, 8, 44]} />
+                <meshStandardMaterial color={MATERIAL.gold} metalness={0.68} roughness={0.3} />
+              </mesh>
+            )}
             {/* the golden winning cell */}
             {i === goalIdx && (
               <mesh position={[0, 0.058, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -413,8 +464,10 @@ function ActiveBaseGlow() {
 
 export function BoardModel() {
   const boardSkin = useSettingsStore((s) => s.boardSkin);
+  const tileSkinId = useSettingsStore((s) => s.tileSkin);
   const sharpTextures = useSettingsStore((s) => s.sharpTextures);
   const skin = BOARD_SKINS[boardSkin];
+  const tile = TILE_SKINS[tileSkinId];
   // The match's color layout (classic weave or Full Random map) — outside a
   // match the board shows the official pattern. Track field colors and
   // gameplay-critical colors are never affected by skins or themes.
@@ -493,6 +546,7 @@ export function BoardModel() {
             socketColor={skin.surfaceDeep}
             isStart={f.isStart}
             protectedStart={protectedStarts}
+            tile={tile}
           />
         </group>
       ))}
@@ -500,7 +554,7 @@ export function BoardModel() {
       {/* home stretches + goal mouths + the golden tip feed arrows */}
       {PLAYER_COLORS.map((color) => (
         <group key={color}>
-          <HomeSlots color={color} skin={skin} slotColors={layout.homeColors[color] ?? [color, color, color]} />
+          <HomeSlots color={color} skin={skin} slotColors={layout.homeColors[color] ?? [color, color, color]} tile={tile} />
           <HomeMouth color={color} />
         </group>
       ))}

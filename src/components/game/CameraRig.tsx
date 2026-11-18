@@ -135,14 +135,17 @@ function portraitSpec(
 
 /** Angled diamond: raised elevation fills the tall screen far better than a
  *  shallow angle (the board's projected height scales with sin(elevation)).
- *  Tuned CLOSER than the first width-fit pass: the board is allowed to run
- *  ~12% past the screen sides (only the empty wooden corner tips crop —
- *  every pawn slot stays fully on screen) and the steeper 56° elevation
- *  gives the diamond more vertical presence. */
-const DIAGONAL = portraitSpec(56, 56, 7, {
+ *  Tuned for the CLOSE, "fill the screen" mobile framing the players asked
+ *  for: the board spans ~103% of the viewport width (its corners land right
+ *  at the screen edges, only the empty wooden corner TIPS may graze past)
+ *  and the lowest corner parks just above the bottom gameplay bar. The FOV
+ *  widens aggressively on narrow aspects (fovGain 12 / max 64°) so the width
+ *  contract is solved by getting CLOSE rather than by pulling the camera
+ *  out to where the distance clamp would shrink the board again. */
+const DIAGONAL = portraitSpec(56, 64, 12, {
   azimuthDeg: 45,
-  widthScale: 1.12,
-  bottomNdcY: 1 - 2 * 0.84,
+  widthScale: 1.03,
+  bottomNdcY: 1 - 2 * 0.855,
 });
 /** Straight top-down: the board reads LEVEL (edges parallel to the screen,
  *  no diamond rotation) and spans exactly 100% of the viewport width — the

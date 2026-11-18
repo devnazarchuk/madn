@@ -182,17 +182,17 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
   const accessory = effectiveAccessory(accessoryChoice, themeId, pawnSkin);
 
   // Per-pawn body material held in a ref (a pawn's color never changes; the
-  // gem skin wants glossy flat-shaded facets, so the material is rebuilt
-  // when the skin changes). A ref — not a memo — so useFrame may animate
-  // emissive highlights without tripping hook immutability rules.
+  // LOW-POLY STYLIZED LOOK flat-shades every skin — gem facets simply stay
+  // glossier). A ref — not a memo — so useFrame may animate emissive
+  // highlights without tripping hook immutability rules.
   const matRef = useRef<THREE.MeshStandardMaterial | null>(null);
   if (matRef.current === null || matRef.current.userData.skin !== pawnSkin) {
     matRef.current?.dispose();
     matRef.current = new THREE.MeshStandardMaterial({
       color: COLORS[pawn.color],
-      roughness: pawnSkin === 'gem' ? 0.18 : 0.36,
-      metalness: pawnSkin === 'gem' ? 0.28 : 0.05,
-      flatShading: pawnSkin === 'gem',
+      roughness: pawnSkin === 'gem' ? 0.18 : 0.42,
+      metalness: pawnSkin === 'gem' ? 0.28 : 0.04,
+      flatShading: true,
       emissive: new THREE.Color(COLORS[pawn.color]),
       emissiveIntensity: 0,
     });
