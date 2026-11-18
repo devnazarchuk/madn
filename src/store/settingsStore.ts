@@ -5,8 +5,10 @@ import { persist } from 'zustand/middleware';
 import type {
   AccessoryChoice,
   BoardSkinId,
+  DiceSkinId,
   PawnSkinId,
   ThemeId,
+  TileSkinId,
 } from '@/config/theme';
 
 export type QualityLevel = 'high' | 'medium' | 'low';
@@ -38,12 +40,20 @@ interface SettingsState {
   mobileView: MobileViewId;
   /** Which synthesized sound pack (SFX voices + music style) is active. */
   soundPack: SoundPackId;
+  /** Play-by-play roll narration ("Frida Frog rolled Blue — no pawn can use
+   *  it. Turn skipped.") — OFF by default so the HUD stays calm; toggle
+   *  lives in the pause menu settings. */
+  announcer: boolean;
   /** The "Would you like to take an interactive tutorial?" intro was shown
    * (and dismissed for good) — it never pops up on future visits. */
   tutorialIntroSeen: boolean;
   // --- appearance ---
   theme: ThemeId;
   boardSkin: BoardSkinId;
+  /** Visual style of the track/finish platforms the pawns hop across. */
+  tileSkin: TileSkinId;
+  /** Visual style of the 3D color die. */
+  diceSkin: DiceSkinId;
   pawnSkin: PawnSkinId;
   pawnAccessory: AccessoryChoice;
   // --- graphics effect toggles (overridable; presets reset them) ---
@@ -61,9 +71,12 @@ interface SettingsState {
   setAutoRoll: (v: boolean) => void;
   setMobileView: (v: MobileViewId) => void;
   setSoundPack: (p: SoundPackId) => void;
+  setAnnouncer: (v: boolean) => void;
   setTutorialIntroSeen: (v: boolean) => void;
   setTheme: (t: ThemeId) => void;
   setBoardSkin: (s: BoardSkinId) => void;
+  setTileSkin: (s: TileSkinId) => void;
+  setDiceSkin: (s: DiceSkinId) => void;
   setPawnSkin: (s: PawnSkinId) => void;
   setPawnAccessory: (a: AccessoryChoice) => void;
   setShadows: (v: boolean) => void;
@@ -90,9 +103,12 @@ export const useSettingsStore = create<SettingsState>()(
       autoRoll: false,
       mobileView: 'diagonal',
       soundPack: 'toys',
+      announcer: false,
       tutorialIntroSeen: false,
       theme: 'classic',
       boardSkin: 'walnut',
+      tileSkin: 'classic',
+      diceSkin: 'classic',
       pawnSkin: 'classic',
       pawnAccessory: 'auto',
       shadows: true,
@@ -110,9 +126,12 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoRoll: (v) => set({ autoRoll: v }),
       setMobileView: (v) => set({ mobileView: v }),
       setSoundPack: (p) => set({ soundPack: p }),
+      setAnnouncer: (v) => set({ announcer: v }),
       setTutorialIntroSeen: (v) => set({ tutorialIntroSeen: v }),
       setTheme: (t) => set({ theme: t }),
       setBoardSkin: (s) => set({ boardSkin: s }),
+      setTileSkin: (s) => set({ tileSkin: s }),
+      setDiceSkin: (s) => set({ diceSkin: s }),
       setPawnSkin: (s) => set({ pawnSkin: s }),
       setPawnAccessory: (a) => set({ pawnAccessory: a }),
       setShadows: (v) => set({ shadows: v }),

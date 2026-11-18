@@ -4,7 +4,9 @@ import {
   Bot,
   Dices,
   Disc3,
+  Grid3x3,
   Layers,
+  Megaphone,
   MonitorPlay,
   Shapes,
   Shirt,
@@ -32,14 +34,20 @@ import {
   ACCESSORY_ORDER,
   BOARD_SKINS,
   BOARD_SKIN_ORDER,
+  DICE_SKINS,
+  DICE_SKIN_ORDER,
   PAWN_SKIN_LABELS,
   PAWN_SKIN_ORDER,
   THEMES,
   THEME_ORDER,
+  TILE_SKINS,
+  TILE_SKIN_ORDER,
   type AccessoryChoice,
   type BoardSkinId,
+  type DiceSkinId,
   type PawnSkinId,
   type ThemeId,
+  type TileSkinId,
 } from '@/config/theme';
 import { playSfx } from '@/services/audio';
 import { useSettingsStore, type SoundPackId } from '@/store/settingsStore';
@@ -69,10 +77,16 @@ export function SettingsPanel() {
   const setAutoSingleMove = useSettingsStore((s) => s.setAutoSingleMove);
   const autoRoll = useSettingsStore((s) => s.autoRoll);
   const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
+  const announcer = useSettingsStore((s) => s.announcer);
+  const setAnnouncer = useSettingsStore((s) => s.setAnnouncer);
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const boardSkin = useSettingsStore((s) => s.boardSkin);
   const setBoardSkin = useSettingsStore((s) => s.setBoardSkin);
+  const tileSkin = useSettingsStore((s) => s.tileSkin);
+  const setTileSkin = useSettingsStore((s) => s.setTileSkin);
+  const diceSkin = useSettingsStore((s) => s.diceSkin);
+  const setDiceSkin = useSettingsStore((s) => s.setDiceSkin);
   const pawnSkin = useSettingsStore((s) => s.pawnSkin);
   const setPawnSkin = useSettingsStore((s) => s.setPawnSkin);
   const pawnAccessory = useSettingsStore((s) => s.pawnAccessory);
@@ -91,6 +105,7 @@ export function SettingsPanel() {
   return (
     <div className="space-y-4">
       {/* --- Audio ---------------------------------------------------------- */}
+      <SettingsSection label="Audio" />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           {audio.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
@@ -158,6 +173,7 @@ export function SettingsPanel() {
       <Separator />
 
       {/* --- Appearance ----------------------------------------------------- */}
+      <SettingsSection label="Look of the game" />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Sparkles size={15} /> Season
