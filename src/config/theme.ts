@@ -78,6 +78,8 @@ export const CHARACTER_ICON: Record<PlayerColorId, string> = {
 
 export type ThemeId = 'classic' | 'christmas' | 'winter' | 'easter' | 'summer';
 export type BoardSkinId = 'walnut' | 'maple' | 'chocolate' | 'ivory';
+export type TileSkinId = 'classic' | 'faceted' | 'plush' | 'porcelain';
+export type DiceSkinId = 'classic' | 'wooden' | 'crystal' | 'midnight';
 export type PawnSkinId = 'classic' | 'elf' | 'gem' | 'chess' | 'egg' | 'gift';
 export type PawnAccessoryId = 'none' | 'beanie' | 'santa' | 'cap' | 'crown';
 /** 'auto' = follow whatever the active seasonal theme suggests. */
@@ -218,6 +220,153 @@ export const BOARD_SKINS: Record<BoardSkinId, BoardSkin> = {
 };
 
 export const BOARD_SKIN_ORDER: BoardSkinId[] = ['walnut', 'maple', 'chocolate', 'ivory'];
+
+// ---------------------------------------------------------------------------
+// Tile skins — the craft style of the track & finish platforms the pawns
+// hop across. Track field COLORS and all gameplay colors are untouched:
+// skins change shape language, finish and trim only.
+// ---------------------------------------------------------------------------
+
+export interface TileSkin {
+  label: string;
+  /** Radial segments of the inlay cylinders (low = chunky low-poly look). */
+  segments: number;
+  /** Flat shading — visible facets (the stylized low-poly language). */
+  flat: boolean;
+  /** Inlay surface finish. */
+  roughness: number;
+  metalness: number;
+  /** Extra glow of the inlay's own color (0 = none). */
+  glow: number;
+  /** Rim torus style: 'paint' = deep-tone ring, 'gold' = golden ring,
+   *  'none' = no rim. */
+  rim: 'paint' | 'gold' | 'none';
+  /** Rim thickness multiplier. */
+  rimScale: number;
+  /** A little top button/knob at the inlay center (plush style). */
+  button: boolean;
+}
+
+export const TILE_SKINS: Record<TileSkinId, TileSkin> = {
+  classic: {
+    label: 'Classic inlay',
+    segments: 32,
+    flat: false,
+    roughness: 0.38,
+    metalness: 0.05,
+    glow: 0.055,
+    rim: 'paint',
+    rimScale: 1,
+    button: false,
+  },
+  faceted: {
+    label: 'Faceted gems',
+    segments: 9,
+    flat: true,
+    roughness: 0.3,
+    metalness: 0.08,
+    glow: 0.12,
+    rim: 'paint',
+    rimScale: 1.3,
+    button: false,
+  },
+  plush: {
+    label: 'Plush cushions',
+    segments: 20,
+    flat: false,
+    roughness: 0.85,
+    metalness: 0,
+    glow: 0,
+    rim: 'paint',
+    rimScale: 0.9,
+    button: true,
+  },
+  porcelain: {
+    label: 'Porcelain glaze',
+    segments: 40,
+    flat: false,
+    roughness: 0.14,
+    metalness: 0.12,
+    glow: 0.03,
+    rim: 'gold',
+    rimScale: 0.8,
+    button: false,
+  },
+};
+
+export const TILE_SKIN_ORDER: TileSkinId[] = ['classic', 'faceted', 'plush', 'porcelain'];
+
+// ---------------------------------------------------------------------------
+// Dice skins — the body & sticker craft of the 3D color die. The FACE colors
+// are always the gameplay colors; skins restyle the body and the trim only.
+// ---------------------------------------------------------------------------
+
+export interface DiceSkin {
+  label: string;
+  /** Die body material colors & finish. */
+  body: string;
+  bodyRoughness: number;
+  bodyMetalness: number;
+  /** Flat-shaded faceted body. */
+  bodyFlat: boolean;
+  /** Subtle self-glow of the body (dark skins). */
+  bodyEmissive: string | null;
+  bodyEmissiveIntensity: number;
+  /** Sticker style: 'paint' = plain color disc, 'framed' = cream ring frame,
+   *  'glow' = color disc + emissive halo ring. */
+  sticker: 'paint' | 'framed' | 'glow';
+  /** Sticker disc finish. */
+  stickerRoughness: number;
+}
+
+export const DICE_SKINS: Record<DiceSkinId, DiceSkin> = {
+  classic: {
+    label: 'Ivory classic',
+    body: '#F7F1E3',
+    bodyRoughness: 0.35,
+    bodyMetalness: 0.04,
+    bodyFlat: false,
+    bodyEmissive: null,
+    bodyEmissiveIntensity: 0,
+    sticker: 'paint',
+    stickerRoughness: 0.42,
+  },
+  wooden: {
+    label: 'Wooden toy',
+    body: '#B98A5A',
+    bodyRoughness: 0.55,
+    bodyMetalness: 0.02,
+    bodyFlat: true,
+    bodyEmissive: null,
+    bodyEmissiveIntensity: 0,
+    sticker: 'framed',
+    stickerRoughness: 0.4,
+  },
+  crystal: {
+    label: 'Crystal',
+    body: '#EAF4FB',
+    bodyRoughness: 0.12,
+    bodyMetalness: 0.3,
+    bodyFlat: true,
+    bodyEmissive: '#BFE3F7',
+    bodyEmissiveIntensity: 0.08,
+    sticker: 'paint',
+    stickerRoughness: 0.2,
+  },
+  midnight: {
+    label: 'Midnight glow',
+    body: '#2B2622',
+    bodyRoughness: 0.4,
+    bodyMetalness: 0.2,
+    bodyFlat: false,
+    bodyEmissive: '#3A3129',
+    bodyEmissiveIntensity: 0.25,
+    sticker: 'glow',
+    stickerRoughness: 0.3,
+  },
+};
+
+export const DICE_SKIN_ORDER: DiceSkinId[] = ['classic', 'wooden', 'crystal', 'midnight'];
 
 // ---------------------------------------------------------------------------
 // Pawn skins & accessories — always rendered in each player's OWN color.
