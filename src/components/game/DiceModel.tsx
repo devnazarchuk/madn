@@ -6,8 +6,16 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { TIMING } from '@/config/gameConfig';
-import { COLORS, COLORS_DEEP, MATERIAL, STAR_COLOR, STAR_COLOR_DEEP } from '@/config/theme';
+import {
+  COLORS,
+  DICE_SKINS,
+  MATERIAL,
+  STAR_COLOR,
+  STAR_COLOR_DEEP,
+  type DiceSkinId,
+} from '@/config/theme';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { playSfx } from '@/services/audio';
 import type { DiceFaceId } from '@/engine/types';
 import { DICE_REST, DIE_SIZE, easeOutCubic, makeStarShape, quatForFace } from './geometry';
@@ -71,6 +79,40 @@ const STICKERS_STAR_MODE: Sticker[] = [
 
 const IDLE_SPIN = new THREE.Euler(0, 0, 0);
 
+/**
+ * One body material per dice skin, created once at module level (same
+ * lifetime policy as the pawn accent materials) — picking a skin is just a
+ * material lookup, so nothing is ever rebuilt or leaked mid-render.
+ */
+const DICE_BODY_MATS: Record<DiceSkinId, THREE.MeshStandardMaterial> = {
+  classic: new THREE.MeshStandardMaterial({
+    color: DICE_SKINS.classic.body,
+    roughness: DICE_SKINS.classic.bodyRoughness,
+    metalness: DICE_SKINS.classic.bodyMetalness,
+  }),
+  wooden: new THREE.MeshStandardMaterial({
+    color: DICE_SKINS.wooden.body,
+    roughness: DICE_SKINS.wooden.bodyRoughness,
+    metalness: DICE_SKINS.wooden.bodyMetalness,
+    flatShading: true,
+  }),
+  crystal: new THREE.MeshStandardMaterial({
+    color: DICE_SKINS.crystal.body,
+    roughness: DICE_SKINS.crystal.bodyRoughness,
+    metalness: DICE_SKINS.crystal.bodyMetalness,
+    flatShading: true,
+    emissive: new THREE.Color(DICE_SKINS.crystal.bodyEmissive ?? '#000000'),
+    emissiveIntensity: DICE_SKINS.crystal.bodyEmissiveIntensity,
+  }),
+  midnight: new THREE.MeshStandardMaterial({
+    color: DICE_SKINS.midnight.body,
+    roughness: DICE_SKINS.midnight.bodyRoughness,
+    metalness: DICE_SKINS.midnight.bodyMetalness,
+    emissive: new THREE.Color(DICE_SKINS.midnight.bodyEmissive ?? '#000000'),
+    emissiveIntensity: DICE_SKINS.midnight.bodyEmissiveIntensity,
+  }),
+};
+
 export function DiceModel() {
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
@@ -86,6 +128,9 @@ export function DiceModel() {
   // platform faces (white & black) for the golden star wilds.
   const starMode = useGameStore((s) => s.game?.rulesConfig.starMode ?? false);
   const stickers = starMode ? STICKERS_STAR_MODE : STICKERS_STANDARD;
+  // The die's craft style (body material + sticker trim) from the settings.
+  const diceSkinId = useSettingsStore((s) => s.diceSkin);
+  const skin = DICE_SKINS[diceSkinId];
 
   const roll = useRef({
     token: 0,
@@ -140,16 +185,8 @@ export function DiceModel() {
     document.body.style.cursor = 'auto';
   };
 
-  const bodyMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#F7F1E3',
-        roughness: 0.35,
-        metalness: 0.04,
-      }),
-    [],
-  );
-  useEffect(() => () => bodyMat.dispose(), [bodyMat]);
+  // Body material — the selected dice skin's module-level material.
+  const bodyMat = DICE_BODY_MATS[diceSkinId];
 
   // The golden star sticker geometry (shared by the two star faces).
   const starGeo = useMemo(() => {
@@ -288,8 +325,8 @@ export function DiceModel() {
       <group ref={group} position={DICE_REST}>
         <RoundedBox
           args={[DIE_SIZE, DIE_SIZE, DIE_SIZE]}
-          radius={0.09}
-          smoothness={4}
+          radius={skin.bodyFlat ? 0.05 : 0.09}
+          smoothness={skin.bodyFlat ? 2 : 4}
           castShadow
           material={bodyMat}
           onClick={onDieClick}
@@ -317,9 +354,10 @@ export function DiceModel() {
                   onPointerOut={onDieOut}
                 />
               </>
-            ) : s.face === 'white' || s.face === 'black' ? (
+            ) : (
               <>
-                {/* platform face — a framed disc, distinct from the cream body */}
+                {/* sticker disc — every face (colors + white/black platforms)
+                    is the face's own gameplay color on every skin */}
                 <mesh
                   onClick={onDieClick}
                   onPointerOver={onDieOver}
@@ -328,33 +366,33 @@ export function DiceModel() {
                   <circleGeometry args={[0.3, 36]} />
                   <meshStandardMaterial
                     color={COLORS[s.face]}
-                    roughness={s.face === 'white' ? 0.3 : 0.42}
+                    roughness={skin.stickerRoughness}
                     metalness={0.03}
+                    emissive={skin.sticker === 'glow' ? COLORS[s.face] : '#000000'}
+                    emissiveIntensity={skin.sticker === 'glow' ? 0.35 : 0}
                   />
                 </mesh>
-                <mesh
-                  position={[0, 0, -0.005]}
-                  onClick={onDieClick}
-                  onPointerOver={onDieOver}
-                  onPointerOut={onDieOut}
-                >
-                  <ringGeometry args={[0.3, 0.375, 40]} />
-                  <meshStandardMaterial
-                    color={COLORS_DEEP[s.face]}
-                    roughness={0.45}
-                    metalness={0.12}
-                  />
-                </mesh>
+                {/* per-skin trim around the sticker */}
+                {skin.sticker === 'framed' && (
+                  <mesh position={[0, 0, -0.005]} onClick={onDieClick} onPointerOver={onDieOver} onPointerOut={onDieOut}>
+                    <ringGeometry args={[0.3, 0.385, 40]} />
+                    <meshStandardMaterial color="#F6EBD9" roughness={0.5} metalness={0.02} />
+                  </mesh>
+                )}
+                {skin.sticker === 'glow' && (
+                  <mesh position={[0, 0, -0.005]} onClick={onDieClick} onPointerOver={onDieOver} onPointerOut={onDieOut}>
+                    <ringGeometry args={[0.3, 0.375, 40]} />
+                    <meshStandardMaterial
+                      color={COLORS[s.face]}
+                      emissive={COLORS[s.face]}
+                      emissiveIntensity={0.9}
+                      transparent
+                      opacity={0.8}
+                      roughness={0.35}
+                    />
+                  </mesh>
+                )}
               </>
-            ) : (
-              <mesh
-                onClick={onDieClick}
-                onPointerOver={onDieOver}
-                onPointerOut={onDieOut}
-              >
-                <circleGeometry args={[0.3, 36]} />
-                <meshStandardMaterial color={COLORS[s.face]} roughness={0.42} metalness={0.02} />
-              </mesh>
             )}
           </group>
         ))}
