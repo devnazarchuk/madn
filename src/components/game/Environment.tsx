@@ -192,46 +192,61 @@ function InstancedProp({
 // ---------------------------------------------------------------------------
 
 const GEO = {
-  trunk: new THREE.CylinderGeometry(0.16, 0.22, 0.7, 10),
-  tier1: new THREE.ConeGeometry(1.35, 1.7, 12),
-  tier2: new THREE.ConeGeometry(0.95, 1.3, 12),
-  snowCap: new THREE.ConeGeometry(0.62, 0.85, 12),
+  trunk: new THREE.CylinderGeometry(0.16, 0.22, 0.7, 7),
+  tier1: new THREE.ConeGeometry(1.35, 1.7, 7),
+  tier2: new THREE.ConeGeometry(0.95, 1.3, 7),
+  snowCap: new THREE.ConeGeometry(0.62, 0.85, 7),
   gift: new THREE.BoxGeometry(1, 1, 1),
   /** Flat ribbon band laid across a gift lid (baked into the box size). */
   ribbon: new THREE.BoxGeometry(1.04, 0.1, 0.3),
-  knot: new THREE.SphereGeometry(0.16, 12, 10),
+  knot: new THREE.SphereGeometry(0.16, 8, 6),
   rock: new THREE.IcosahedronGeometry(0.55, 0),
   stem: new THREE.CylinderGeometry(0.025, 0.03, 0.5, 6),
-  blossom: new THREE.SphereGeometry(0.13, 12, 10),
+  blossom: new THREE.SphereGeometry(0.13, 8, 6),
   /** Egg-shaped (taller) painted Easter egg — big enough to read at distance. */
-  egg: new THREE.SphereGeometry(0.26, 16, 12).scale(1, 1.32, 1),
-  palmTrunk: new THREE.CylinderGeometry(0.13, 0.19, 2.4, 10),
-  palmCrown1: new THREE.ConeGeometry(1.05, 0.55, 10),
-  palmCrown2: new THREE.ConeGeometry(0.72, 0.45, 10),
-  beachBall: new THREE.SphereGeometry(0.28, 14, 12),
+  egg: new THREE.SphereGeometry(0.26, 10, 8).scale(1, 1.32, 1),
+  palmTrunk: new THREE.CylinderGeometry(0.13, 0.19, 2.4, 7),
+  palmCrown1: new THREE.ConeGeometry(1.05, 0.55, 6),
+  palmCrown2: new THREE.ConeGeometry(0.72, 0.45, 6),
+  beachBall: new THREE.SphereGeometry(0.28, 10, 8),
   /** Christmas garland bits: pine sprigs + glowing string-light bulbs. */
-  sprig: new THREE.ConeGeometry(0.16, 0.42, 7),
-  bulb: new THREE.SphereGeometry(0.11, 12, 10),
+  sprig: new THREE.ConeGeometry(0.16, 0.42, 6),
+  bulb: new THREE.SphereGeometry(0.11, 8, 6),
+  /** Meadow mushrooms: chunky stem + a fat faceted cap. */
+  mushStem: new THREE.CylinderGeometry(0.09, 0.12, 0.42, 7),
+  mushCap: new THREE.SphereGeometry(0.3, 8, 6).scale(1, 0.62, 1),
+  /** Beach parasols: a thin pole + a six-sided canopy. */
+  parasolPole: new THREE.CylinderGeometry(0.035, 0.045, 1.5, 6),
+  parasolTop: new THREE.ConeGeometry(0.85, 0.5, 6),
 } as const;
 
+/**
+ * Flat-shaded, slightly glossy prop materials — the whole scenery shares the
+ * crisp low-poly toy language of the pawns.
+ */
 const MAT = {
-  trunk: new THREE.MeshStandardMaterial({ color: '#4E3826', roughness: 0.85 }),
-  pine: new THREE.MeshStandardMaterial({ color: '#2E5D4C', roughness: 0.8 }),
-  pineLight: new THREE.MeshStandardMaterial({ color: '#3B7458', roughness: 0.8 }),
-  ribbon: new THREE.MeshStandardMaterial({ color: '#F6EBD9', roughness: 0.45 }),
-  snow: new THREE.MeshStandardMaterial({ color: '#EDF4FA', roughness: 0.6, emissive: '#C9DCF0', emissiveIntensity: 0.06 }),
-  gift: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.4 }),
+  trunk: new THREE.MeshStandardMaterial({ color: '#4E3826', roughness: 0.85, flatShading: true }),
+  pine: new THREE.MeshStandardMaterial({ color: '#2E5D4C', roughness: 0.8, flatShading: true }),
+  pineLight: new THREE.MeshStandardMaterial({ color: '#3B7458', roughness: 0.8, flatShading: true }),
+  ribbon: new THREE.MeshStandardMaterial({ color: '#F6EBD9', roughness: 0.45, flatShading: true }),
+  snow: new THREE.MeshStandardMaterial({ color: '#EDF4FA', roughness: 0.6, emissive: '#C9DCF0', emissiveIntensity: 0.06, flatShading: true }),
+  gift: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.4, flatShading: true }),
   /** Warm-glowing string-light bulbs (the garlands' emissive pulse). */
-  bulb: new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFDFA0', emissiveIntensity: 0.85, roughness: 0.3 }),
-  gold: new THREE.MeshStandardMaterial({ color: '#D9A441', metalness: 0.65, roughness: 0.3 }),
-  ice: new THREE.MeshStandardMaterial({ color: '#D5E6F5', roughness: 0.25, metalness: 0.15, emissive: '#CFE4F7', emissiveIntensity: 0.1 }),
-  stem: new THREE.MeshStandardMaterial({ color: '#4E9A3D', roughness: 0.7 }),
-  blossom: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.45 }),
-  egg: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.32, metalness: 0.08 }),
-  palmTrunk: new THREE.MeshStandardMaterial({ color: '#8A6B4F', roughness: 0.85 }),
-  palmCrown: new THREE.MeshStandardMaterial({ color: '#4FA060', roughness: 0.7 }),
-  palmCrownLight: new THREE.MeshStandardMaterial({ color: '#63B573', roughness: 0.7 }),
-  beachBall: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.35 }),
+  bulb: new THREE.MeshStandardMaterial({ color: '#FFFFFF', emissive: '#FFDFA0', emissiveIntensity: 0.85, roughness: 0.3, flatShading: true }),
+  gold: new THREE.MeshStandardMaterial({ color: '#D9A441', metalness: 0.65, roughness: 0.3, flatShading: true }),
+  ice: new THREE.MeshStandardMaterial({ color: '#D5E6F5', roughness: 0.25, metalness: 0.15, emissive: '#CFE4F7', emissiveIntensity: 0.1, flatShading: true }),
+  stem: new THREE.MeshStandardMaterial({ color: '#4E9A3D', roughness: 0.7, flatShading: true }),
+  blossom: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.45, flatShading: true }),
+  egg: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.32, metalness: 0.08, flatShading: true }),
+  palmTrunk: new THREE.MeshStandardMaterial({ color: '#8A6B4F', roughness: 0.85, flatShading: true }),
+  palmCrown: new THREE.MeshStandardMaterial({ color: '#4FA060', roughness: 0.7, flatShading: true }),
+  palmCrownLight: new THREE.MeshStandardMaterial({ color: '#63B573', roughness: 0.7, flatShading: true }),
+  beachBall: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.35, flatShading: true }),
+  /** Mushrooms: pale stems + white-dotted-red caps (cap color per instance). */
+  mushStem: new THREE.MeshStandardMaterial({ color: '#F6EBD9', roughness: 0.7, flatShading: true }),
+  mushCap: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.5, flatShading: true }),
+  parasolPole: new THREE.MeshStandardMaterial({ color: '#8A6B4F', roughness: 0.7, flatShading: true }),
+  parasolTop: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.5, flatShading: true }),
 } as const;
 
 /** Ring placement helper — props circle the board at a distance. */
@@ -310,7 +325,8 @@ function IceRocks({ count }: { count: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Easter meadow — flowers with pastel blossoms + hidden painted eggs
+// Easter meadow — flowers with pastel blossoms, hidden painted eggs and a
+// scattering of chunky toadstool mushrooms
 // ---------------------------------------------------------------------------
 
 function Meadow({ count }: { count: number }) {
@@ -322,11 +338,27 @@ function Meadow({ count }: { count: number }) {
     () => ringPlacements(Math.max(6, Math.floor(count / 3)), 5150, 10, 15.5, ['#F7B7C6', '#C9B6F5', '#BDE3F0', '#FFE28A']),
     [count],
   );
+  const mushrooms = useMemo(
+    () => ringPlacements(Math.max(4, Math.floor(count / 4)), 6060, 9.5, 14, ['#E8503A', '#F2C14E', '#C9B6F5']),
+    [count],
+  );
   return (
     <group>
       <InstancedProp geometry={GEO.stem} material={MAT.stem} placements={flowers} offset={[0, 0.25, 0]} />
       <InstancedProp geometry={GEO.blossom} material={MAT.blossom} placements={flowers} offset={[0, 0.58, 0]} />
       <InstancedProp geometry={GEO.egg} material={MAT.egg} placements={eggs} offset={[0, 0.34, 0]} />
+      <InstancedProp
+        geometry={GEO.mushStem}
+        material={MAT.mushStem}
+        placements={mushrooms.map((m) => ({ ...m, s: m.s * 0.8 }))}
+        offset={[0, 0.21, 0]}
+      />
+      <InstancedProp
+        geometry={GEO.mushCap}
+        material={MAT.mushCap}
+        placements={mushrooms.map((m) => ({ ...m, s: m.s * 0.8 }))}
+        offset={[0, 0.46, 0]}
+      />
     </group>
   );
 }
@@ -341,12 +373,28 @@ function Beach({ count }: { count: number }) {
     () => ringPlacements(Math.max(4, Math.floor(count / 4)), 9090, 9.6, 14, ['#E8503A', '#F2C14E', '#43B57E', '#3E8ED0']),
     [count],
   );
+  const parasols = useMemo(
+    () => ringPlacements(Math.max(3, Math.floor(count / 3)), 7070, 9.8, 15, ['#E8503A', '#F2C14E', '#43B57E', '#FDFBF4']),
+    [count],
+  );
   return (
     <group>
       <InstancedProp geometry={GEO.palmTrunk} material={MAT.palmTrunk} placements={palms} offset={[0, 1.2, 0]} />
       <InstancedProp geometry={GEO.palmCrown1} material={MAT.palmCrown} placements={palms} offset={[0, 2.55, 0]} />
       <InstancedProp geometry={GEO.palmCrown2} material={MAT.palmCrownLight} placements={palms} offset={[0, 2.95, 0]} />
       <InstancedProp geometry={GEO.beachBall} material={MAT.beachBall} placements={balls} offset={[0, 0.28, 0]} receiveShadow />
+      <InstancedProp
+        geometry={GEO.parasolPole}
+        material={MAT.parasolPole}
+        placements={parasols.map((p) => ({ ...p, s: p.s * 0.9 }))}
+        offset={[0, 0.75, 0]}
+      />
+      <InstancedProp
+        geometry={GEO.parasolTop}
+        material={MAT.parasolTop}
+        placements={parasols.map((p) => ({ ...p, s: p.s * 0.9 }))}
+        offset={[0, 1.62, 0]}
+      />
     </group>
   );
 }
