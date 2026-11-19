@@ -53,6 +53,7 @@ import {
   setAudioSettings,
   setSoundPack,
   startMusic,
+  ensureMusicFollowing,
 } from '@/services/audio';
 import { saveMatch } from '@/services/matchesApi';
 import { useSettingsStore } from './settingsStore';
@@ -381,6 +382,14 @@ export const useGameStore = create<GameStore>()((set, get) => {
     set({ notice: { token: noticeTokenCounter++, text, tone } });
   };
 
+  /** Roll NARRATION notice — suppressed while the roll announcer is off
+   *  (default): the play-by-play "X rolled Blue … Turn skipped." texts stay
+   *  out of the HUD until the toggle in the pause-menu settings is enabled. */
+  const announceRoll = (text: string, tone: Notice['tone'] = 'info') => {
+    if (!useSettingsStore.getState().announcer) return;
+    notify(text, tone);
+  };
+
   const persistMatch = (state: GameState) => {
     if (get().matchSaved) return;
     set({ matchSaved: true });
@@ -480,12 +489,17 @@ export const useGameStore = create<GameStore>()((set, get) => {
     goScreen: (screen) => {
       clearTimers();
       initAudio();
+      // The menu / setup / rules screens carry the background tune — the
+      // music follows the app everywhere (autoplay policy means it can only
+      // actually begin after the first user gesture).
+      ensureMusicFollowing();
       set({ screen, paused: false, moveAnim: null, diceRolling: false, notice: null });
     },
 
     goRules: (returnTo) => {
       clearTimers();
       initAudio();
+      ensureMusicFollowing();
       set({ screen: 'rules', rulesReturnTo: returnTo, notice: null });
     },
 
@@ -745,9 +759,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
         game.rulesConfig.ownColorToMove &&
         game.diceFace !== activePlayer.color
       ) {
-        notify(
+        announceRoll(
           `${activePlayer.name} rolled ${faceLabel(game.diceFace ?? 'red')} — not ${activePlayer.name}'s color. Turn skipped!`,
-          'info',
         );
         set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
         playSfx('noMoves');
@@ -757,9 +770,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
 
       const moves = getLegalMoves(game);
       if (moves.length === 0) {
-        notify(
+        announceRoll(
           `${activePlayer.name} rolled ${faceLabel(game.diceFace ?? 'red')} — no pawn can use it. Turn skipped.`,
-          'info',
         );
         set({ game: { ...game, phase: 'no-moves' }, legalMoves: [], starOptions: [] });
         playSfx('noMoves');
@@ -787,7 +799,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       }
       const player = state.players[state.activeIndex]!;
       if (player.kind === 'ai') {
-        notify(`${player.name} picked ${color} for the star!`, 'info');
+        announceRoll(`${player.name} picked ${color} for the star!`);
       }
       set({ game: state, legalMoves: moves, starOptions: [] });
       playSfx('star');
@@ -997,6 +1009,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
 
     quitToMenu: () => {
       clearTimers();
+      ensureMusicFollowing();
       // An abandoned match keeps its autosave so it can be continued later.
       const current = get().game;
       if (current && current.phase !== 'game-over') {

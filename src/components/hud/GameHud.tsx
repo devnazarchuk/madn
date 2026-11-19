@@ -262,6 +262,7 @@ export function GameHud() {
   const toggleMuted = useSettingsStore((s) => s.toggleMuted);
   const mobileView = useSettingsStore((s) => s.mobileView);
   const setMobileView = useSettingsStore((s) => s.setMobileView);
+  const announcer = useSettingsStore((s) => s.announcer);
   const isPortrait = usePortraitViewport();
   const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -272,6 +273,10 @@ export function GameHud() {
   const bannerTextColor =
     bannerColorId === 'yellow' || bannerColorId === null ? '#3E2A18' : '#FFFFFF';
 
+  // ROLL ANNOUNCER (default OFF): the detailed play-by-play texts ("X rolled
+  // Blue — no pawn can use it. Turn skipped.") stay hidden unless the toggle
+  // in the pause-menu settings is enabled — the pill then shows the calm
+  // short form ("X's turn" / "X wins!") on every screen size.
   const humanAwaitRoll =
     phase === 'await-roll' && activeKind === 'human' && !diceRolling && !paused && !winner;
   const humanChoosing = phase === 'choose-pawn' && activeKind === 'human' && !paused && !winner;
@@ -328,6 +333,12 @@ export function GameHud() {
     ? `${players.find((p) => p.color === winner)?.name ?? 'Player'} wins!`
     : `${activeName}'s turn`;
 
+  // ROLL ANNOUNCER (default OFF): the detailed play-by-play texts ("X rolled
+  // Blue — no pawn can use it. Turn skipped.") stay hidden unless the toggle
+  // in the pause-menu settings is enabled — the pill then shows the calm
+  // short form ("X's turn" / "X wins!") on every screen size.
+  const statusText = announcer ? status.text : statusShort;
+
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col">
       {/* ---- top bar ---------------------------------------------------- */}
@@ -356,7 +367,18 @@ export function GameHud() {
               {mobileView === 'diagonal' ? <Square size={16} /> : <Diamond size={16} />}
             </HudIconButton>
           )}
-          <HudIconButton label="Reset camera view" onClick={() => resetCamera()}>
+          {/* Reset camera view: while the straight top-down view is active it
+              first flips back to the default angled framing, so the button
+              always restores the familiar "normal" board view — never the
+              overhead one. */}
+          <HudIconButton
+            label={mobileView === 'topdown' ? 'Reset camera view (back to angled)' : 'Reset camera view'}
+            onClick={() => {
+              playSfx('uiClick');
+              if (isPortrait && mobileView === 'topdown') setMobileView('diagonal');
+              resetCamera();
+            }}
+          >
             <Focus size={18} />
           </HudIconButton>
         </div>
@@ -382,8 +404,10 @@ export function GameHud() {
           >
             <span className="truncate">{statusShort}</span>
           </motion.div>
+          {/* DESKTOP (sm+) pill — full narration while the roll announcer is
+              on, the calm short form when it is off; keyed per text. */}
           <motion.div
-            key={status.text}
+            key={statusText}
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
@@ -392,7 +416,7 @@ export function GameHud() {
             style={bannerColor ? { backgroundColor: bannerColor, color: bannerTextColor, boxShadow: `0 8px 28px -8px ${bannerColor}` } : undefined}
             className={`pointer-events-none hidden min-h-10 items-center justify-center rounded-2xl border border-white/10 px-4 py-1.5 text-center text-sm font-semibold leading-snug shadow-lg backdrop-blur-md sm:flex ${TONE_STYLES[status.tone]}`}
           >
-            <span className="line-clamp-2">{status.text}</span>
+            <span className="line-clamp-2">{statusText}</span>
           </motion.div>
         </div>
 
