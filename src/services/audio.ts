@@ -16,6 +16,12 @@
  *    arcade    — pocket game console: square-wave chip plucks, blips and a
  *                bouncy staccato chip-loop with a triangle bass.
  *
+ *  BACKGROUND MUSIC — composed multi-layer arrangements (not random walks):
+ *  each pack cycles a hand-written 8-bar tune (arcade: 4 bars) built from
+ *  five scheduled layers — a soft chord pad, a bass line, a lead melody, a
+ *  quiet counter-arp and light percussion — so the menu and matches carry a
+ *  real, recognizable tune instead of scattered plinks.
+ *
  *  Signal flow:
  *
  *    sfx voices  ──►  sfxBus   (gain = settings.sfx)   ──► master ─┐
@@ -119,6 +125,15 @@ let currentSettings: AudioSettings = {
 // Music scheduler state
 let musicTimer: ReturnType<typeof setInterval> | null = null;
 let nextNoteTime = 0;
+
+/**
+ * True once the app asked for background music (menu / match). Because of
+ * the browser autoplay policy the tune can only actually begin after the
+ * first user gesture — every later playSfx call re-checks this flag and
+ * (re)starts the scheduler, so the music "follows" the player across the
+ * menu, setup, rules and match screens without ever needing a mute dance.
+ */
+let musicDesired = false;
 
 // ---------------------------------------------------------------------------
 // Graph lifecycle — lazy creation, resume, volume routing
@@ -714,6 +729,11 @@ export function playSfx(name: SfxName, opts?: { intensity?: number }): void {
     if (typeof window === 'undefined') return; // SSR guard
     if (!ensureGraph()) return;
     if (!ctx || !sfxBus) return;
+    // The gesture that plays this effect may have just unlocked the audio
+    // context — if background music was requested, let it begin now.
+    if (musicDesired && musicTimer === null && ctx.state === 'running') {
+      startMusic();
+    }
     if (currentSettings.muted) return; // master bus is at 0 — skip for perf
     const bus = sfxBus;
     const i = clamp01(opts?.intensity ?? DEFAULT_INTENSITY);
@@ -726,133 +746,255 @@ export function playSfx(name: SfxName, opts?: { intensity?: number }): void {
 }
 
 // ---------------------------------------------------------------------------
-// Generative background music — one style per sound pack
+// Generative background music — COMPOSED MULTI-LAYER ARRANGEMENTS
+// ---------------------------------------------------------------------------
+// Each sound pack plays a hand-written 8-bar (arcade: 4-bar) loop arranged
+// from five layers, all scheduled on one step grid with lookahead:
+//
+//   pad / chord bed — soft sustained voicing at every bar start
+//   bass            — roots & fifths anchoring the progression
+//   lead melody     — a composed phrase (per-bar note tables, 0 = rest)
+//   counterline     — quiet arpeggio / sparkle voice filling the gaps
+//   percussion      — shaker, sleigh shimmer or chip hats & thumps
+//
+// The loops cycle forever with a warm, breathing mix that sits well under
+// the SFX — never a random walk, always the same recognizable tune.
 // ---------------------------------------------------------------------------
 
-/** C-major pentatonic across three octaves: C3 … A5 (MIDI 48 … 81). */
-const TOYS_SCALE: number[] = [];
-{
-  const degrees = [0, 2, 4, 7, 9];
-  for (let oct = 0; oct < 3; oct++) {
-    for (const d of degrees) TOYS_SCALE.push(48 + oct * 12 + d);
-  }
+interface Arrangement {
+  bpm: number;
+  /** Steps per bar: 8 = eighth-note grid, 16 = sixteenth-note grid. */
+  stepsPerBar: number;
+  /** Bars per loop. */
+  bars: number;
+  /** Chord voicing (MIDI) per bar — the pad layer + bass/arp source. */
+  chords: number[][];
+  /** Lead melody per bar: one MIDI note per step, 0 = rest. */
+  melody: number[][];
 }
 
-/** F-major pentatonic ladder for the christmas carillon (warm, low start). */
-const XMAS_SCALE: number[] = [];
-{
-  const degrees = [0, 2, 5, 7, 9]; // F G A C D
-  for (let oct = 0; oct < 3; oct++) {
-    for (const d of degrees) XMAS_SCALE.push(53 + oct * 12 + d);
-  }
+/** TOYS — a gentle marimba lullaby in C: I–vi–IV–V, 88 BPM, 8 bars. */
+const TOYS_ARR: Arrangement = {
+  bpm: 88,
+  stepsPerBar: 8,
+  bars: 8,
+  chords: [
+    [48, 52, 55], // C
+    [45, 48, 52], // Am
+    [41, 45, 48], // F
+    [43, 47, 50], // G
+    [48, 52, 55], // C
+    [45, 48, 52], // Am
+    [41, 45, 48], // F
+    [43, 47, 50], // G
+  ],
+  melody: [
+    [67, 0, 72, 0, 76, 0, 72, 0],
+    [69, 0, 72, 0, 76, 0, 0, 0],
+    [77, 0, 81, 0, 84, 0, 81, 0],
+    [79, 0, 74, 0, 79, 0, 0, 0],
+    [76, 0, 72, 0, 67, 0, 64, 0],
+    [72, 0, 69, 0, 64, 0, 0, 0],
+    [84, 0, 81, 0, 77, 0, 0, 0],
+    [79, 0, 74, 0, 71, 0, 67, 0],
+  ],
+};
+
+/** CHRISTMAS — a dreamy bell carillon in F: I–V–vi–IV, 78 BPM, 8 bars. */
+const XMAS_ARR: Arrangement = {
+  bpm: 78,
+  stepsPerBar: 8,
+  bars: 8,
+  chords: [
+    [53, 57, 60], // F
+    [55, 60, 64], // C
+    [50, 53, 57], // Dm
+    [58, 62, 65], // Bb
+    [53, 57, 60], // F
+    [55, 60, 64], // C
+    [50, 53, 57], // Dm
+    [58, 62, 65], // Bb
+  ],
+  melody: [
+    [77, 0, 81, 0, 84, 0, 81, 77],
+    [84, 0, 79, 0, 76, 0, 72, 0],
+    [74, 0, 77, 0, 81, 0, 77, 74],
+    [82, 0, 77, 0, 74, 0, 0, 0],
+    [84, 0, 86, 0, 84, 0, 81, 0],
+    [79, 0, 76, 0, 79, 0, 84, 0],
+    [86, 0, 81, 0, 77, 0, 74, 0],
+    [82, 0, 79, 0, 77, 0, 79, 0],
+  ],
+};
+
+/** ARCADE — chip-funk in A minor: i–VI–III–VII, 116 BPM, 16th grid, 4 bars. */
+const ARCADE_ARR: Arrangement = {
+  bpm: 116,
+  stepsPerBar: 16,
+  bars: 4,
+  chords: [
+    [45, 52, 57], // Am
+    [41, 48, 53], // F
+    [48, 55, 60], // C
+    [43, 50, 55], // G
+  ],
+  melody: [
+    [76, 0, 79, 0, 81, 0, 84, 0, 81, 0, 79, 76, 0, 79, 0, 0],
+    [77, 0, 81, 0, 84, 0, 81, 77, 0, 76, 0, 77, 0, 0, 0, 0],
+    [76, 0, 72, 0, 76, 0, 79, 0, 84, 0, 79, 0, 76, 0, 79, 0],
+    [74, 0, 79, 0, 83, 0, 86, 0, 83, 79, 74, 0, 79, 0, 0, 0],
+  ],
+};
+
+const ARRANGEMENTS: Record<SoundPackId, Arrangement> = {
+  toys: TOYS_ARR,
+  christmas: XMAS_ARR,
+  arcade: ARCADE_ARR,
+};
+
+// Per-engine scheduler state (one shared step counter; reset on start/pack switch)
+let musicStep = 0;
+
+/** Eighth-note bass figure: root … fifth … root (mirrors the pad voicing). */
+function toysBass(chord: number[], pos: number, t: number): void {
+  if (pos !== 0 && pos !== 4) return;
+  const note = pos === 0 ? chord[0]! : chord[0]! + 7;
+  playPluck(musicBus!, t, mtof(note), 1.1, 0.085, true);
 }
 
-/** A-minor pentatonic (chip arp register) + a low bass anchor set. */
-const ARCADE_SCALE: number[] = [57, 60, 62, 64, 67, 69, 72, 74, 76, 79, 81];
-const ARCADE_BASS: number[] = [33, 33, 40, 45]; // A1, A1, E2, A2
-
-/** Weighted random walk: mostly neighbouring scale steps, rare wider leaps. */
-const MUSIC_WALK: readonly number[] = [-4, -3, -2, -2, -1, -1, -1, 0, 0, 1, 1, 1, 2, 2, 3, 4];
-
-function nextWalkIndex(idx: number, len: number): number {
-  const next = idx + pick(MUSIC_WALK);
-  return Math.min(len - 1, Math.max(0, next));
-}
-
-// Per-engine state
-let toysIdx = 7;
-let xmasIdx = 4;
-let xmasCount = 0;
-let arcadeStep = 0;
-
-/** toys — sparse pentatonic marimba walk (≈55-75 BPM heartbeat). */
-function musicToys(t: number): void {
+/** toys step — pad, bass, melody, counter-arp, felt shaker. */
+function musicToysStep(arr: Arrangement, step: number, t: number, stepDur: number): void {
   if (!musicBus) return;
-  toysIdx = nextWalkIndex(toysIdx, TOYS_SCALE.length);
-  const roll = Math.random();
-  if (roll < 0.24) return; // silence — the texture needs room to breathe
-  const vel = rand(0.55, 0.95);
-  const freq = mtof(TOYS_SCALE[toysIdx]!);
-  const dur = rand(1.3, 2.0);
-  playPluck(musicBus, t, freq, dur, 0.075 * vel, true);
-  if (roll > 0.84 && toysIdx + 2 < TOYS_SCALE.length) {
-    playPluck(musicBus, t + 0.014, mtof(TOYS_SCALE[toysIdx + 2]!), dur * 0.8, 0.045 * vel, true);
-  }
-}
+  const bar = Math.floor(step / arr.stepsPerBar) % arr.bars;
+  const pos = step % arr.stepsPerBar;
+  const chord = arr.chords[bar]!;
+  const barLen = stepDur * arr.stepsPerBar;
 
-/** christmas — dreamy bell carillon + a sprinkle of sleigh-bell shimmer. */
-function musicChristmas(t: number): void {
-  if (!musicBus) return;
-  xmasIdx = nextWalkIndex(xmasIdx, XMAS_SCALE.length);
-  xmasCount += 1;
-  const roll = Math.random();
-  if (roll < 0.3) {
-    // a silent step may still carry the sleigh shimmer
-    if (xmasCount % 4 === 0) {
-      playNoise(musicBus, t, { dur: 0.09, peak: 0.012, attack: 0.004, tau: 0.03, filter: 'highpass', f0: 5600 });
+  // pad — soft sine triad at the bar start
+  if (pos === 0) {
+    for (const n of chord) {
+      playTone(musicBus, t, { f0: mtof(n), dur: barLen * 1.02, peak: 0.02, attack: 0.3, tau: barLen / 2 });
     }
-    return;
   }
-  const vel = rand(0.5, 0.9);
-  const freq = mtof(XMAS_SCALE[xmasIdx]!);
-  playBell(musicBus, t, freq, rand(1.8, 2.6), 0.055 * vel, true);
-  // occasional soft two-bell chord (a third/fourth above)
-  if (roll > 0.82 && xmasIdx + 2 < XMAS_SCALE.length) {
-    playBell(musicBus, t + 0.02, mtof(XMAS_SCALE[xmasIdx + 2]!), 1.6, 0.035 * vel, true);
+  toysBass(chord, pos, t);
+
+  // lead melody
+  const note = arr.melody[bar]![pos]!;
+  if (note > 0) {
+    playPluck(musicBus, t, mtof(note), stepDur * 2.6, 0.06, true);
+    // soft octave duet on long, high notes
+    if (note >= 76) playPluck(musicBus, t + 0.02, mtof(note - 12), stepDur * 2.2, 0.02, true);
   }
-  if (xmasCount % 4 === 0) {
-    playNoise(musicBus, t + 0.06, { dur: 0.09, peak: 0.014, attack: 0.004, tau: 0.03, filter: 'highpass', f0: 5600 });
+
+  // counter-arp — chord tones an octave up on the off-beats
+  if (pos % 2 === 1) {
+    const tones = [chord[1]! + 12, chord[2]! + 12, chord[1]! + 24];
+    const n = tones[(bar + pos) % tones.length]!;
+    playPluck(musicBus, t, mtof(n), stepDur * 1.4, 0.016, true);
+  }
+
+  // felt shaker on the off-beats
+  if (pos % 2 === 1) {
+    playNoise(musicBus, t, { dur: 0.03, peak: 0.007, attack: 0.004, tau: 0.01, filter: 'highpass', f0: 6200 });
+  }
+
+  // a tiny ascending sparkle at the end of bars 4 & 8
+  if (pos === 6 && (bar === 3 || bar === 7)) {
+    playPluck(musicBus, t, mtof(chord[2]! + 12), 0.5, 0.03, true);
+    playPluck(musicBus, t + stepDur, mtof(chord[2]! + 19), 0.5, 0.028, true);
   }
 }
 
-/** arcade — bouncy staccato chip arp with a triangle bass anchor. */
-function musicArcade(t: number): void {
+/** christmas step — bell pad, bass bells, carillon melody, sleigh shimmer. */
+function musicChristmasStep(arr: Arrangement, step: number, t: number, stepDur: number): void {
   if (!musicBus) return;
-  arcadeStep += 1;
-  // bass every 4th step
-  if (arcadeStep % 4 === 0) {
-    const bassIdx = Math.floor(arcadeStep / 4) % ARCADE_BASS.length;
-    playTone(musicBus, t, { type: 'triangle', f0: mtof(ARCADE_BASS[bassIdx]!), dur: 0.34, peak: 0.11, attack: 0.004, tau: 0.09, lowpass: 900 });
+  const bar = Math.floor(step / arr.stepsPerBar) % arr.bars;
+  const pos = step % arr.stepsPerBar;
+  const chord = arr.chords[bar]!;
+  const barLen = stepDur * arr.stepsPerBar;
+
+  // bell pad — a gentle triad strike every bar
+  if (pos === 0) {
+    for (let i = 0; i < chord.length; i++) {
+      playBell(musicBus, t + i * 0.012, mtof(chord[i]!), barLen * 0.9, 0.018, true);
+    }
   }
-  const roll = Math.random();
-  if (roll < 0.16) return; // breathing room
-  let idx = nextWalkIndex(arcadeStep % ARCADE_SCALE.length, ARCADE_SCALE.length);
-  // gentle pull toward the upper register (chip leads like it there)
-  if (roll > 0.72) idx = Math.min(ARCADE_SCALE.length - 1, idx + 2);
-  const vel = rand(0.6, 0.95);
-  playChipNote(musicBus, t, mtof(ARCADE_SCALE[idx]!), 0.14, 0.05 * vel);
-  if (roll > 0.9) {
-    // quick 16th echo an octave up
-    playChipNote(musicBus, t + 0.12, mtof(Math.min(96, ARCADE_SCALE[idx]! + 12)), 0.09, 0.03 * vel);
+  // bass bells
+  if (pos === 0 || pos === 4) {
+    playBell(musicBus, t, mtof(chord[0]! - 12), 1.4, 0.05, true);
+  }
+
+  // carillon melody
+  const note = arr.melody[bar]![pos]!;
+  if (note > 0) {
+    playBell(musicBus, t, mtof(note), stepDur * 2.4, 0.05, true);
+    if (pos % 4 === 0) playBell(musicBus, t + 0.015, mtof(note + 12), stepDur * 1.6, 0.016, true);
+  }
+
+  // sleigh-bell shimmer — a soft jingle every second step
+  if (pos % 2 === 0) {
+    playNoise(musicBus, t, { dur: 0.05, peak: 0.009, attack: 0.004, tau: 0.02, filter: 'highpass', f0: 6800 });
   }
 }
 
-const MUSIC_ENGINES: Record<SoundPackId, (t: number) => void> = {
-  toys: musicToys,
-  christmas: musicChristmas,
-  arcade: musicArcade,
+/** arcade step — chip bass, lead, 8th-note arp, hats & thump. */
+function musicArcadeStep(arr: Arrangement, step: number, t: number, stepDur: number): void {
+  if (!musicBus) return;
+  const bar = Math.floor(step / arr.stepsPerBar) % arr.bars;
+  const pos = step % arr.stepsPerBar;
+  const chord = arr.chords[bar]!;
+  const root = chord[0]!;
+
+  // bass: driving 8th-note pulses (root / octave), fifth push at the bar end
+  if (pos % 2 === 0) {
+    const k = pos / 2;
+    const note = k === 6 ? root + 7 : k % 2 === 1 ? root + 12 : root;
+    playTone(musicBus, t, { type: 'triangle', f0: mtof(note), dur: stepDur * 1.6, peak: 0.085, attack: 0.004, tau: 0.06, lowpass: 900 });
+  }
+
+  // lead melody
+  const note = arr.melody[bar]![pos]!;
+  if (note > 0) {
+    playChipNote(musicBus, t, mtof(note), stepDur * 2.2, 0.048);
+    if (pos % 8 === 0) playChipNote(musicBus, t + stepDur * 0.5, mtof(note + 12), stepDur, 0.02, true);
+  }
+
+  // quiet 8th-note arp (chord tones an octave up)
+  if (pos % 2 === 0) {
+    const tones = [chord[0]! + 12, chord[1]! + 12, chord[2]! + 12, chord[1]! + 12];
+    playChipNote(musicBus, t, mtof(tones[(pos / 2) % tones.length]!), stepDur * 1.1, 0.013, true);
+  }
+
+  // hats on the off-16ths + a soft kick thump on beats 1 & 3
+  if (pos % 2 === 1) {
+    playNoise(musicBus, t, { dur: 0.02, peak: 0.007, attack: 0.001, tau: 0.006, filter: 'highpass', f0: 7000 });
+  }
+  if (pos === 0 || pos === 8) {
+    playTone(musicBus, t, { f0: 110, f1: 55, dur: 0.1, peak: 0.1, attack: 0.002, tau: 0.03 });
+  }
+}
+
+const STEP_ENGINES: Record<SoundPackId, (arr: Arrangement, step: number, t: number, stepDur: number) => void> = {
+  toys: musicToysStep,
+  christmas: musicChristmasStep,
+  arcade: musicArcadeStep,
 };
 
-/** Note spacing pools per pack. */
-const MUSIC_STEPS: Record<SoundPackId, readonly number[]> = {
-  toys: [0.42, 0.42, 0.56, 0.56, 0.56, 0.84, 0.84, 0.84, 1.12],
-  christmas: [0.5, 0.5, 0.62, 0.62, 0.75, 0.94, 1.12],
-  arcade: [0.24, 0.24, 0.24, 0.3, 0.36, 0.48],
-};
-
-/** Lookahead scheduler tick — schedule everything ~0.35 s ahead. */
+/** Lookahead scheduler tick — schedule everything ~0.55 s ahead. */
 function musicTick(): void {
   try {
     if (!ctx || musicTimer === null) return;
     const now = ctx.currentTime;
     if (nextNoteTime < now + 0.05) nextNoteTime = now + 0.05; // recover from tab throttling
-    const horizon = now + 0.35;
-    const engine = MUSIC_ENGINES[currentPack];
-    const steps = MUSIC_STEPS[currentPack];
+    const horizon = now + 0.55;
+    const arr = ARRANGEMENTS[currentPack];
+    const stepDur = 60 / arr.bpm / (arr.stepsPerBar / 4);
+    const engine = STEP_ENGINES[currentPack];
     let guard = 0;
-    while (nextNoteTime < horizon && guard++ < 16) {
-      engine(nextNoteTime);
-      nextNoteTime += pick(steps);
+    while (nextNoteTime < horizon && guard++ < 48) {
+      engine(arr, musicStep, nextNoteTime, stepDur);
+      musicStep += 1;
+      nextNoteTime += stepDur;
     }
   } catch {
     /* ignore */
@@ -863,16 +1005,36 @@ function musicTick(): void {
 export function startMusic(): void {
   try {
     if (typeof window === 'undefined') return; // SSR guard
+    musicDesired = true; // every gesture from now on may (re)start it
     if (musicTimer !== null) return; // already playing
     if (!ensureGraph()) return;
     if (!ctx || !musicDuck) return;
     const t = ctx.currentTime;
     setGain(musicDuck, 1, t, 0.1); // undo the stop-fade, gently
+    musicStep = 0; // always begin at the top of the tune
     nextNoteTime = t + 0.15;
-    musicTimer = setInterval(() => musicTick(), 250);
+    musicTimer = setInterval(() => musicTick(), 200);
     musicTick(); // prime the first notes immediately
   } catch {
     musicTimer = null;
+  }
+}
+
+/**
+ * Mark the background music as wanted and start it if the audio context is
+ * already unlocked by a gesture. Called from the menu/setup/rules flows —
+ * the first user interaction (any click with its UI sound) unlocks the
+ * context, after which the tune keeps playing across every screen.
+ */
+export function ensureMusicFollowing(): void {
+  try {
+    musicDesired = true;
+    if (typeof window === 'undefined') return;
+    if (ctx && ctx.state === 'running' && musicTimer === null) {
+      startMusic();
+    }
+  } catch {
+    /* never throw */
   }
 }
 
