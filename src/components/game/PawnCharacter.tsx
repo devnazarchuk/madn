@@ -37,9 +37,17 @@ import type { PlayerColorId } from '@/engine/types';
 // Shared resources (created once, never disposed)
 // ---------------------------------------------------------------------------
 
+/**
+ * LOW-POLY STYLIZED LOOK: every shared geometry keeps deliberately modest
+ * segment counts and every material is flat-shaded, so the whole toy cast
+ * renders with the crisp faceted "polygonal" language — chunky, warm and
+ * modern, like hand-painted wooden figures.
+ */
 const GEO = {
-  sphere: new THREE.SphereGeometry(1, 24, 18),
-  cone: new THREE.ConeGeometry(1, 1, 18),
+  /** Faceted toy sphere (flat-shaded by every material). */
+  sphere: new THREE.SphereGeometry(1, 14, 10),
+  /** Six-sided faceted cone — ears, tufts, hats. */
+  cone: new THREE.ConeGeometry(1, 1, 7),
   /** Gem body — flat-shaded icosahedron. */
   gem: new THREE.IcosahedronGeometry(1, 0),
   /** Chessman silhouette (lathe profile, radii in world units). */
@@ -59,41 +67,41 @@ const GEO = {
       [0.1, 0.64],
       [0.06, 0.68],
     ].map(([x, y]) => new THREE.Vector2(x, y)),
-    32,
+    14,
   ),
   /** Cylinder for bands & brims. */
-  cyl: new THREE.CylinderGeometry(1, 1, 1, 20),
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 10),
   /** Unit cube — gift boxes, lids and ribbons. */
   box: new THREE.BoxGeometry(1, 1, 1),
 } as const;
 
 const ACCENT = {
-  cream: new THREE.MeshStandardMaterial({ color: MATERIAL.cream, roughness: 0.55 }),
-  dark: new THREE.MeshStandardMaterial({ color: '#3E2A18', roughness: 0.42 }),
-  white: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.38 }),
-  gold: new THREE.MeshStandardMaterial({ color: MATERIAL.gold, roughness: 0.42 }),
+  cream: new THREE.MeshStandardMaterial({ color: MATERIAL.cream, roughness: 0.55, flatShading: true }),
+  dark: new THREE.MeshStandardMaterial({ color: '#3E2A18', roughness: 0.42, flatShading: true }),
+  white: new THREE.MeshStandardMaterial({ color: '#FFFFFF', roughness: 0.38, flatShading: true }),
+  gold: new THREE.MeshStandardMaterial({ color: MATERIAL.gold, roughness: 0.42, metalness: 0.25, flatShading: true }),
   /** Skin tone for elf faces. */
-  skin: new THREE.MeshStandardMaterial({ color: '#F6D7B8', roughness: 0.5 }),
+  skin: new THREE.MeshStandardMaterial({ color: '#F6D7B8', roughness: 0.5, flatShading: true }),
   /** Slightly deeper skin tone for elf noses (reads against the face). */
-  nose: new THREE.MeshStandardMaterial({ color: '#EFC29F', roughness: 0.5 }),
+  nose: new THREE.MeshStandardMaterial({ color: '#EFC29F', roughness: 0.5, flatShading: true }),
   /** Warm wooden gift box base. */
-  wood: new THREE.MeshStandardMaterial({ color: '#B98A5A', roughness: 0.6 }),
+  wood: new THREE.MeshStandardMaterial({ color: '#B98A5A', roughness: 0.6, flatShading: true }),
 } as const;
 
 /** Deep player-color materials for hats/scarves (static — color never changes). */
 const DEEP_MAT: Record<PlayerColorId, THREE.MeshStandardMaterial> = {
-  red: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.red, roughness: 0.5 }),
-  blue: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.blue, roughness: 0.5 }),
-  green: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.green, roughness: 0.5 }),
-  yellow: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.yellow, roughness: 0.5 }),
+  red: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.red, roughness: 0.5, flatShading: true }),
+  blue: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.blue, roughness: 0.5, flatShading: true }),
+  green: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.green, roughness: 0.5, flatShading: true }),
+  yellow: new THREE.MeshStandardMaterial({ color: COLORS_DEEP.yellow, roughness: 0.5, flatShading: true }),
 };
 
 /** Bright player-color materials for accessory accents (static). */
 const BRIGHT_MAT: Record<PlayerColorId, THREE.MeshStandardMaterial> = {
-  red: new THREE.MeshStandardMaterial({ color: COLORS.red, roughness: 0.5 }),
-  blue: new THREE.MeshStandardMaterial({ color: COLORS.blue, roughness: 0.5 }),
-  green: new THREE.MeshStandardMaterial({ color: COLORS.green, roughness: 0.5 }),
-  yellow: new THREE.MeshStandardMaterial({ color: COLORS.yellow, roughness: 0.5 }),
+  red: new THREE.MeshStandardMaterial({ color: COLORS.red, roughness: 0.5, flatShading: true }),
+  blue: new THREE.MeshStandardMaterial({ color: COLORS.blue, roughness: 0.5, flatShading: true }),
+  green: new THREE.MeshStandardMaterial({ color: COLORS.green, roughness: 0.5, flatShading: true }),
+  yellow: new THREE.MeshStandardMaterial({ color: COLORS.yellow, roughness: 0.5, flatShading: true }),
 };
 
 // ---------------------------------------------------------------------------
@@ -160,11 +168,18 @@ function FoxBody({ bodyMat }: { bodyMat: THREE.Material }) {
     <>
       {/* body */}
       {ball('body', 0, 0.3, 0, 0.25, bodyMat, [1, 1.25, 1])}
+      {/* chest fluff */}
+      {ball('chest', 0, 0.26, 0.16, 0.13, ACCENT.cream, [1, 1.1, 0.7])}
       {/* head */}
       {ball('head', 0, 0.62, 0.02, 0.21, bodyMat)}
-      {/* pointed ears */}
+      {/* pointed ears with cream inner faces */}
       {spike('ear-l', -0.125, 0.83, -0.03, 0.085, 0.2, bodyMat, [0.1, 0, 0.32])}
       {spike('ear-r', 0.125, 0.83, -0.03, 0.085, 0.2, bodyMat, [0.1, 0, -0.32])}
+      {ball('earpad-l', -0.115, 0.8, 0.02, 0.038, ACCENT.cream)}
+      {ball('earpad-r', 0.115, 0.8, 0.02, 0.038, ACCENT.cream)}
+      {/* fluffy cheek tufts */}
+      {ball('cheek-l', -0.16, 0.56, 0.1, 0.065, ACCENT.cream, [1.15, 0.8, 0.9])}
+      {ball('cheek-r', 0.16, 0.56, 0.1, 0.065, ACCENT.cream, [1.15, 0.8, 0.9])}
       {/* muzzle + nose */}
       {ball('muzzle', 0, 0.575, 0.17, 0.1, ACCENT.cream, [1, 0.85, 1.1])}
       {ball('nose', 0, 0.605, 0.245, 0.045, ACCENT.dark)}
@@ -173,9 +188,13 @@ function FoxBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {ball('eye-r', 0.088, 0.665, 0.165, 0.036, ACCENT.dark)}
       {glint('glint-l', -0.078, 0.678, 0.192)}
       {glint('glint-r', 0.098, 0.678, 0.192)}
-      {/* bushy tail with cream tip */}
-      {ball('tail', 0, 0.24, -0.27, 0.13, bodyMat, [1, 0.85, 1.5])}
-      {ball('tail-tip', 0, 0.215, -0.42, 0.075, ACCENT.cream)}
+      {/* little front paws */}
+      {ball('paw-l', -0.14, 0.22, 0.16, 0.05, bodyMat, [1, 1.2, 1])}
+      {ball('paw-r', 0.14, 0.22, 0.16, 0.05, bodyMat, [1, 1.2, 1])}
+      {/* bushy tail with cream tip (two segments for a curvy silhouette) */}
+      {ball('tail', 0, 0.26, -0.24, 0.125, bodyMat, [1, 1, 1.35])}
+      {ball('tail-mid', 0, 0.24, -0.36, 0.1, bodyMat, [1, 1, 1.2])}
+      {ball('tail-tip', 0, 0.225, -0.44, 0.07, ACCENT.cream)}
       {/* feet */}
       {ball('foot-l', -0.09, 0.035, 0.07, 0.05, ACCENT.dark, [1, 0.7, 1.2])}
       {ball('foot-r', 0.09, 0.035, 0.07, 0.05, ACCENT.dark, [1, 0.7, 1.2])}
@@ -205,6 +224,11 @@ function BearBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {glint('glint-r', 0.098, 0.728, 0.197)}
       {/* belly patch */}
       {ball('belly', 0, 0.3, 0.145, 0.165, ACCENT.cream, [1, 1, 0.6])}
+      {/* chunky arms with cream paws */}
+      {ball('arm-l', -0.26, 0.4, 0.03, 0.075, bodyMat, [0.85, 1.35, 0.85])}
+      {ball('arm-r', 0.26, 0.4, 0.03, 0.075, bodyMat, [0.85, 1.35, 0.85])}
+      {ball('paw-l', -0.265, 0.27, 0.07, 0.05, ACCENT.cream)}
+      {ball('paw-r', 0.265, 0.27, 0.07, 0.05, ACCENT.cream)}
       {/* feet */}
       {ball('foot-l', -0.1, 0.04, 0.08, 0.055, bodyMat, [1, 0.75, 1.25])}
       {ball('foot-r', 0.1, 0.04, 0.08, 0.055, bodyMat, [1, 0.75, 1.25])}
@@ -229,7 +253,10 @@ function FrogBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {ball('cheek-r', 0.15, 0.3, 0.175, 0.05, ACCENT.cream)}
       {/* belly */}
       {ball('belly', 0, 0.2, 0.155, 0.17, ACCENT.cream, [1, 0.9, 0.6])}
-      {/* feet */}
+      {/* little hands resting on the belly */}
+      {ball('hand-l', -0.2, 0.16, 0.19, 0.045, bodyMat, [1, 0.8, 1.15])}
+      {ball('hand-r', 0.2, 0.16, 0.19, 0.045, bodyMat, [1, 0.8, 1.15])}
+      {/* webbed feet */}
       {ball('foot-l', -0.14, 0.045, 0.11, 0.07, bodyMat, [1.15, 0.55, 1.5])}
       {ball('foot-r', 0.14, 0.045, 0.11, 0.07, bodyMat, [1.15, 0.55, 1.5])}
     </>
@@ -243,18 +270,24 @@ function ChickBody({ bodyMat }: { bodyMat: THREE.Material }) {
       {ball('body', 0, 0.28, 0, 0.24, bodyMat)}
       {/* head */}
       {ball('head', 0, 0.6, 0.01, 0.19, bodyMat)}
-      {/* beak */}
+      {/* beak (two stacked cones for a cute open-beak look) */}
       {spike('beak', 0, 0.585, 0.19, 0.052, 0.11, ACCENT.gold, [Math.PI / 2, 0, 0])}
+      {ball('beak-low', 0, 0.55, 0.2, 0.03, ACCENT.gold)}
       {/* head tuft */}
       {spike('tuft', 0, 0.785, -0.01, 0.035, 0.1, bodyMat, [-0.35, 0, 0])}
+      {spike('tuft-2', 0.03, 0.77, -0.02, 0.026, 0.08, bodyMat, [-0.55, 0, 0.3])}
       {/* eyes + glints */}
       {ball('eye-l', -0.075, 0.655, 0.15, 0.034, ACCENT.dark)}
       {ball('eye-r', 0.075, 0.655, 0.15, 0.034, ACCENT.dark)}
       {glint('glint-l', -0.066, 0.667, 0.176)}
       {glint('glint-r', 0.084, 0.667, 0.176)}
-      {/* little wings */}
+      {/* little wings (two feathers each) */}
       {ball('wing-l', -0.225, 0.31, 0.01, 0.1, bodyMat, [0.45, 0.95, 1])}
       {ball('wing-r', 0.225, 0.31, 0.01, 0.1, bodyMat, [0.45, 0.95, 1])}
+      {ball('feather-l', -0.245, 0.21, 0.03, 0.045, bodyMat, [0.4, 1.1, 0.8])}
+      {ball('feather-r', 0.245, 0.21, 0.03, 0.045, bodyMat, [0.4, 1.1, 0.8])}
+      {/* fluffy tail puff */}
+      {ball('tail', 0, 0.26, -0.21, 0.075, bodyMat, [1, 0.9, 0.9])}
       {/* feet */}
       {ball('foot-l', -0.075, 0.03, 0.07, 0.04, ACCENT.gold, [1, 0.65, 1.2])}
       {ball('foot-r', 0.075, 0.03, 0.07, 0.04, ACCENT.gold, [1, 0.65, 1.2])}
