@@ -49,9 +49,19 @@ that follows exactly what a child sees painted on the board.
   explanations and safe preset switching.
 - **Board layouts** — the Classic Official Color Pattern or the Full Random Map
   (every track field and finish slot re-colored, home stretches included).
-- **Seasons & skins** — classic, winter and Christmas themes with weather and
-  scenery, wooden board skins, pawn skins (classic, animal, gem) and color-matched
-  accessories — plus three synthesized sound packs.
+- **Seasons & full customization** — classic, winter, Christmas, Easter and
+  summer themes with weather and scenery; wooden board skins; **platform-tile
+  skins** (smooth classic inlays, faceted low-poly gems, plush cushions,
+  glossy porcelain with golden rims); **dice skins** (ivory classic, wooden
+  toy, crystal, midnight glow); six pawn skins with color-matched accessories.
+  Gameplay colors are never affected — ownership stays instantly readable.
+- **Calm HUD by default** — the play-by-play roll narration ("Frida Frog
+  rolled Blue — no pawn can use it. Turn skipped.") is OFF by default and can
+  be re-enabled from the pause menu ("Roll announcer").
+- **Composed background music** — each of the three synthesized sound packs
+  (Toy shop, Christmas bells, Arcade chip) carries its own hand-written
+  multi-layer tune — chord pad, bass line, lead melody, counter-arp and light
+  percussion — cycling forever from the first tap on the menu onward.
 - **Saved play** — automatic autosave of the running match, last setup restore,
   and a persistent match history backed by a small API + database.
 - **Interactive tutorial** — a "Would you like to take an interactive tutorial?"
@@ -60,10 +70,13 @@ that follows exactly what a child sees painted on the board.
 
 ### Mobile & accessibility
 
-- **Two portrait camera framings** — the kids' *diagonal* diamond and a *straight
-  top-down* view whose board edges butt against the screen sides; both are solved
-  exactly against the perspective projection for any phone aspect and switchable
-  from the in-game HUD. Landscape/desktop keeps the classic three-quarter camera.
+- **Two portrait camera framings** — the kids' *diagonal* diamond (tuned close:
+  the board's corners land at the screen edges so every pawn position fills the
+  view) and a *straight top-down* view whose board edges butt against the screen
+  sides; both are solved exactly against the perspective projection for any
+  phone aspect and switchable from the in-game HUD. The **reset camera view**
+  button always restores the default angled framing (never the overhead one).
+  Landscape/desktop keeps the classic three-quarter camera.
 - **Safe-area aware HUD** — `100dvh`/`100svh` layout, `env(safe-area-inset-*)`
   padding, sticky bottom gameplay bar with reserved status space, no horizontal
   scrolling, and touch targets sized for small hands.
