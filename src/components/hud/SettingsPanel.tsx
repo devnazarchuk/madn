@@ -224,6 +224,54 @@ export function SettingsPanel() {
 
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
+          <Grid3x3 size={15} /> Platform tiles
+        </div>
+        <Select
+          value={tileSkin}
+          onValueChange={(v) => {
+            setTileSkin(v as TileSkinId);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Platform tiles">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TILE_SKIN_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {TILE_SKINS[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Dices size={15} /> Dice look
+        </div>
+        <Select
+          value={diceSkin}
+          onValueChange={(v) => {
+            setDiceSkin(v as DiceSkinId);
+            playSfx('uiClick');
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Dice look">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DICE_SKIN_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {DICE_SKINS[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
           <Shapes size={15} /> Pawn skin
         </div>
         <Select
@@ -278,6 +326,7 @@ export function SettingsPanel() {
       <Separator />
 
       {/* --- Visual --------------------------------------------------------- */}
+      <SettingsSection label="Graphics" />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <MonitorPlay size={15} /> Graphics quality
@@ -379,6 +428,7 @@ export function SettingsPanel() {
       <Separator />
 
       {/* --- Gameplay ------------------------------------------------------- */}
+      <SettingsSection label="Gameplay" />
       <label className="flex items-center justify-between gap-3 text-sm">
         <span className="flex items-center gap-2 font-medium">
           <Bot size={15} /> Auto-play single moves
@@ -405,7 +455,39 @@ export function SettingsPanel() {
           aria-label="Auto-roll dice"
         />
       </label>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-2 font-medium">
+          <Megaphone size={15} /> Roll announcer
+        </span>
+        <Switch
+          checked={announcer}
+          onCheckedChange={(v) => {
+            setAnnouncer(v);
+            playSfx('uiClick');
+          }}
+          aria-label="Roll announcer"
+        />
+      </label>
+      {!announcer && (
+        <p className="-mt-2 px-1 text-[11px] leading-snug text-muted-foreground">
+          Off by default — the status line stays calm. Turn on to narrate every roll ("Frida Frog rolled Blue…").
+        </p>
+      )}
     </div>
+  );
+}
+
+/** Tiny uppercase section caption that structures the settings panel. */
+function SettingsSection({ label }: { label: string }) {
+  return (
+    <p
+      className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A6B4F]"
+      role="presentation"
+    >
+      <span aria-hidden className="h-px flex-1 bg-[#5B3A24]/15" />
+      {label}
+      <span aria-hidden className="h-px flex-1 bg-[#5B3A24]/15" />
+    </p>
   );
 }
 
