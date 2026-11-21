@@ -8,6 +8,7 @@ import {
   Layers,
   Megaphone,
   MonitorPlay,
+  Palette,
   Shapes,
   Shirt,
   Snowflake,
@@ -42,14 +43,18 @@ import {
   THEME_ORDER,
   TILE_SKINS,
   TILE_SKIN_ORDER,
+  UI_THEME_LABELS,
+  UI_THEME_ORDER,
   type AccessoryChoice,
-  type BoardSkinId,
-  type DiceSkinId,
-  type PawnSkinId,
-  type ThemeId,
-  type TileSkinId,
+  type BoardSkinChoice,
+  type DiceSkinChoice,
+  type PawnSkinChoice,
+  type ThemeChoice,
+  type TileSkinChoice,
+  type UiThemeChoice,
 } from '@/config/theme';
 import { playSfx } from '@/services/audio';
+import { useLook } from '@/hooks/use-look';
 import { useSettingsStore, type SoundPackId } from '@/store/settingsStore';
 
 /** The three synthesized audio styles, selectable in the settings. */
@@ -81,6 +86,8 @@ export function SettingsPanel() {
   const setAnnouncer = useSettingsStore((s) => s.setAnnouncer);
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
+  const uiTheme = useSettingsStore((s) => s.uiTheme);
+  const setUiTheme = useSettingsStore((s) => s.setUiTheme);
   const boardSkin = useSettingsStore((s) => s.boardSkin);
   const setBoardSkin = useSettingsStore((s) => s.setBoardSkin);
   const tileSkin = useSettingsStore((s) => s.tileSkin);
@@ -101,6 +108,10 @@ export function SettingsPanel() {
   const setSharpTextures = useSettingsStore((s) => s.setSharpTextures);
   const antialias = useSettingsStore((s) => s.antialias);
   const setAntialias = useSettingsStore((s) => s.setAntialias);
+
+  // The look choices actually in effect (auto values resolved through the
+  // active seasonal theme) — shown live in each Auto trigger.
+  const resolved = useLook();
 
   return (
     <div className="space-y-4">
@@ -174,6 +185,11 @@ export function SettingsPanel() {
 
       {/* --- Appearance ----------------------------------------------------- */}
       <SettingsSection label="Look of the game" />
+      <p className="-mt-1 px-1 text-[11px] leading-snug text-[var(--ui-muted)]">
+        <span className="font-semibold">Auto</span> follows season presets — everything dresses itself
+        to match the active season, and any value can still be picked by hand.
+      </p>
+
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Sparkles size={15} /> Season
@@ -181,17 +197,55 @@ export function SettingsPanel() {
         <Select
           value={theme}
           onValueChange={(v) => {
-            setTheme(v as ThemeId);
+            setTheme(v as ThemeChoice);
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Season">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Season">
+            <SelectValue>
+              {theme === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{THEMES[resolved.theme].label}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Auto (calendar)</SelectItem>
             {THEME_ORDER.map((id) => (
               <SelectItem key={id} value={id}>
                 {THEMES[id].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Palette size={15} /> Interface
+        </div>
+        <Select
+          value={uiTheme}
+          onValueChange={(v) => {
+            setUiTheme(v as UiThemeChoice);
+            playSfx('star');
+          }}
+        >
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Interface theme">
+            <SelectValue>
+              {uiTheme === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{UI_THEME_LABELS[resolved.uiTheme]}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Auto (match season)</SelectItem>
+            {UI_THEME_ORDER.map((id) => (
+              <SelectItem key={id} value={id}>
+                {UI_THEME_LABELS[id]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -205,14 +259,21 @@ export function SettingsPanel() {
         <Select
           value={boardSkin}
           onValueChange={(v) => {
-            setBoardSkin(v as BoardSkinId);
+            setBoardSkin(v as BoardSkinChoice);
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Board skin">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Board skin">
+            <SelectValue>
+              {boardSkin === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{BOARD_SKINS[resolved.boardSkin].label}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Auto (season preset)</SelectItem>
             {BOARD_SKIN_ORDER.map((id) => (
               <SelectItem key={id} value={id}>
                 {BOARD_SKINS[id].label}
