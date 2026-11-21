@@ -4,11 +4,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
   AccessoryChoice,
-  BoardSkinId,
-  DiceSkinId,
-  PawnSkinId,
-  ThemeId,
-  TileSkinId,
+  BoardSkinChoice,
+  DiceSkinChoice,
+  PawnSkinChoice,
+  ThemeChoice,
+  TileSkinChoice,
+  UiThemeChoice,
 } from '@/config/theme';
 
 export type QualityLevel = 'high' | 'medium' | 'low';
@@ -47,15 +48,20 @@ interface SettingsState {
   /** The "Would you like to take an interactive tutorial?" intro was shown
    * (and dismissed for good) — it never pops up on future visits. */
   tutorialIntroSeen: boolean;
-  // --- appearance ---
-  theme: ThemeId;
-  boardSkin: BoardSkinId;
+  // --- appearance ---------------------------------------------------------
+  // Every Look-of-the-game value supports 'auto': it then follows the curated
+  // preset of the active seasonal theme (which itself defaults to the real
+  // calendar season). Any value can still be picked manually.
+  theme: ThemeChoice;
+  boardSkin: BoardSkinChoice;
   /** Visual style of the track/finish platforms the pawns hop across. */
-  tileSkin: TileSkinId;
+  tileSkin: TileSkinChoice;
   /** Visual style of the 3D color die. */
-  diceSkin: DiceSkinId;
-  pawnSkin: PawnSkinId;
+  diceSkin: DiceSkinChoice;
+  pawnSkin: PawnSkinChoice;
   pawnAccessory: AccessoryChoice;
+  /** Paint job of the menus/dialogs/HUD ('auto' = match the season). */
+  uiTheme: UiThemeChoice;
   // --- graphics effect toggles (overridable; presets reset them) ---
   shadows: boolean;
   weather: boolean;
@@ -73,12 +79,13 @@ interface SettingsState {
   setSoundPack: (p: SoundPackId) => void;
   setAnnouncer: (v: boolean) => void;
   setTutorialIntroSeen: (v: boolean) => void;
-  setTheme: (t: ThemeId) => void;
-  setBoardSkin: (s: BoardSkinId) => void;
-  setTileSkin: (s: TileSkinId) => void;
-  setDiceSkin: (s: DiceSkinId) => void;
-  setPawnSkin: (s: PawnSkinId) => void;
+  setTheme: (t: ThemeChoice) => void;
+  setBoardSkin: (s: BoardSkinChoice) => void;
+  setTileSkin: (s: TileSkinChoice) => void;
+  setDiceSkin: (s: DiceSkinChoice) => void;
+  setPawnSkin: (s: PawnSkinChoice) => void;
   setPawnAccessory: (a: AccessoryChoice) => void;
+  setUiTheme: (t: UiThemeChoice) => void;
   setShadows: (v: boolean) => void;
   setWeather: (v: boolean) => void;
   setScenery: (v: boolean) => void;
@@ -105,12 +112,13 @@ export const useSettingsStore = create<SettingsState>()(
       soundPack: 'toys',
       announcer: false,
       tutorialIntroSeen: false,
-      theme: 'classic',
-      boardSkin: 'walnut',
-      tileSkin: 'classic',
-      diceSkin: 'classic',
-      pawnSkin: 'classic',
+      theme: 'auto',
+      boardSkin: 'auto',
+      tileSkin: 'auto',
+      diceSkin: 'auto',
+      pawnSkin: 'auto',
       pawnAccessory: 'auto',
+      uiTheme: 'auto',
       shadows: true,
       weather: true,
       scenery: true,
@@ -134,6 +142,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDiceSkin: (s) => set({ diceSkin: s }),
       setPawnSkin: (s) => set({ pawnSkin: s }),
       setPawnAccessory: (a) => set({ pawnAccessory: a }),
+      setUiTheme: (t) => set({ uiTheme: t }),
       setShadows: (v) => set({ shadows: v }),
       setWeather: (v) => set({ weather: v }),
       setScenery: (v) => set({ scenery: v }),
@@ -142,13 +151,24 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'colorhop-settings-v1',
-      version: 1,
-      // v0 allowed the removed 'scarf' accessory — map it to 'none'.
-      migrate: (state) => {
-        if (state && (state as Partial<SettingsState>).pawnAccessory === ('scarf' as AccessoryChoice)) {
-          (state as Partial<SettingsState>).pawnAccessory = 'none';
+      version: 2,
+      migrate: (state, version) => {
+        const s = (state ?? {}) as Partial<SettingsState>;
+        // v0 allowed the removed 'scarf' accessory — map it to 'none'.
+        if (s.pawnAccessory === ('scarf' as AccessoryChoice)) {
+          s.pawnAccessory = 'none';
         }
-        return state as SettingsState;
+        // v1 stored concrete look values; v2 introduced the season 'auto'
+        // system and folds every stored pick into it (the owner's default).
+        if (version < 2) {
+          s.theme = 'auto';
+          s.boardSkin = 'auto';
+          s.tileSkin = 'auto';
+          s.diceSkin = 'auto';
+          s.pawnSkin = 'auto';
+          s.uiTheme = 'auto';
+        }
+        return s as SettingsState;
       },
     },
   ),
