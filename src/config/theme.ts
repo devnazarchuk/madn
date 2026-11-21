@@ -85,6 +85,118 @@ export type PawnAccessoryId = 'none' | 'beanie' | 'santa' | 'cap' | 'crown';
 /** 'auto' = follow whatever the active seasonal theme suggests. */
 export type AccessoryChoice = PawnAccessoryId | 'auto';
 
+// ---------------------------------------------------------------------------
+// INTERFACE THEMES — the paint job of every menu, dialog and HUD surface.
+// Purely UI colors (panels, text, borders, accents); gameplay colors stay
+// untouched everywhere. 'auto' follows the active seasonal theme.
+// ---------------------------------------------------------------------------
+
+export type UiThemeId = 'heirloom' | 'noel' | 'frost' | 'meadow' | 'sunset' | 'night';
+export type UiThemeChoice = UiThemeId | 'auto';
+
+export const UI_THEME_LABELS: Record<UiThemeId, string> = {
+  heirloom: 'Warm wood',
+  noel: 'Christmas',
+  frost: 'Winter ice',
+  meadow: 'Spring meadow',
+  sunset: 'Summer sunset',
+  night: 'Cozy night',
+};
+
+export const UI_THEME_ORDER: UiThemeId[] = ['heirloom', 'noel', 'frost', 'meadow', 'sunset', 'night'];
+
+// ---------------------------------------------------------------------------
+// SEASON PRESETS — the "Auto" answer for every Look-of-the-game value.
+// `seasonThemeForDate` maps the calendar to a seasonal theme, and each theme
+// carries a curated look preset (board / tiles / dice / pawns / UI theme)
+// that any value set to 'auto' follows. Every value can still be picked
+// manually — the two systems never fight each other.
+// ---------------------------------------------------------------------------
+
+/** Calendar → seasonal theme. */
+export function seasonThemeForDate(date: Date = new Date()): ThemeId {
+  const m = date.getMonth(); // 0–11
+  const d = date.getDate();
+  if (m === 11 || (m === 0 && d <= 6)) return 'christmas'; // Dec 1 – Jan 6
+  if (m === 0 || m === 1) return 'winter'; // rest of Jan – Feb
+  if (m === 2 || m === 3) return 'easter'; // Mar – Apr
+  if (m >= 5 && m <= 7) return 'summer'; // Jun – Aug
+  return 'classic'; // May, Sep, Oct, Nov
+}
+
+/** Curated look that 'auto' values follow for each seasonal theme. */
+export interface SeasonLookPreset {
+  boardSkin: BoardSkinId;
+  tileSkin: TileSkinId;
+  diceSkin: DiceSkinId;
+  pawnSkin: PawnSkinId;
+  uiTheme: UiThemeId;
+}
+
+export const SEASON_LOOK_PRESETS: Record<ThemeId, SeasonLookPreset> = {
+  classic: { boardSkin: 'walnut', tileSkin: 'classic', diceSkin: 'classic', pawnSkin: 'classic', uiTheme: 'heirloom' },
+  christmas: { boardSkin: 'chocolate', tileSkin: 'plush', diceSkin: 'wooden', pawnSkin: 'gift', uiTheme: 'noel' },
+  winter: { boardSkin: 'ivory', tileSkin: 'porcelain', diceSkin: 'crystal', pawnSkin: 'elf', uiTheme: 'frost' },
+  easter: { boardSkin: 'maple', tileSkin: 'classic', diceSkin: 'classic', pawnSkin: 'egg', uiTheme: 'meadow' },
+  summer: { boardSkin: 'maple', tileSkin: 'faceted', diceSkin: 'crystal', pawnSkin: 'gem', uiTheme: 'sunset' },
+};
+
+// --- Auto-aware choice types (settings store) -------------------------------
+
+export type ThemeChoice = ThemeId | 'auto';
+export type BoardSkinChoice = BoardSkinId | 'auto';
+export type TileSkinChoice = TileSkinId | 'auto';
+export type DiceSkinChoice = DiceSkinId | 'auto';
+export type PawnSkinChoice = PawnSkinId | 'auto';
+
+/** What the settings store holds — any value may be 'auto'. */
+export interface LookChoices {
+  theme: ThemeChoice;
+  boardSkin: BoardSkinChoice;
+  tileSkin: TileSkinChoice;
+  diceSkin: DiceSkinChoice;
+  pawnSkin: PawnSkinChoice;
+  pawnAccessory: AccessoryChoice;
+  uiTheme: UiThemeChoice;
+}
+
+/** Fully-resolved look — what the game actually renders. */
+export interface ResolvedLook {
+  /** The season the calendar picked right now (also used for hints). */
+  season: ThemeId;
+  theme: ThemeId;
+  boardSkin: BoardSkinId;
+  tileSkin: TileSkinId;
+  diceSkin: DiceSkinId;
+  pawnSkin: PawnSkinId;
+  /** The accessory pawns actually wear (auto already resolved). */
+  accessory: PawnAccessoryId;
+  uiTheme: UiThemeId;
+}
+
+/**
+ * Resolves every Look-of-the-game value: 'auto' follows the preset of the
+ * ACTIVE theme — so a manually picked season still dresses its own board,
+ * tiles, dice and pawns coherently, while 'auto' everywhere follows the
+ * calendar season.
+ */
+export function resolveLook(choices: LookChoices, date: Date = new Date()): ResolvedLook {
+  const season = seasonThemeForDate(date);
+  const theme = choices.theme === 'auto' ? season : choices.theme;
+  const preset = SEASON_LOOK_PRESETS[theme];
+  const pawnSkin = choices.pawnSkin === 'auto' ? preset.pawnSkin : choices.pawnSkin;
+  return {
+    season,
+    theme,
+    boardSkin: choices.boardSkin === 'auto' ? preset.boardSkin : choices.boardSkin,
+    tileSkin: choices.tileSkin === 'auto' ? preset.tileSkin : choices.tileSkin,
+    diceSkin: choices.diceSkin === 'auto' ? preset.diceSkin : choices.diceSkin,
+    pawnSkin,
+    accessory: effectiveAccessory(choices.pawnAccessory, theme, pawnSkin),
+    uiTheme: choices.uiTheme === 'auto' ? preset.uiTheme : choices.uiTheme,
+  };
+}
+
 export type EnvironmentKind = 'room' | 'snowForest' | 'meadow' | 'beach';
 export type WeatherKind = 'none' | 'snow' | 'petals' | 'sparkles';
 

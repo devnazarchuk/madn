@@ -112,6 +112,255 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ---- UI THEME SYSTEM ------------------------------------------------------
+   Six interface themes paint every menu, dialog and HUD surface. The active
+   theme is applied as <html data-ui="…"> — it MUST live on the root element
+   because dialogs/selects render through body-level portals. Only UI colors
+   change; the four player colors and all gameplay colors stay constant.
+
+   Token map (what each variable restyles):
+   --ui-panel        dialogs / menu cards            --ui-heading  strong text
+   --ui-panel-border card outline                    --ui-text     body text
+   --ui-border       row/button borders              --ui-muted    secondary text
+   --ui-border-soft  hairline borders                --ui-faint    faint text
+   --ui-border-strong hovered/emphasized borders     --ui-accent   golden accents
+   --ui-chip         translucent button fill         --ui-on-accent text on accent
+   --ui-chip-hover   chip hover fill                 --ui-ink      dark chip fill
+   --ui-chip-solid   active toggle fill              --ui-on-ink   text on ink chip
+   --ui-well         inset wells / tab trays
+   --ui-well-soft    soft wells / hover wells
+   The shadcn tokens below each theme keep dropdowns, popovers and focus rings
+   inside the same palette. */
+
+:root,
+html[data-ui='heirloom'] {
+  --ui-panel: rgba(251, 243, 224, 0.96);
+  --ui-panel-border: #5b3a2433;
+  --ui-border: #5b3a2440;
+  --ui-border-soft: #5b3a2426;
+  --ui-border-strong: #5b3a2466;
+  --ui-heading: #3e2a18;
+  --ui-text: #6b4e35;
+  --ui-muted: #8a6b4f;
+  --ui-faint: #b08a5e;
+  --ui-chip: #ffffff80;
+  --ui-chip-hover: #ffffffcc;
+  --ui-chip-solid: #ffffff;
+  --ui-well: #e8d6b4;
+  --ui-well-soft: #f4e7ce99;
+  --ui-accent: #d9a441;
+  --ui-on-accent: #3e2a18;
+  --ui-ink: #5b3a24;
+  --ui-on-ink: #f6ebd9;
+  --background: #fbf3e0;
+  --foreground: #3e2a18;
+  --card: #fbf3e0;
+  --card-foreground: #3e2a18;
+  --popover: #fffdf6;
+  --popover-foreground: #3e2a18;
+  --primary: #5b3a24;
+  --primary-foreground: #f6ebd9;
+  --secondary: #f4e7ce;
+  --secondary-foreground: #6b4e35;
+  --muted: #f4e7ce;
+  --muted-foreground: #8a6b4f;
+  --accent: #f4e7ce;
+  --accent-foreground: #3e2a18;
+  --border: #e2d3b3;
+  --input: #e2d3b3;
+  --ring: #d9a441;
+}
+
+html[data-ui='noel'] {
+  --ui-panel: rgba(255, 248, 238, 0.96);
+  --ui-panel-border: #1f4d3b38;
+  --ui-border: #1f4d3b47;
+  --ui-border-soft: #1f4d3b2b;
+  --ui-border-strong: #1f4d3b73;
+  --ui-heading: #1e3a2c;
+  --ui-text: #44604f;
+  --ui-muted: #6b8375;
+  --ui-faint: #93a99a;
+  --ui-chip: #ffffff8f;
+  --ui-chip-hover: #ffffffde;
+  --ui-chip-solid: #ffffff;
+  --ui-well: #dcebdb;
+  --ui-well-soft: #eaf3e999;
+  --ui-accent: #b33a2e;
+  --ui-on-accent: #fff6ea;
+  --ui-ink: #1f4d3b;
+  --ui-on-ink: #f6ebd9;
+  --background: #fff8ee;
+  --foreground: #1e3a2c;
+  --card: #fff8ee;
+  --card-foreground: #1e3a2c;
+  --popover: #fffcf4;
+  --popover-foreground: #1e3a2c;
+  --primary: #1f4d3b;
+  --primary-foreground: #f6ebd9;
+  --secondary: #eaf3e9;
+  --secondary-foreground: #44604f;
+  --muted: #eaf3e9;
+  --muted-foreground: #6b8375;
+  --accent: #eaf3e9;
+  --accent-foreground: #1e3a2c;
+  --border: #dce7d9;
+  --input: #dce7d9;
+  --ring: #b33a2e;
+}
+
+html[data-ui='frost'] {
+  --ui-panel: rgba(244, 250, 255, 0.96);
+  --ui-panel-border: #35608a3d;
+  --ui-border: #35608a4d;
+  --ui-border-soft: #35608a2b;
+  --ui-border-strong: #35608a80;
+  --ui-heading: #1d3346;
+  --ui-text: #40586b;
+  --ui-muted: #647c90;
+  --ui-faint: #92a9bc;
+  --ui-chip: #ffffff8c;
+  --ui-chip-hover: #ffffffdb;
+  --ui-chip-solid: #ffffff;
+  --ui-well: #d9e9f4;
+  --ui-well-soft: #e7f1f999;
+  --ui-accent: #4a89b8;
+  --ui-on-accent: #ffffff;
+  --ui-ink: #2e4e68;
+  --ui-on-ink: #eaf4fb;
+  --background: #f4faff;
+  --foreground: #1d3346;
+  --card: #f4faff;
+  --card-foreground: #1d3346;
+  --popover: #fafdff;
+  --popover-foreground: #1d3346;
+  --primary: #2e4e68;
+  --primary-foreground: #eaf4fb;
+  --secondary: #e7f1f9;
+  --secondary-foreground: #40586b;
+  --muted: #e7f1f9;
+  --muted-foreground: #647c90;
+  --accent: #e7f1f9;
+  --accent-foreground: #1d3346;
+  --border: #d5e5f0;
+  --input: #d5e5f0;
+  --ring: #4a89b8;
+}
+
+html[data-ui='meadow'] {
+  --ui-panel: rgba(248, 251, 235, 0.96);
+  --ui-panel-border: #4c7a3a3a;
+  --ui-border: #4c7a3a4d;
+  --ui-border-soft: #4c7a3a2b;
+  --ui-border-strong: #4c7a3a80;
+  --ui-heading: #2b431f;
+  --ui-text: #4a633e;
+  --ui-muted: #6e855f;
+  --ui-faint: #9db28b;
+  --ui-chip: #ffffff8c;
+  --ui-chip-hover: #ffffffdb;
+  --ui-chip-solid: #ffffff;
+  --ui-well: #e4efd1;
+  --ui-well-soft: #eff5df99;
+  --ui-accent: #6fa341;
+  --ui-on-accent: #ffffff;
+  --ui-ink: #3e6b2e;
+  --ui-on-ink: #f3fae7;
+  --background: #f8fbeb;
+  --foreground: #2b431f;
+  --card: #f8fbeb;
+  --card-foreground: #2b431f;
+  --popover: #fcfdf4;
+  --popover-foreground: #2b431f;
+  --primary: #3e6b2e;
+  --primary-foreground: #f3fae7;
+  --secondary: #eff5df;
+  --secondary-foreground: #4a633e;
+  --muted: #eff5df;
+  --muted-foreground: #6e855f;
+  --accent: #eff5df;
+  --accent-foreground: #2b431f;
+  --border: #dfe9c9;
+  --input: #dfe9c9;
+  --ring: #6fa341;
+}
+
+html[data-ui='sunset'] {
+  --ui-panel: rgba(255, 246, 232, 0.96);
+  --ui-panel-border: #c06a2e40;
+  --ui-border: #c06a2e4d;
+  --ui-border-soft: #c06a2e2e;
+  --ui-border-strong: #c06a2e80;
+  --ui-heading: #4a2c17;
+  --ui-text: #7a5236;
+  --ui-muted: #a0724b;
+  --ui-faint: #c89b6c;
+  --ui-chip: #ffffff80;
+  --ui-chip-hover: #ffffffcc;
+  --ui-chip-solid: #ffffff;
+  --ui-well: #f9e2bf;
+  --ui-well-soft: #fbecd499;
+  --ui-accent: #e8833a;
+  --ui-on-accent: #ffffff;
+  --ui-ink: #a14e1f;
+  --ui-on-ink: #fff3e2;
+  --background: #fff6e8;
+  --foreground: #4a2c17;
+  --card: #fff6e8;
+  --card-foreground: #4a2c17;
+  --popover: #fffaf0;
+  --popover-foreground: #4a2c17;
+  --primary: #a14e1f;
+  --primary-foreground: #fff3e2;
+  --secondary: #fbecd4;
+  --secondary-foreground: #7a5236;
+  --muted: #fbecd4;
+  --muted-foreground: #a0724b;
+  --accent: #fbecd4;
+  --accent-foreground: #4a2c17;
+  --border: #f0dcc0;
+  --input: #f0dcc0;
+  --ring: #e8833a;
+}
+
+html[data-ui='night'] {
+  --ui-panel: rgba(42, 33, 24, 0.96);
+  --ui-panel-border: #c9a87636;
+  --ui-border: #c9a87645;
+  --ui-border-soft: #c9a8762b;
+  --ui-border-strong: #c9a87673;
+  --ui-heading: #f6ebd9;
+  --ui-text: #d9c3a0;
+  --ui-muted: #a9906d;
+  --ui-faint: #8a7458;
+  --ui-chip: #ffffff17;
+  --ui-chip-hover: #ffffff2e;
+  --ui-chip-solid: #453724;
+  --ui-well: #3a2e20;
+  --ui-well-soft: #33291899;
+  --ui-accent: #d9a441;
+  --ui-on-accent: #241b14;
+  --ui-ink: #4a3b28;
+  --ui-on-ink: #f6ebd9;
+  --background: #2a2118;
+  --foreground: #f6ebd9;
+  --card: #2a2118;
+  --card-foreground: #f6ebd9;
+  --popover: #332918;
+  --popover-foreground: #f6ebd9;
+  --primary: #d9a441;
+  --primary-foreground: #241b14;
+  --secondary: #3a2e20;
+  --secondary-foreground: #d9c3a0;
+  --muted: #3a2e20;
+  --muted-foreground: #a9906d;
+  --accent: #3a2e20;
+  --accent-foreground: #f6ebd9;
+  --border: #4a3b28;
+  --input: #4a3b28;
+  --ring: #d9a441;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
