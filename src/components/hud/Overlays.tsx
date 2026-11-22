@@ -144,7 +144,7 @@ export function WinnerOverlay() {
       {winner && <ConfettiBurst />}
       <Dialog open={!!winner}>
         <DialogContent
-          className="max-w-sm rounded-[2rem] border-[#5B3A24]/25 bg-[#FBF3E0]"
+          className="max-w-sm rounded-[2rem] border-[var(--ui-border)] bg-[var(--ui-panel)]"
           showCloseButton={false}
           aria-describedby={undefined}
         >
@@ -163,11 +163,11 @@ export function WinnerOverlay() {
               >
                 <Trophy size={40} />
               </motion.span>
-              <DialogTitle className="font-[family-name:var(--font-baloo)] text-3xl font-extrabold text-[#3E2A18]">
+              <DialogTitle className="font-[family-name:var(--font-baloo)] text-3xl font-extrabold text-[var(--ui-heading)]">
                 {player?.name ?? 'Player'} wins!
               </DialogTitle>
-              <DialogDescription className="flex items-center justify-center gap-2 text-sm text-[#8A6B4F]">
-                <span className="text-[#5B3A24]">
+              <DialogDescription className="flex items-center justify-center gap-2 text-sm text-[var(--ui-muted)]">
+                <span className="text-[var(--ui-ink)]">
                   {winner ? <AnimalIcon color={winner} size={15} /> : null}
                 </span>
                 {winner ? `${CHARACTERS[winner].name} the ${CHARACTERS[winner].animal} · ` : ''}
@@ -184,9 +184,9 @@ export function WinnerOverlay() {
                 { label: 'Captures', value: `${game?.captures ?? 0}` },
                 { label: 'Duration', value: fmtDuration(durationSec) },
               ].map((s) => (
-                <div key={s.label} className="rounded-2xl border border-[#5B3A24]/15 bg-white/60 py-2.5">
-                  <p className="text-lg font-bold text-[#3E2A18]">{s.value}</p>
-                  <p className="text-[11px] uppercase tracking-wide text-[#8A6B4F]">{s.label}</p>
+                <div key={s.label} className="rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] py-2.5">
+                  <p className="text-lg font-bold text-[var(--ui-heading)]">{s.value}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-[var(--ui-muted)]">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -197,7 +197,7 @@ export function WinnerOverlay() {
                   <span
                     key={p.id}
                     className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      p.color === winner ? 'text-white' : 'bg-white/60 text-[#6B4E35]'
+                      p.color === winner ? 'text-white' : 'bg-[var(--ui-chip)] text-[var(--ui-text)]'
                     }`}
                     style={p.color === winner ? { backgroundColor: COLORS[p.color] } : undefined}
                   >
@@ -230,7 +230,7 @@ export function WinnerOverlay() {
                   playSfx('uiClick');
                   quitToMenu();
                 }}
-                className="h-12 rounded-2xl border-[#5B3A24]/25 bg-white/60 text-base font-semibold text-[#3E2A18] hover:bg-white/85"
+                className="h-12 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-base font-semibold text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
               >
                 <Home size={17} /> Menu
               </Button>
@@ -258,9 +258,9 @@ export function PauseOverlay() {
   return (
     <>
       <Dialog open={paused && !winner} onOpenChange={(v) => !v && togglePause()}>
-        <DialogContent className="max-w-sm rounded-[2rem] border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-sm">
+        <DialogContent className="max-w-sm rounded-[2rem] border-[var(--ui-border)] bg-[var(--ui-panel)] sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
+            <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-2xl font-bold text-[var(--ui-heading)]">
               <Pause size={20} /> Paused
             </DialogTitle>
             <DialogDescription>The animal friends take a cookie break.</DialogDescription>
@@ -282,7 +282,7 @@ export function PauseOverlay() {
                 playSfx('uiClick');
                 restart();
               }}
-              className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/60 font-semibold text-[#3E2A18] hover:bg-white/85"
+              className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] font-semibold text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
             >
               <RotateCcw size={15} /> Restart
             </Button>
@@ -292,7 +292,7 @@ export function PauseOverlay() {
                 playSfx('modal');
                 setRulesOpen(true);
               }}
-              className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/60 font-semibold text-[#3E2A18] hover:bg-white/85"
+              className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] font-semibold text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
             >
               <BookOpen size={15} /> Rules
             </Button>
@@ -314,20 +314,20 @@ export function PauseOverlay() {
                   playSfx('uiClick');
                   setConfirmQuit(true);
                 }}
-                className="h-11 rounded-2xl border-[#C23A28]/35 bg-white/60 font-semibold text-[#C23A28] hover:bg-[#FBE3DE]"
+                className="h-11 rounded-2xl border-[#C23A28]/35 bg-[var(--ui-chip)] font-semibold text-[#C23A28] hover:bg-[#FBE3DE]"
               >
                 <LogOut size={15} /> Quit
               </Button>
             )}
           </div>
           {confirmQuit && (
-            <p className="text-center text-xs text-[#8A6B4F]">
+            <p className="text-center text-xs text-[var(--ui-muted)]">
               Your match is saved — you can continue it from the menu.
             </p>
           )}
 
-          <div className="mt-2 rounded-2xl border border-[#5B3A24]/15 bg-white/50 p-3.5">
-            <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#8A6B4F]">
+          <div className="mt-2 rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] p-3.5">
+            <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)]">
               <Swords size={13} /> Settings
             </p>
             {/* Uncapped on phones — the dialog itself scrolls natively; the

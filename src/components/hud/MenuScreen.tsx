@@ -75,7 +75,7 @@ export function MenuScreen() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="pointer-events-auto my-auto w-full max-w-md"
       >
-        <Card className="rounded-[2rem] border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-2xl shadow-black/50 backdrop-blur-md">
+        <Card className="rounded-[2rem] border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-2xl shadow-black/50 backdrop-blur-md">
           <CardHeader className="items-center pb-2 text-center">
             {/* the four animal friends */}
             <div className="mb-1 flex items-center gap-3" aria-hidden>
@@ -89,7 +89,7 @@ export function MenuScreen() {
                 </span>
               ))}
             </div>
-            <CardTitle className="font-[family-name:var(--font-baloo)] text-3xl font-extrabold leading-tight tracking-tight text-[#3E2A18] sm:text-4xl">
+            <CardTitle className="font-[family-name:var(--font-baloo)] text-3xl font-extrabold leading-tight tracking-tight text-[var(--ui-heading)] sm:text-4xl">
               Mensch ärgere
               <br />
               Dich nicht{' '}
@@ -101,7 +101,7 @@ export function MenuScreen() {
                 ))}
               </span>
             </CardTitle>
-            <CardDescription className="text-base text-[#8A6B4F]">
+            <CardDescription className="text-base text-[var(--ui-muted)]">
               The colorful race for 2–4 players, ages 4 and up
             </CardDescription>
           </CardHeader>
@@ -116,9 +116,9 @@ export function MenuScreen() {
                   {savedPlayers.map((p) => (
                     <span
                       key={p.id}
-                      className="flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold text-[#3E2A18]"
+                      className="flex items-center gap-1 rounded-full bg-[var(--ui-chip-hover)] px-2 py-0.5 text-xs font-semibold text-[var(--ui-heading)]"
                     >
-                      <span className="text-[#5B3A24]">
+                      <span className="text-[var(--ui-ink)]">
                         <AnimalIcon color={p.color} size={12} />
                       </span>
                       {p.name}
@@ -141,7 +141,7 @@ export function MenuScreen() {
                     size="icon"
                     aria-label="Discard saved match"
                     title="Discard saved match"
-                    className="size-11 rounded-xl border-[#5B3A24]/25 bg-white/60 text-[#C23A28] hover:bg-[#FBE3DE]"
+                    className="size-11 rounded-xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[#C23A28] hover:bg-[#FBE3DE]"
                     onClick={() => {
                       clearAutosave();
                       refreshAutosave();
@@ -169,7 +169,7 @@ export function MenuScreen() {
               <Button
                 variant="outline"
                 onMouseEnter={hoverSfx}
-                className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
+                className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
                 onClick={() => {
                   playSfx('modal');
                   if (tutorialIntroSeen) {
@@ -184,7 +184,7 @@ export function MenuScreen() {
               <Button
                 variant="outline"
                 onMouseEnter={hoverSfx}
-                className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
+                className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
                 onClick={() => {
                   playSfx('modal');
                   goRules('menu');
@@ -195,7 +195,7 @@ export function MenuScreen() {
               <Button
                 variant="outline"
                 onMouseEnter={hoverSfx}
-                className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
+                className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
                 onClick={() => {
                   playSfx('modal');
                   setSettingsOpen(true);
@@ -206,7 +206,7 @@ export function MenuScreen() {
               <Button
                 variant="outline"
                 onMouseEnter={hoverSfx}
-                className="h-11 rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
+                className="h-11 rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
                 onClick={() => {
                   playSfx('modal');
                   setAboutOpen(true);
@@ -219,7 +219,7 @@ export function MenuScreen() {
             <Button
               variant="outline"
               onMouseEnter={hoverSfx}
-              className="h-11 w-full rounded-2xl border-[#5B3A24]/25 bg-white/50 text-[#3E2A18] hover:bg-white/80"
+              className="h-11 w-full rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
               onClick={() => {
                 playSfx('modal');
                 setHistoryOpen(true);
