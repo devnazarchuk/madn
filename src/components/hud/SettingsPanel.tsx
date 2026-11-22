@@ -290,14 +290,21 @@ export function SettingsPanel() {
         <Select
           value={tileSkin}
           onValueChange={(v) => {
-            setTileSkin(v as TileSkinId);
+            setTileSkin(v as TileSkinChoice);
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Platform tiles">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Platform tiles">
+            <SelectValue>
+              {tileSkin === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{TILE_SKINS[resolved.tileSkin].label}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Auto (season preset)</SelectItem>
             {TILE_SKIN_ORDER.map((id) => (
               <SelectItem key={id} value={id}>
                 {TILE_SKINS[id].label}
@@ -314,14 +321,21 @@ export function SettingsPanel() {
         <Select
           value={diceSkin}
           onValueChange={(v) => {
-            setDiceSkin(v as DiceSkinId);
+            setDiceSkin(v as DiceSkinChoice);
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Dice look">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Dice look">
+            <SelectValue>
+              {diceSkin === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{DICE_SKINS[resolved.diceSkin].label}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Auto (season preset)</SelectItem>
             {DICE_SKIN_ORDER.map((id) => (
               <SelectItem key={id} value={id}>
                 {DICE_SKINS[id].label}
@@ -338,14 +352,21 @@ export function SettingsPanel() {
         <Select
           value={pawnSkin}
           onValueChange={(v) => {
-            setPawnSkin(v as PawnSkinId);
+            setPawnSkin(v as PawnSkinChoice);
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Pawn skin">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Pawn skin">
+            <SelectValue>
+              {pawnSkin === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{PAWN_SKIN_LABELS[resolved.pawnSkin]}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Auto (season preset)</SelectItem>
             {PAWN_SKIN_ORDER.map((id) => (
               <SelectItem key={id} value={id}>
                 {PAWN_SKIN_LABELS[id]}
@@ -366,8 +387,14 @@ export function SettingsPanel() {
             playSfx('uiClick');
           }}
         >
-          <SelectTrigger className="h-8 w-36 text-xs" aria-label="Accessories">
-            <SelectValue />
+          <SelectTrigger className="h-8 w-40 text-xs" aria-label="Accessories">
+            <SelectValue>
+              {pawnAccessory === 'auto' ? (
+                <span>
+                  Auto · <span className="text-[var(--ui-muted)]">{ACCESSORY_LABELS[resolved.accessory]}</span>
+                </span>
+              ) : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {ACCESSORY_ORDER.map((id) => (
@@ -378,8 +405,8 @@ export function SettingsPanel() {
           </SelectContent>
         </Select>
       </div>
-      {pawnSkin === 'elf' && (
-        <p className="-mt-1 px-1 text-[11px] leading-snug text-muted-foreground">
+      {(pawnSkin === 'elf' || resolved.pawnSkin === 'elf') && (
+        <p className="-mt-1 px-1 text-[11px] leading-snug text-[var(--ui-muted)]">
           Elves wear their own pointed hat — beanies, Santa and sun caps are skipped (the golden crown still fits on top).
         </p>
       )}
@@ -542,12 +569,12 @@ export function SettingsPanel() {
 function SettingsSection({ label }: { label: string }) {
   return (
     <p
-      className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A6B4F]"
+      className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ui-muted)]"
       role="presentation"
     >
-      <span aria-hidden className="h-px flex-1 bg-[#5B3A24]/15" />
+      <span aria-hidden className="h-px flex-1 bg-[var(--ui-border-soft)]" />
       {label}
-      <span aria-hidden className="h-px flex-1 bg-[#5B3A24]/15" />
+      <span aria-hidden className="h-px flex-1 bg-[var(--ui-border-soft)]" />
     </p>
   );
 }
@@ -558,9 +585,9 @@ function SettingsSection({ label }: { label: string }) {
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm rounded-3xl border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-sm">
+      <DialogContent className="max-w-sm rounded-3xl border-[var(--ui-border)] bg-[var(--ui-panel)] sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
+          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[var(--ui-heading)]">
             Settings
           </DialogTitle>
           <DialogDescription>Sound, graphics and little helpers.</DialogDescription>
