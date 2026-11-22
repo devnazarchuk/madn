@@ -46,7 +46,7 @@ function usePortraitViewport(): boolean {
 const TONE_STYLES: Record<StatusInfo['tone'], string> = {
   action: 'bg-[#E8503A] text-white',
   wait: 'bg-[#241B14]/80 text-[#F6EBD9]',
-  info: 'bg-[#5B3A24]/90 text-[#F6EBD9]',
+  info: 'bg-[var(--ui-ink)]/90 text-[var(--ui-on-ink)]',
   success: 'bg-[#43B57E] text-white',
   alert: 'bg-[#F2C14E] text-[#3E2A18]',
 };
@@ -87,9 +87,9 @@ function StarPicker({
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       role="dialog"
       aria-label="Pick a color for your star"
-      className="pointer-events-auto mx-auto w-full max-w-[calc(100vw-1.5rem)] rounded-3xl border-2 border-[#D9A441]/60 bg-[#FBF3E0]/97 p-3 shadow-2xl shadow-black/40 backdrop-blur-md sm:max-w-md sm:p-4"
+      className="pointer-events-auto mx-auto w-full max-w-[calc(100vw-1.5rem)] rounded-3xl border-2 border-[var(--ui-accent)]/60 bg-[var(--ui-panel)] p-3 shadow-2xl shadow-black/40 backdrop-blur-md sm:max-w-md sm:p-4"
     >
-      <p className="mb-3 flex items-center justify-center gap-2 text-center text-base font-extrabold text-[#3E2A18]">
+      <p className="mb-3 flex items-center justify-center gap-2 text-center text-base font-extrabold text-[var(--ui-heading)]">
         <Sparkles size={19} className="text-[#B6842B]" aria-hidden />
         You rolled a STAR — pick any color!
       </p>
@@ -107,7 +107,7 @@ function StarPicker({
                 chooseStarColor(color);
               }}
               className={`flex min-h-11 flex-col items-center gap-1 rounded-2xl px-3 py-2 font-bold shadow-lg transition hover:scale-105 active:scale-95 sm:px-4 sm:py-2.5 ${
-                light ? 'text-[#3E2A18]' : 'text-white'
+                light ? 'text-[var(--ui-heading)]' : 'text-white'
               }`}
               style={{ backgroundColor: COLORS[color] }}
             >
@@ -157,7 +157,7 @@ function PlayerChip({
 
   return (
     <div
-      className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-xl bg-white/90 px-1 py-1 backdrop-blur-md transition-all sm:flex-none sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 ${
+      className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-xl bg-[var(--ui-chip-hover)] px-1 py-1 backdrop-blur-md transition-all sm:flex-none sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 ${
         active ? 'scale-[1.03] shadow-lg' : 'opacity-75 shadow-sm'
       }`}
       style={active ? { boxShadow: `0 0 0 2.5px ${COLORS[color]}, 0 6px 18px rgba(0,0,0,0.28)` } : undefined}
@@ -174,17 +174,17 @@ function PlayerChip({
             title="Bot"
             className="absolute -right-1 -top-1 flex size-[13px] items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/10 sm:hidden"
           >
-            <Bot size={9} className="text-[#8A6B4F]" />
+            <Bot size={9} className="text-[var(--ui-muted)]" />
           </span>
         )}
       </span>
       {/* On phones the name text is dropped (kept for screen readers) so all
           four badges fit a single row; sm+ restores the full labelled pill. */}
-      <span className="sr-only text-xs font-semibold text-[#3E2A18] sm:not-sr-only sm:max-w-28 sm:truncate">
+      <span className="sr-only text-xs font-semibold text-[var(--ui-heading)] sm:not-sr-only sm:max-w-28 sm:truncate">
         {name}
       </span>
       <PawnDots color={color} home={counts.home} track={counts.track} total={totalPawns} />
-      {kind === 'ai' && <Bot size={12} className="hidden shrink-0 text-[#8A6B4F] sm:block" />}
+      {kind === 'ai' && <Bot size={12} className="hidden shrink-0 text-[var(--ui-muted)] sm:block" />}
     </div>
   );
 }
@@ -219,8 +219,8 @@ function NoticeToast({ suppressText }: { suppressText?: string }) {
             notice.tone === 'success'
               ? 'bg-[#43B57E] text-white'
               : notice.tone === 'alert'
-                ? 'bg-[#F2C14E] text-[#3E2A18]'
-                : 'bg-[#5B3A24]/95 text-[#F6EBD9]'
+                ? 'bg-[#F2C14E] text-[#241B14]'
+                : 'bg-[var(--ui-ink)]/95 text-[var(--ui-on-ink)]'
           }`}
         >
           {notice.text}
@@ -580,7 +580,7 @@ export function GameHud() {
                       onClick={() => tapPawn(pawn.id)}
                       className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition sm:size-9 ${
                         movable
-                          ? 'bg-white/90 text-[#5B3A24] shadow hover:scale-105 active:scale-95'
+                          ? 'bg-[var(--ui-chip-hover)] text-[var(--ui-ink)] shadow hover:scale-105 active:scale-95'
                           : 'bg-white/10 text-white/25'
                       }`}
                       style={movable ? { boxShadow: `0 0 0 2px ${COLORS_DEEP[activePlayer.color]}` } : undefined}
@@ -613,7 +613,7 @@ export function GameHud() {
                 </>
               ) : (
                 <>
-                  <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: '#D9A441' }} />
+                  <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: 'var(--ui-accent)' }} />
                   {CHARACTERS[activeColor ?? 'red'].name}&apos;s turn
                 </>
               )}

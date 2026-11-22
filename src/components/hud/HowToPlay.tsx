@@ -1087,9 +1087,9 @@ export function TutorialOverlay({
           Step {step + 1} of {steps.length}
         </p>
         {/* compact progress bar (17-dot row would crowd small phones) */}
-        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/15" aria-hidden>
+        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--ui-chip-solid)]/15" aria-hidden>
           <div
-            className="h-full rounded-full bg-[#D9A441] transition-all duration-300"
+            className="h-full rounded-full bg-[var(--ui-accent)] transition-all duration-300"
             style={{ width: `${((step + 1) / steps.length) * 100}%` }}
           />
         </div>
@@ -1101,7 +1101,7 @@ export function TutorialOverlay({
             playSfx('uiClick');
             onClose();
           }}
-          className="size-9 shrink-0 rounded-xl bg-white/10 text-[#F6EBD9] hover:bg-white/20"
+          className="size-9 shrink-0 rounded-xl bg-[var(--ui-chip-solid)]/10 text-[#F6EBD9] hover:bg-[var(--ui-chip-solid)]/20"
         >
           <X size={17} />
         </Button>
@@ -1116,12 +1116,12 @@ export function TutorialOverlay({
             animate={reducedMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
             exit={reducedMotion ? undefined : { opacity: 0, x: -34, scale: 0.97 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-lg rounded-3xl border border-[#5B3A24]/25 bg-[#FBF3E0] p-3 shadow-2xl shadow-black/50 sm:p-4"
+            className="w-full max-w-lg rounded-3xl border border-[var(--ui-border)] bg-[var(--ui-panel)] p-3 shadow-2xl shadow-black/50 sm:p-4"
           >
             {SceneComp ? (
               <SceneComp still={reducedMotion} />
             ) : (
-              <div className="flex items-center justify-center rounded-2xl bg-[#F8EED8] py-8 text-[#B6842B]">
+              <div className="flex items-center justify-center rounded-2xl bg-[var(--ui-well-soft)] py-8 text-[#B6842B]">
                 <current.icon size={44} strokeWidth={1.6} />
               </div>
             )}
@@ -1142,7 +1142,7 @@ export function TutorialOverlay({
           >
             <div className="scrollbar-cute max-h-[30dvh] overflow-y-auto rounded-3xl border border-white/10 bg-[#2E241A]/95 p-4 text-[#F6EBD9] shadow-xl">
               <p className="mb-1 flex items-center gap-2 text-base font-extrabold">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-[#D9A441] text-[#3E2A18]">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-[var(--ui-accent)] text-[var(--ui-on-accent)]">
                   <current.icon size={15} />
                 </span>
                 {current.title}
@@ -1151,7 +1151,7 @@ export function TutorialOverlay({
               <ul className="mt-2 space-y-1">
                 {current.bullets.map((b) => (
                   <li key={b} className="flex gap-1.5 text-xs leading-snug text-[#D9C3A0]">
-                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[var(--ui-accent)]" aria-hidden />
                     {b}
                   </li>
                 ))}
@@ -1165,7 +1165,7 @@ export function TutorialOverlay({
                   setStep((s) => Math.max(0, s - 1));
                 }}
                 disabled={step === 0}
-                className="h-11 rounded-2xl border-white/20 bg-white/10 px-4 font-semibold text-[#F6EBD9] hover:bg-white/20 disabled:opacity-40"
+                className="h-11 rounded-2xl border-white/20 bg-[var(--ui-chip-solid)]/10 px-4 font-semibold text-[#F6EBD9] hover:bg-[var(--ui-chip-solid)]/20 disabled:opacity-40"
               >
                 Back
               </Button>
@@ -1217,15 +1217,15 @@ export function TutorialIntroDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm rounded-[2rem] border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-sm">
+      <DialogContent className="max-w-sm rounded-[2rem] border-[var(--ui-border)] bg-[var(--ui-panel)] sm:max-w-sm">
         <DialogHeader className="items-center text-center">
-          <span className="mx-auto mb-1 flex size-14 items-center justify-center rounded-2xl bg-[#D9A441] text-[#3E2A18] shadow-md">
+          <span className="mx-auto mb-1 flex size-14 items-center justify-center rounded-2xl bg-[var(--ui-accent)] text-[var(--ui-on-accent)] shadow-md">
             <Sparkles size={26} />
           </span>
-          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
+          <DialogTitle className="font-[family-name:var(--font-baloo)] text-2xl font-bold text-[var(--ui-heading)]">
             Would you like to take an interactive tutorial?
           </DialogTitle>
-          <DialogDescription className="text-sm text-[#8A6B4F]">
+          <DialogDescription className="text-sm text-[var(--ui-muted)]">
             The short tour shows the most important rules with animations — about a minute. The
             manual also holds the full walkthrough with every special rule.
           </DialogDescription>
@@ -1246,7 +1246,7 @@ export function TutorialIntroDialog({
               playSfx('uiClick');
               onManual();
             }}
-            className="h-11 w-full rounded-2xl border-[#5B3A24]/25 bg-white/60 font-semibold text-[#3E2A18] hover:bg-white/85"
+            className="h-11 w-full rounded-2xl border-[var(--ui-border)] bg-[var(--ui-chip)] font-semibold text-[var(--ui-heading)] hover:bg-[var(--ui-chip-hover)]"
           >
             Read manual
           </Button>
@@ -1256,7 +1256,7 @@ export function TutorialIntroDialog({
               playSfx('uiClick');
               onDontShow();
             }}
-            className="h-10 w-full rounded-2xl text-sm font-medium text-[#8A6B4F] hover:bg-[#F4E7CE]"
+            className="h-10 w-full rounded-2xl text-sm font-medium text-[var(--ui-muted)] hover:bg-[var(--ui-well-soft)]"
           >
             Don&apos;t show again
           </Button>
@@ -1294,10 +1294,10 @@ export function HowToPlayDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg rounded-3xl border-[#5B3A24]/20 bg-[#FBF3E0] sm:max-w-xl">
+      <DialogContent className="max-w-lg rounded-3xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-2xl font-bold text-[#3E2A18]">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-[#D9A441] text-[#3E2A18]">
+          <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-2xl font-bold text-[var(--ui-heading)]">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--ui-accent)] text-[var(--ui-on-accent)]">
               <Shield size={18} />
             </span>
             How to play
@@ -1312,7 +1312,7 @@ export function HowToPlayDialog({
         <div
           role="tablist"
           aria-label="Manual depth"
-          className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-[#E8D6B4] p-1"
+          className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-[var(--ui-well)] p-1"
         >
           {(
             [
@@ -1331,8 +1331,8 @@ export function HowToPlayDialog({
               }}
               className={`h-10 min-w-0 rounded-xl text-sm font-bold transition ${
                 tab === t.id
-                  ? 'bg-white text-[#3E2A18] shadow'
-                  : 'text-[#6B4E35] hover:bg-white/40'
+                  ? 'bg-[var(--ui-chip-solid)] text-[var(--ui-heading)] shadow'
+                  : 'text-[var(--ui-text)] hover:bg-[var(--ui-chip-hover)]'
               }`}
             >
               {t.label}
@@ -1349,7 +1349,7 @@ export function HowToPlayDialog({
             return (
               <div
                 key={section.id}
-                className="overflow-hidden rounded-2xl border border-[#5B3A24]/15 bg-white/60"
+                className="overflow-hidden rounded-2xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)]"
               >
                 <button
                   type="button"
@@ -1358,24 +1358,24 @@ export function HowToPlayDialog({
                     playSfx('uiClick');
                     setOpenId(isOpen ? null : section.id);
                   }}
-                  className="flex w-full items-center gap-2 border-b border-[#5B3A24]/10 bg-[#F8EED8]/70 px-3 py-2.5 text-left transition hover:bg-[#F8EED8]"
+                  className="flex w-full items-center gap-2 border-b border-[var(--ui-border-soft)] bg-[var(--ui-well-soft)] px-3 py-2.5 text-left transition hover:bg-[var(--ui-well-soft)]"
                 >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--ui-ink)] text-[var(--ui-on-ink)]">
                     <section.icon size={14} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline gap-1 text-sm font-bold text-[#3E2A18]">
-                      <span className="text-[#B08A5E]">{i + 1}.</span> {section.title}
+                    <span className="flex items-baseline gap-1 text-sm font-bold text-[var(--ui-heading)]">
+                      <span className="text-[var(--ui-faint)]">{i + 1}.</span> {section.title}
                     </span>
                     {!isOpen && (
-                      <span className="mt-0.5 block truncate text-[11px] leading-snug text-[#8A6B4F]">
+                      <span className="mt-0.5 block truncate text-[11px] leading-snug text-[var(--ui-muted)]">
                         {section.lead}
                       </span>
                     )}
                   </span>
                   <ChevronDown
                     size={16}
-                    className={`shrink-0 text-[#8A6B4F] transition-transform duration-200 ${
+                    className={`shrink-0 text-[var(--ui-muted)] transition-transform duration-200 ${
                       isOpen ? 'rotate-180' : ''
                     }`}
                   />
@@ -1389,14 +1389,14 @@ export function HowToPlayDialog({
                     className="grid gap-2 p-3 sm:grid-cols-[1.1fr_1fr] sm:items-center sm:gap-3"
                   >
                     {SceneComp && (
-                      <div className="rounded-xl bg-[#F8EED8]/80 p-1.5">
+                      <div className="rounded-xl bg-[var(--ui-well-soft)] p-1.5">
                         <SceneComp still={reducedMotion} />
                       </div>
                     )}
                     <ul className="space-y-1.5">
                       {section.bullets.map((b) => (
-                        <li key={b} className="flex gap-1.5 text-xs leading-snug text-[#6B4E35]">
-                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                        <li key={b} className="flex gap-1.5 text-xs leading-snug text-[var(--ui-text)]">
+                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[var(--ui-accent)]" aria-hidden />
                           {b}
                         </li>
                       ))}
@@ -1408,7 +1408,7 @@ export function HowToPlayDialog({
           })}
         </div>
 
-        <p className="px-1 text-[11px] leading-snug text-[#8A6B4F]">
+        <p className="px-1 text-[11px] leading-snug text-[var(--ui-muted)]">
           Every family plays its own way — the Custom rules menu lets you tune entry, bumping,
           extra rolls, the board pattern and more.
         </p>

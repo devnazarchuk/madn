@@ -76,7 +76,7 @@ const GROUP_ICONS: Record<RuleGroup, typeof DoorOpen> = {
 /** Sparkles badge shown on cards whose value differs from Classic. */
 function DiffersBadge() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#D9A441] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#3E2A18]">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--ui-accent)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[var(--ui-on-accent)]">
       <Sparkles size={9} /> differs
     </span>
   );
@@ -119,15 +119,15 @@ function PresetCards() {
               onClick={() => selectRulesPreset(preset)}
               className={`min-w-0 rounded-2xl border p-2.5 text-left transition-all ${
                 selected
-                  ? 'border-[#E8503A] bg-white shadow-lg shadow-[#E8503A]/15 ring-2 ring-[#E8503A]/60'
-                  : 'border-[#5B3A24]/20 bg-white/90 hover:border-[#5B3A24]/40 hover:bg-white'
+                  ? 'border-[#E8503A] bg-[var(--ui-chip-solid)] shadow-lg shadow-[#E8503A]/15 ring-2 ring-[#E8503A]/60'
+                  : 'border-[var(--ui-panel-border)] bg-[var(--ui-chip-hover)] hover:border-[var(--ui-border-strong)] hover:bg-[var(--ui-chip-solid)]'
               }`}
             >
               <div className="flex items-center justify-between gap-1.5">
-                <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-tight text-[#3E2A18]">
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold leading-tight text-[var(--ui-heading)]">
                   <span className="truncate">{meta.title}</span>
                   {meta.locked && preset === 'classic' && (
-                    <BookLock size={14} className="shrink-0 text-[#B08A5E]" />
+                    <BookLock size={14} className="shrink-0 text-[var(--ui-faint)]" />
                   )}
                 </span>
                 {selected && (
@@ -136,7 +136,7 @@ function PresetCards() {
                   </span>
                 )}
               </div>
-              <span className="mt-1.5 inline-block max-w-full truncate rounded-full bg-[#F4E7CE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8A6B4F]">
+              <span className="mt-1.5 inline-block max-w-full truncate rounded-full bg-[var(--ui-well-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ui-muted)]">
                 {badge(preset)}
               </span>
             </button>
@@ -144,7 +144,7 @@ function PresetCards() {
         })}
       </div>
       {/* description of the SELECTED preset only — keeps the grid compact */}
-      <p className="min-w-0 rounded-xl border border-[#5B3A24]/10 bg-white/70 px-3 py-2 text-[11px] leading-snug text-[#6B4E35]">
+      <p className="min-w-0 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] px-3 py-2 text-[11px] leading-snug text-[var(--ui-text)]">
         {PRESET_META[active].tagline}
       </p>
     </div>
@@ -173,16 +173,16 @@ function RuleInfoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         variant="sheet"
-        className="rounded-3xl border-[#5B3A24]/25 bg-[#FBF3E0] sm:max-w-md"
+        className="rounded-3xl border-[var(--ui-border)] bg-[var(--ui-panel)] sm:max-w-md"
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-xl font-bold text-[#3E2A18]">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#5B3A24] text-[#F6EBD9]">
+          <DialogTitle className="flex items-center gap-2 font-[family-name:var(--font-baloo)] text-xl font-bold text-[var(--ui-heading)]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--ui-ink)] text-[var(--ui-on-ink)]">
               <Icon size={15} />
             </span>
             {meta.title}
           </DialogTitle>
-          <DialogDescription className="text-[13px] leading-snug text-[#6B4E35]">
+          <DialogDescription className="text-[13px] leading-snug text-[var(--ui-text)]">
             {meta.explanation}
           </DialogDescription>
         </DialogHeader>
@@ -195,25 +195,25 @@ function RuleInfoDialog({
                 <div
                   key={choice.value}
                   className={`rounded-xl border p-2.5 ${
-                    active ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
+                    active ? 'border-[var(--ui-accent)]/60 bg-[var(--ui-well-soft)]' : 'border-[var(--ui-border-soft)] bg-[var(--ui-chip)]'
                   }`}
                 >
-                  <p className="flex items-center gap-1.5 text-xs font-bold text-[#3E2A18]">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-[var(--ui-heading)]">
                     {active && <Check size={12} className="text-[#B6842B]" />}
                     {choice.label}
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+                  <p className="mt-0.5 text-[11px] leading-snug text-[var(--ui-text)]">
                     {choice.description}
                   </p>
                 </div>
               );
             })
           ) : (
-            <div className="rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
-              <p className="text-xs font-bold text-[#3E2A18]">
+            <div className="rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] p-2.5">
+              <p className="text-xs font-bold text-[var(--ui-heading)]">
                 Right now: {value ? 'switched ON' : 'switched OFF'}
               </p>
-              <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+              <p className="mt-0.5 text-[11px] leading-snug text-[var(--ui-text)]">
                 {value
                   ? 'This rule is currently part of your match.'
                   : 'This rule is currently switched off for your match.'}
@@ -221,7 +221,7 @@ function RuleInfoDialog({
             </div>
           )}
           {meta.requires && (
-            <p className="rounded-xl border border-[#B08A5E]/30 bg-[#F4E7CE]/60 p-2.5 text-[11px] leading-snug text-[#8A6B4F]">
+            <p className="rounded-xl border border-[var(--ui-faint)]/30 bg-[var(--ui-well-soft)] p-2.5 text-[11px] leading-snug text-[var(--ui-muted)]">
               <span className="font-bold">Why it may be greyed out: </span>
               {meta.requires.why}
             </p>
@@ -270,16 +270,16 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
   return (
     <div
       className={`rounded-xl border p-2.5 ${
-        changed ? 'border-[#D9A441]/60 bg-[#FBEFD4]/70' : 'border-[#5B3A24]/15 bg-white/60'
+        changed ? 'border-[var(--ui-accent)]/60 bg-[var(--ui-well-soft)]' : 'border-[var(--ui-border-soft)] bg-[var(--ui-chip)]'
       } ${requiresMet ? '' : 'opacity-55'}`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[#5B3A24] text-[#F6EBD9]">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-[var(--ui-ink)] text-[var(--ui-on-ink)]">
           <Icon size={13} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <p className="truncate text-[13px] font-semibold text-[#3E2A18]">{meta.title}</p>
+            <p className="truncate text-[13px] font-semibold text-[var(--ui-heading)]">{meta.title}</p>
             {changed && <DiffersBadge />}
           </div>
         </div>
@@ -291,7 +291,7 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
             playSfx('uiClick');
             setInfoOpen(true);
           }}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#8A6B4F] transition hover:bg-[#F4E7CE] focus-visible:ring-2 focus-visible:ring-[#D9A441]/60"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--ui-muted)] transition hover:bg-[var(--ui-well-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ui-accent)]/60"
         >
           <Info size={15} />
         </button>
@@ -311,14 +311,14 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
           value={String(value)}
           onValueChange={(v) => v && setValue(v)}
           disabled={!requiresMet}
-          className="mt-2 grid w-full grid-cols-2 gap-1 rounded-xl bg-[#E8D6B4] p-1"
+          className="mt-2 grid w-full grid-cols-2 gap-1 rounded-xl bg-[var(--ui-well)] p-1"
           aria-label={meta.title}
         >
           {meta.choices?.map((choice) => (
             <ToggleGroupItem
               key={choice.value}
               value={choice.value}
-              className="h-8 min-w-0 rounded-lg px-1.5 text-[11px] font-semibold leading-tight text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+              className="h-8 min-w-0 rounded-lg px-1.5 text-[11px] font-semibold leading-tight text-[var(--ui-text)] data-[state=on]:bg-[var(--ui-chip-solid)] data-[state=on]:text-[var(--ui-heading)] data-[state=on]:shadow"
             >
               {choice.label}
             </ToggleGroupItem>
@@ -327,7 +327,7 @@ function OptionRow({ optionKey }: { optionKey: DiffKey }) {
       )}
 
       {!requiresMet && meta.requires && (
-        <p className="mt-1.5 text-[10px] italic leading-snug text-[#B08A5E]">{meta.requires.why}</p>
+        <p className="mt-1.5 text-[10px] italic leading-snug text-[var(--ui-faint)]">{meta.requires.why}</p>
       )}
 
       <RuleInfoDialog open={infoOpen} onOpenChange={setInfoOpen} meta={meta} value={value} />
@@ -345,12 +345,12 @@ function AutoRollRow() {
   const autoRoll = useSettingsStore((s) => s.autoRoll);
   const setAutoRoll = useSettingsStore((s) => s.setAutoRoll);
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#5B3A24]/15 bg-white/60 p-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] p-2.5">
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3E2A18]">
-          <Dices size={13} className="shrink-0 text-[#8A6B4F]" /> Auto-roll dice
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--ui-heading)]">
+          <Dices size={13} className="shrink-0 text-[var(--ui-muted)]" /> Auto-roll dice
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-[#6B4E35]">
+        <p className="mt-0.5 text-[11px] leading-snug text-[var(--ui-text)]">
           The die rolls itself at the start of your turn — hands-free turns. Works with every
           preset; OFF by default.
         </p>
@@ -382,9 +382,9 @@ function AdditionalRulesCard() {
 
   const groups = [...new Set(RULE_OPTIONS.map((o) => o.group))] as RuleGroup[];
   return (
-    <Card className="w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="w-full min-w-0 rounded-2xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
+        <CardTitle className="flex items-center gap-2 text-sm text-[var(--ui-heading)]">
           <Wand2 size={15} /> Additional Rules
         </CardTitle>
       </CardHeader>
@@ -393,7 +393,7 @@ function AdditionalRulesCard() {
           const GroupIcon = GROUP_ICONS[group];
           return (
             <div key={group}>
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[#8A6B4F]">
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[var(--ui-muted)]">
                 <GroupIcon size={12} /> {GROUP_META[group].title}
               </p>
               <div className="space-y-2">
@@ -408,7 +408,7 @@ function AdditionalRulesCard() {
         <Button
           variant="outline"
           onClick={() => resetRulesToClassic()}
-          className="h-9 w-full rounded-xl border-[#5B3A24]/25 bg-white/60"
+          className="h-9 w-full rounded-xl border-[var(--ui-border)] bg-[var(--ui-chip)]"
         >
           <RotateCcw size={14} /> Reset all options to Classic
         </Button>
@@ -430,12 +430,12 @@ function PresetManager() {
   const [editName, setEditName] = useState('');
 
   return (
-    <Card className="h-full w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="h-full w-full min-w-0 rounded-2xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
+        <CardTitle className="flex items-center gap-2 text-sm text-[var(--ui-heading)]">
           <Save size={15} /> My saved rules
         </CardTitle>
-        <CardDescription className="text-[11px] text-[#8A6B4F]">
+        <CardDescription className="text-[11px] text-[var(--ui-muted)]">
           Keep your favorite rule mixes — they stay on this device.
         </CardDescription>
       </CardHeader>
@@ -446,7 +446,7 @@ function PresetManager() {
             maxLength={40}
             placeholder="Name your rule mix"
             onChange={(e) => setName(e.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
+            className="h-9 min-w-0 flex-1 rounded-xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-base"
             aria-label="Preset name"
           />
           <Button
@@ -464,7 +464,7 @@ function PresetManager() {
         </div>
 
         {presets.length === 0 && (
-          <p className="py-1.5 text-center text-[11px] text-[#8A6B4F]">
+          <p className="py-1.5 text-center text-[11px] text-[var(--ui-muted)]">
             No saved rules yet — set up your own mix above and save it here.
           </p>
         )}
@@ -474,7 +474,7 @@ function PresetManager() {
             {presets.map((preset) => (
               <li
                 key={preset.id}
-                className="flex min-w-0 items-center gap-2 rounded-xl border border-[#5B3A24]/15 bg-white/60 px-2.5 py-1.5"
+                className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--ui-border-soft)] bg-[var(--ui-chip)] px-2.5 py-1.5"
               >
                 {editingId === preset.id ? (
                   <>
@@ -483,7 +483,7 @@ function PresetManager() {
                       maxLength={40}
                       autoFocus
                       onChange={(e) => setEditName(e.target.value)}
-                      className="h-8 min-w-0 flex-1 rounded-lg bg-white text-base"
+                      className="h-8 min-w-0 flex-1 rounded-lg bg-[var(--ui-chip-solid)] text-base"
                       aria-label="Rename preset"
                     />
                     <Button
@@ -502,15 +502,15 @@ function PresetManager() {
                 ) : (
                   <>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#3E2A18]">{preset.name}</p>
-                      <p className="truncate text-[11px] leading-snug text-[#8A6B4F] [overflow-wrap:anywhere]">
+                      <p className="truncate text-sm font-semibold text-[var(--ui-heading)]">{preset.name}</p>
+                      <p className="truncate text-[11px] leading-snug text-[var(--ui-muted)] [overflow-wrap:anywhere]">
                         {rulesHeadline(preset.config)}
                       </p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 shrink-0 rounded-lg border-[#5B3A24]/25"
+                      className="h-8 shrink-0 rounded-lg border-[var(--ui-border)]"
                       onClick={() => {
                         playSfx('uiClick');
                         useGameStore.setState({ rulesConfig: preset.config as RulesConfig });
@@ -522,7 +522,7 @@ function PresetManager() {
                       size="icon"
                       variant="ghost"
                       aria-label={`Rename ${preset.name}`}
-                      className="size-8 shrink-0 rounded-lg text-[#8A6B4F] hover:bg-[#F4E7CE]"
+                      className="size-8 shrink-0 rounded-lg text-[var(--ui-muted)] hover:bg-[var(--ui-well-soft)]"
                       onClick={() => {
                         setEditingId(preset.id);
                         setEditName(preset.name);
@@ -562,12 +562,12 @@ function RulesSummary() {
   const diffs = diffFromClassic(rulesConfig);
   const sections = describeRules(rulesConfig);
   return (
-    <Card className="h-full w-full min-w-0 rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+    <Card className="h-full w-full min-w-0 rounded-2xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-lg shadow-black/25 backdrop-blur-md">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm text-[#3E2A18]">
+        <CardTitle className="flex items-center gap-2 text-sm text-[var(--ui-heading)]">
           <Shield size={15} /> Match summary
         </CardTitle>
-        <CardDescription className="min-w-0 text-[11px] text-[#8A6B4F]">
+        <CardDescription className="min-w-0 text-[11px] text-[var(--ui-muted)]">
           <span className="[overflow-wrap:anywhere]">{rulesHeadline(rulesConfig)}</span>
           {diffs.length > 0 && (
             <span className="ml-1 font-semibold text-[#B6842B]">
@@ -580,16 +580,16 @@ function RulesSummary() {
         <div className="scrollbar-cute max-h-44 min-w-0 space-y-2 overflow-y-auto pr-1">
           {sections.map((section) => (
             <div key={section.title}>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-[#8A6B4F]">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--ui-muted)]">
                 {section.title}
               </p>
               <ul className="mt-1 min-w-0 space-y-1">
                 {section.points.map((point) => (
                   <li
                     key={point}
-                    className="flex gap-1.5 text-[11px] leading-snug text-[#6B4E35] [overflow-wrap:anywhere]"
+                    className="flex gap-1.5 text-[11px] leading-snug text-[var(--ui-text)] [overflow-wrap:anywhere]"
                   >
-                    <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[#D9A441]" aria-hidden />
+                    <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--ui-accent)]" aria-hidden />
                     {point}
                   </li>
                 ))}
@@ -651,9 +651,9 @@ export function RulesScreen() {
             {activeSeats.map((seat, i) => (
               <span
                 key={i}
-                className="flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold text-[#3E2A18] shadow"
+                className="flex items-center gap-1.5 rounded-full bg-[var(--ui-chip-hover)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--ui-heading)] shadow"
               >
-                <span className="text-[#5B3A24]">
+                <span className="text-[var(--ui-ink)]">
                   <AnimalIcon color={seat.color} size={12} />
                 </span>
                 {seat.name}
@@ -681,12 +681,12 @@ export function RulesScreen() {
 
         {/* actions — sticky floating bar with its own panel so scrolling
             content never shows through between the buttons */}
-        <div className="sticky bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-10 flex gap-2.5 rounded-[1.4rem] border border-[#5B3A24]/20 bg-[#FBF3E0]/95 p-1.5 shadow-xl shadow-black/30 backdrop-blur-md">
+        <div className="sticky bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-10 flex gap-2.5 rounded-[1.4rem] border border-[var(--ui-panel-border)] bg-[var(--ui-panel)] p-1.5 shadow-xl shadow-black/30 backdrop-blur-md">
           {rulesReturnTo === 'setup' ? (
             <>
               <Button
                 variant="outline"
-                className="h-12 min-w-0 flex-1 rounded-2xl border-[#5B3A24]/40 bg-[#FBF3E0]/95 text-sm font-semibold text-[#3E2A18] backdrop-blur-md hover:bg-[#FBF3E0]"
+                className="h-12 min-w-0 flex-1 rounded-2xl border-[var(--ui-border-strong)] bg-[var(--ui-panel)] text-sm font-semibold text-[var(--ui-heading)] backdrop-blur-md hover:bg-[var(--ui-panel)]"
                 onClick={() => {
                   playSfx('uiClick');
                   goScreen('setup');

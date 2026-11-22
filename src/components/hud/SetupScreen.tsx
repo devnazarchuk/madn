@@ -58,13 +58,13 @@ function ColorPicker({
           >
             <Icon size={17} />
             {taken && !selected && (
-              <span className="absolute -bottom-1 rounded-full bg-[#3E2A18] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[#F6EBD9]">
+              <span className="absolute -bottom-1 rounded-full bg-[var(--ui-ink)] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[var(--ui-on-ink)]">
                 swap
               </span>
             )}
             {selected && (
               <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-white shadow">
-                <Check size={11} strokeWidth={3.5} className="text-[#3E2A18]" />
+                <Check size={11} strokeWidth={3.5} className="text-[var(--ui-heading)]" />
               </span>
             )}
           </button>
@@ -93,7 +93,7 @@ function SeatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
     >
-      <Card className="h-full rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+      <Card className="h-full rounded-2xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-lg shadow-black/25 backdrop-blur-md">
         <CardContent className="space-y-2.5 p-3">
           {/* row 1 — avatar + name */}
           <div className="flex items-center gap-2.5">
@@ -110,7 +110,7 @@ function SeatCard({
               placeholder={defaultName(seat.color)}
               aria-label={`Player ${index + 1} name`}
               onChange={(e) => updateSeat(index, { name: e.target.value })}
-              className="h-10 min-w-0 flex-1 rounded-xl border-[#5B3A24]/25 bg-white/70 text-base"
+              className="h-10 min-w-0 flex-1 rounded-xl border-[var(--ui-border)] bg-[var(--ui-chip)] text-base"
             />
           </div>
 
@@ -130,21 +130,21 @@ function SeatCard({
                   updateSeat(index, { kind: v as PlayerKind });
                 }
               }}
-              className="gap-1 rounded-xl bg-[#E8D6B4] p-1"
+              className="gap-1 rounded-xl bg-[var(--ui-well)] p-1"
               variant="default"
               aria-label={`Player ${index + 1} human or robot`}
             >
               <ToggleGroupItem
                 value="human"
                 aria-label="Human player"
-                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-[var(--ui-chip-solid)] data-[state=on]:text-[var(--ui-heading)] data-[state=on]:shadow"
               >
                 <User size={13} /> Human
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="ai"
                 aria-label="Robot player"
-                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+                className="h-7 gap-1 rounded-lg px-2.5 text-xs font-semibold data-[state=on]:bg-[var(--ui-chip-solid)] data-[state=on]:text-[var(--ui-heading)] data-[state=on]:shadow"
               >
                 <Bot size={13} /> Robot
               </ToggleGroupItem>
@@ -162,14 +162,14 @@ function SeatCard({
                   updateSeat(index, { aiLevel: v as AiLevel });
                 }
               }}
-              className="grid w-full grid-cols-3 gap-1 rounded-xl bg-[#E8D6B4] p-1"
+              className="grid w-full grid-cols-3 gap-1 rounded-xl bg-[var(--ui-well)] p-1"
               aria-label={`Robot level for player ${index + 1}`}
             >
               {AI_LEVELS.map((lvl) => (
                 <ToggleGroupItem
                   key={lvl}
                   value={lvl}
-                  className="h-8 rounded-lg text-xs font-semibold capitalize text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow"
+                  className="h-8 rounded-lg text-xs font-semibold capitalize text-[var(--ui-text)] data-[state=on]:bg-[var(--ui-chip-solid)] data-[state=on]:text-[var(--ui-heading)] data-[state=on]:shadow"
                 >
                   {lvl}
                 </ToggleGroupItem>
@@ -229,9 +229,9 @@ export function SetupScreen() {
         </div>
 
         {/* player count — slim single row */}
-        <Card className="rounded-2xl border-[#5B3A24]/20 bg-[#FBF3E0]/95 shadow-lg shadow-black/25 backdrop-blur-md">
+        <Card className="rounded-2xl border-[var(--ui-panel-border)] bg-[var(--ui-panel)] shadow-lg shadow-black/25 backdrop-blur-md">
           <CardContent className="flex items-center gap-3 p-2.5">
-            <span className="pl-1 text-sm font-semibold text-[#3E2A18]">Players</span>
+            <span className="pl-1 text-sm font-semibold text-[var(--ui-heading)]">Players</span>
             <ToggleGroup
               type="single"
               value={String(playerCount)}
@@ -241,14 +241,14 @@ export function SetupScreen() {
                   setPlayerCount(Number(v));
                 }
               }}
-              className="grid flex-1 grid-cols-3 gap-1.5 rounded-xl bg-[#E8D6B4] p-1"
+              className="grid flex-1 grid-cols-3 gap-1.5 rounded-xl bg-[var(--ui-well)] p-1"
               aria-label="Player count"
             >
               {[2, 3, 4].map((n) => (
                 <ToggleGroupItem
                   key={n}
                   value={String(n)}
-                  className="h-9 rounded-lg text-sm font-bold text-[#6B4E35] data-[state=on]:bg-white data-[state=on]:text-[#3E2A18] data-[state=on]:shadow-md"
+                  className="h-9 rounded-lg text-sm font-bold text-[var(--ui-text)] data-[state=on]:bg-[var(--ui-chip-solid)] data-[state=on]:text-[var(--ui-heading)] data-[state=on]:shadow-md"
                 >
                   {n}
                 </ToggleGroupItem>
