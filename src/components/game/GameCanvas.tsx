@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useLook } from '@/hooks/use-look';
 import { THEMES, type SeasonalTheme } from '@/config/theme';
 import { CAMERA_DEFAULTS } from '@/engine/layout';
 import { BoardModel } from './BoardModel';
@@ -55,7 +56,7 @@ function ThemeFog({ fog }: { fog: SeasonalTheme['fog'] }) {
  */
 export default function GameCanvas() {
   const quality = useSettingsStore((s) => s.quality);
-  const themeId = useSettingsStore((s) => s.theme);
+  const { theme: themeId } = useLook();
   const shadows = useSettingsStore((s) => s.shadows);
   const antialias = useSettingsStore((s) => s.antialias);
   const theme = THEMES[themeId];

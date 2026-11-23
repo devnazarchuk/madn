@@ -28,6 +28,7 @@ import { PLAYER_COLORS } from '@/config/gameConfig';
 import type { PlayerColorId, TrackColorId } from '@/engine/types';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useLook } from '@/hooks/use-look';
 import { woodTexture, linenTexture } from './textures';
 import { BASE_PANEL_TOP, FIELD_TOP, makeStarShape, SURFACE_TOP } from './geometry';
 
@@ -463,8 +464,7 @@ function ActiveBaseGlow() {
 // ---------------------------------------------------------------------------
 
 export function BoardModel() {
-  const boardSkin = useSettingsStore((s) => s.boardSkin);
-  const tileSkinId = useSettingsStore((s) => s.tileSkin);
+  const { boardSkin, tileSkin: tileSkinId } = useLook();
   const sharpTextures = useSettingsStore((s) => s.sharpTextures);
   const skin = BOARD_SKINS[boardSkin];
   const tile = TILE_SKINS[tileSkinId];

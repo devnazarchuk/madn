@@ -15,7 +15,7 @@ import {
   type DiceSkinId,
 } from '@/config/theme';
 import { useGameStore } from '@/store/gameStore';
-import { useSettingsStore } from '@/store/settingsStore';
+import { useLook } from '@/hooks/use-look';
 import { playSfx } from '@/services/audio';
 import type { DiceFaceId } from '@/engine/types';
 import { DICE_REST, DIE_SIZE, easeOutCubic, makeStarShape, quatForFace } from './geometry';
@@ -129,7 +129,7 @@ export function DiceModel() {
   const starMode = useGameStore((s) => s.game?.rulesConfig.starMode ?? false);
   const stickers = starMode ? STICKERS_STAR_MODE : STICKERS_STANDARD;
   // The die's craft style (body material + sticker trim) from the settings.
-  const diceSkinId = useSettingsStore((s) => s.diceSkin);
+  const { diceSkin: diceSkinId } = useLook();
   const skin = DICE_SKINS[diceSkinId];
 
   const roll = useRef({

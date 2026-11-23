@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import { THEMES, type SeasonalTheme } from '@/config/theme';
+import { useLook } from '@/hooks/use-look';
 import { useSettingsStore, type QualityLevel } from '@/store/settingsStore';
 import { feltTexture, softDotSprite } from './textures';
 
@@ -597,7 +598,7 @@ function WeatherParticles({ kind, count, quality }: { kind: 'snow' | 'petals' | 
 // ---------------------------------------------------------------------------
 
 export function Environment() {
-  const themeId = useSettingsStore((s) => s.theme);
+  const { theme: themeId } = useLook();
   const quality = useSettingsStore((s) => s.quality);
   const shadows = useSettingsStore((s) => s.shadows);
   const weather = useSettingsStore((s) => s.weather);

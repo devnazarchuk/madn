@@ -6,10 +6,11 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { LOOP, journeyIndex, loopIndexFromPath } from '@/engine/board';
 import { RULES, TIMING } from '@/config/gameConfig';
-import { COLORS, MATERIAL, effectiveAccessory } from '@/config/theme';
+import { COLORS, MATERIAL } from '@/config/theme';
 import { isPawnFinished, stackIndex } from '@/engine/rules';
 import { useGameStore, type MoveAnim } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useLook } from '@/hooks/use-look';
 import type { PlayerColorId, Position } from '@/engine/types';
 import { cellTopY, worldOf } from './geometry';
 import { idleStyleFor, PawnCharacter } from './PawnCharacter';
@@ -174,12 +175,9 @@ function Pawn({ pawn }: { pawn: PawnSpec }) {
   const phaseOffset = useMemo(() => Math.random() * Math.PI * 2, []);
 
   // Appearance from the settings store — pawn skin & color-matched
-  // accessory ('auto' follows whatever the seasonal theme suggests; the
-  // elf never stacks a second hat on top of its own pointed hat).
-  const pawnSkin = useSettingsStore((s) => s.pawnSkin);
-  const accessoryChoice = useSettingsStore((s) => s.pawnAccessory);
-  const themeId = useSettingsStore((s) => s.theme);
-  const accessory = effectiveAccessory(accessoryChoice, themeId, pawnSkin);
+  // accessory ('auto' values already resolved through the active seasonal
+  // theme; the elf never stacks a second hat on top of its own pointed hat).
+  const { pawnSkin, accessory } = useLook();
 
   // Per-pawn body material held in a ref (a pawn's color never changes; the
   // LOW-POLY STYLIZED LOOK flat-shades every skin — gem facets simply stay
