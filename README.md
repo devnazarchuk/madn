@@ -55,6 +55,17 @@ that follows exactly what a child sees painted on the board.
   glossy porcelain with golden rims); **dice skins** (ivory classic, wooden
   toy, crystal, midnight glow); six pawn skins with color-matched accessories.
   Gameplay colors are never affected — ownership stays instantly readable.
+- **Auto season presets** — every value in *Look of the game* (season, board,
+  tiles, dice, pawn skin, accessories) has an **Auto** setting that follows a
+  curated preset of the active season; the season itself defaults to the real
+  calendar (December turns the whole game Christmas, March–April turns it
+  Easter…). Any value can still be pinned by hand — the two systems mix freely,
+  and the settings trigger always shows what Auto currently resolves to.
+- **Six interface themes** — the menus and dialogs are themed independently of
+  the 3D scene: *Warm wood*, *Christmas*, *Winter ice*, *Spring meadow*,
+  *Summer sunset* and *Cozy night* (a bonus dark theme). Auto matches the
+  interface to the active season; every panel, dialog, dropdown and HUD pill
+  repaints together while gameplay colors stay untouched.
 - **Calm HUD by default** — the play-by-play roll narration ("Frida Frog
   rolled Blue — no pawn can use it. Turn skipped.") is OFF by default and can
   be re-enabled from the pause menu ("Roll announcer").
